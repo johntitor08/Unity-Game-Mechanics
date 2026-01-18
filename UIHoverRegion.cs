@@ -7,16 +7,37 @@ public class UIHoverRegion : MonoBehaviour,
     IPointerExitHandler,
     IPointerClickHandler
 {
-    public SpriteShapeController hoverEffect;
+    [Header("References")]
+    public RectTransform rect;
+    public SpriteShapeRenderer hoverShape;
+    public LineRenderer outline;
+    public Camera uiCamera;
 
-    public float fadeSpeed = 8f;
-    private float alpha = 0f;
-    private bool hovering = false;
+    [Header("Hover Effect")]
+    public float maxAlpha = 0.2f;
+    public float fadeSpeed = 6f;
+    public float drawSpeed = 3f;
+
+    float alpha = 0f;
+    float drawProgress = 0f;
+    bool hovering = false;
+
+    Vector2[] shapePoints;
 
     void Start()
     {
-        SetAlpha(0f);
-        hoverEffect.gameObject.SetActive(true);
+        var controller = hoverShape.GetComponent<SpriteShapeController>();
+        int count = controller.spline.GetPointCount();
+        shapePoints = new Vector2[count];
+
+        for (int i = 0; i < count; i++)
+            shapePoints[i] = controller.spline.GetPosition(i);
+
+        outline.positionCount = count + 1;
+        outline.useWorldSpace = false;
+        outline.gameObject.SetActive(false);
+
+        SetAlpha(0);
     }
 
     void Update()
@@ -24,11 +45,22 @@ public class UIHoverRegion : MonoBehaviour,
         float target = hovering ? 1f : 0f;
         alpha = Mathf.MoveTowards(alpha, target, Time.deltaTime * fadeSpeed);
         SetAlpha(alpha);
+
+        if (!hovering)
+        {
+            drawProgress = 0;
+            outline.gameObject.SetActive(false);
+            return;
+        }
+
+        drawProgress = Mathf.MoveTowards(drawProgress, 1f, Time.deltaTime * drawSpeed);
+        DrawOutline(drawProgress);
     }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
         hovering = true;
+        outline.gameObject.SetActive(true);
     }
 
     public void OnPointerExit(PointerEventData eventData)
@@ -38,14 +70,33 @@ public class UIHoverRegion : MonoBehaviour,
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        Debug.Log(gameObject.name + " UI alanýna týklandý");
+        if (DialogueManager.Instance.IsInDialogue())
+            return;
+
+        SceneEvent.Instance.Trigger();
     }
 
     void SetAlpha(float a)
     {
-        var sr = hoverEffect.GetComponent<SpriteShapeRenderer>();
-        Color c = sr.color;
-        c.a = a * 0.2f;
-        sr.color = c;
+        Color c = hoverShape.color;
+        c.a = a * maxAlpha;
+        hoverShape.color = c;
+
+        outline.startColor = c;
+        outline.endColor = c;
+    }
+
+    void DrawOutline(float t)
+    {
+        int visible = Mathf.FloorToInt(shapePoints.Length * t);
+
+        for (int i = 0; i <= visible; i++)
+        {
+            Vector3 p = shapePoints[i % shapePoints.Length];
+            outline.SetPosition(i, p);
+        }
+
+        if (visible >= shapePoints.Length - 1)
+            outline.SetPosition(shapePoints.Length, outline.GetPosition(0));
     }
 }
