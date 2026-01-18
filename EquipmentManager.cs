@@ -9,7 +9,7 @@ public class EquipmentManager : MonoBehaviour
     [Header("Equipment Sets")]
     public EquipmentSetBonus[] equipmentSets;
 
-    private Dictionary<EquipmentSlot, EquipmentData> equippedItems = new();
+    private readonly Dictionary<EquipmentSlot, EquipmentData> equippedItems = new();
 
     public event Action OnEquipmentChanged;
     public event Action<EquipmentData> OnEquipmentEquipped;

@@ -1,6 +1,5 @@
 using UnityEngine;
 using TMPro;
-using UnityEngine.UI;
 using System.Collections.Generic;
 
 public class EquipmentUI : MonoBehaviour
@@ -28,7 +27,7 @@ public class EquipmentUI : MonoBehaviour
     public KeyCode toggleKey = KeyCode.E;
 
     private Dictionary<EquipmentSlot, EquipmentSlotUI> slotUIMap;
-    private List<TextMeshProUGUI> setBonusTexts = new();
+    private readonly List<TextMeshProUGUI> setBonusTexts = new();
 
     void Awake()
     {

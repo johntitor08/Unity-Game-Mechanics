@@ -19,7 +19,7 @@ public class StatsUI : MonoBehaviour
     public Slider energyBar;
     public TextMeshProUGUI energyText;
     public Image energyFillImage;
-    public Color energyColor = new Color(0.3f, 0.5f, 1f);
+    public Color energyColor = new(0.3f, 0.5f, 1f);
 
     [Header("Stats Display")]
     public GameObject statsPanel;

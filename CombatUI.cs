@@ -35,8 +35,8 @@ public class CombatUI : MonoBehaviour
     public TextMeshProUGUI combatLogText;
     public int maxLogLines = 8;
 
-    private List<CombatActionButton> actionButtons = new();
-    private List<string> logLines = new();
+    private readonly List<CombatActionButton> actionButtons = new();
+    private readonly List<string> logLines = new();
 
     void Awake()
     {

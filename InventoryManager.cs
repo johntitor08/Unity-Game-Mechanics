@@ -5,8 +5,8 @@ public class InventoryManager : MonoBehaviour
 {
     public static InventoryManager Instance;
 
-    Dictionary<string, int> items = new();
-    Dictionary<string, ItemData> database = new();
+    private readonly Dictionary<string, int> items = new();
+    private readonly Dictionary<string, ItemData> database = new();
 
     public delegate void InventoryChanged();
     public event InventoryChanged OnChanged;

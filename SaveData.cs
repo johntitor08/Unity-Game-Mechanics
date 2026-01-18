@@ -26,6 +26,9 @@ public class SaveData
     public List<string> completedScenarios = new();
     public string activeScenarioID = "";
     public int activeScenarioStep = 0;
+    public List<QuestSaveData> activeQuests = new();
+    public List<string> completedQuests = new();
+    public List<string> trackedQuests = new();
 }
 
 [System.Serializable]
@@ -33,4 +36,12 @@ public class EquippedItemSave
 {
     public EquipmentSlot slot;
     public string itemID;
+}
+
+[Serializable]
+public class QuestSaveData
+{
+    public string questID;
+    public List<int> objectiveProgress = new();
+    public List<bool> objectiveCompleted = new();
 }

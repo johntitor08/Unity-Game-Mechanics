@@ -26,7 +26,7 @@ public class PlayerStats : MonoBehaviour
     }
 
     [Header("Initial Stats")]
-    public List<Stat> stats = new List<Stat>
+    public List<Stat> stats = new()
     {
         new Stat(StatType.Health, 100, 0, 999),
         new Stat(StatType.MaxHealth, 100, 1, 999),

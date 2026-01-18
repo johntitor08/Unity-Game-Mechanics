@@ -9,7 +9,7 @@ public class InventoryUI : MonoBehaviour
     public Transform content;
     public ItemSlot slotPrefab;
 
-    List<ItemSlot> slots = new();
+    private readonly List<ItemSlot> slots = new();
 
     void Awake()
     {

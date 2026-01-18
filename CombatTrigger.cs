@@ -1,14 +1,14 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 
-public class CombatTrigger : MonoBehaviour
+public class CombatTrigger : MonoBehaviour, IPointerClickHandler
 {
     [Header("Enemy")]
     public EnemyData enemy;
 
     [Header("Trigger Settings")]
     public bool oneTimeOnly = true;
-    public bool requireInteraction = false;
-    public KeyCode interactionKey = KeyCode.E;
+    public bool requirePlayerInRange = false;
 
     [Header("Visual")]
     public GameObject interactionPrompt;
@@ -22,32 +22,13 @@ public class CombatTrigger : MonoBehaviour
             interactionPrompt.SetActive(false);
     }
 
-    void Update()
-    {
-        if (requireInteraction && playerInRange && !hasTriggered)
-        {
-            if (Input.GetKeyDown(interactionKey))
-            {
-                TriggerCombat();
-            }
-        }
-    }
-
     void OnTriggerEnter2D(Collider2D other)
     {
         if (other.CompareTag("Player"))
         {
             playerInRange = true;
-
-            if (requireInteraction)
-            {
-                if (interactionPrompt != null)
-                    interactionPrompt.SetActive(true);
-            }
-            else if (!hasTriggered)
-            {
-                TriggerCombat();
-            }
+            if (interactionPrompt != null)
+                interactionPrompt.SetActive(true);
         }
     }
 
@@ -56,13 +37,24 @@ public class CombatTrigger : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerInRange = false;
-
             if (interactionPrompt != null)
                 interactionPrompt.SetActive(false);
         }
     }
 
-    void TriggerCombat()
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (hasTriggered)
+            return;
+
+        // Ýstersen sadece yakýndayken týklanabilsin
+        if (requirePlayerInRange && !playerInRange)
+            return;
+
+        TriggerCombat();
+    }
+
+    public void TriggerCombat()
     {
         if (CombatManager.Instance == null || CombatManager.Instance.inCombat)
             return;
@@ -71,8 +63,6 @@ public class CombatTrigger : MonoBehaviour
         hasTriggered = true;
 
         if (oneTimeOnly)
-        {
             gameObject.SetActive(false);
-        }
     }
 }

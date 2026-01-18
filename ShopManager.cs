@@ -5,7 +5,7 @@ public class ShopManager : MonoBehaviour
     public static ShopManager Instance;
 
     public ShopItemData[] shopItems;
-    private System.Collections.Generic.Dictionary<string, int> stock = new();
+    private readonly System.Collections.Generic.Dictionary<string, int> stock = new();
 
     void Awake()
     {

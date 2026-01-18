@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class ItemSlotEquipment : MonoBehaviour
 {
-    private ItemData item;
+    private readonly ItemData item;
 
     public void OnEquipButtonClicked()
     {

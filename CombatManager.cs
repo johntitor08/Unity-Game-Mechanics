@@ -343,7 +343,7 @@ public class CombatManager : MonoBehaviour
 
     void Log(string message)
     {
-        Debug.Log($"[Combat] {message}");
+        //Debug.Log($"[Combat] {message}");
         OnCombatLog?.Invoke(message);
     }
 }

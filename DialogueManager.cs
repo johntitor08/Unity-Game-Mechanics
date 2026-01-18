@@ -5,6 +5,7 @@ using System.Collections;
 
 public class DialogueManager : MonoBehaviour
 {
+    private static readonly WaitForSeconds _waitForSeconds0_5 = new(0.5f);
     public static DialogueManager Instance;
 
     [Header("UI")]
@@ -51,6 +52,7 @@ public class DialogueManager : MonoBehaviour
     void Start()
     {
         dialoguePanel.SetActive(false);
+        StartDialogue(startNodeForButton);
 
         if (speakerPortrait != null)
         {
@@ -411,7 +413,7 @@ public class DialogueManager : MonoBehaviour
 
     IEnumerator HidePanelAfterAnimation()
     {
-        yield return new WaitForSeconds(0.5f);
+        yield return _waitForSeconds0_5;
         dialoguePanel.SetActive(false);
     }
 

@@ -1,11 +1,26 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public static class SaveSystem
 {
     static string Path => Application.persistentDataPath + "/save.json";
+
+    public static bool HasSaveFile()
+    {
+        return System.IO.File.Exists(Path);
+    }
+
+    public static void DeleteSave()
+    {
+        if (System.IO.File.Exists(Path))
+        {
+            System.IO.File.Delete(Path);
+            Debug.Log("Save file deleted");
+        }
+    }
 
     public static void SaveGame()
     {
@@ -104,6 +119,34 @@ public static class SaveSystem
             }
         }
 
+        if (QuestManager.Instance != null)
+        {
+            data.activeQuests.Clear();
+            foreach (var quest in QuestManager.Instance.GetActiveQuests())
+            {
+                var questSave = new QuestSaveData { questID = quest.questID };
+
+                foreach (var obj in quest.objectives)
+                {
+                    questSave.objectiveProgress.Add(obj.currentProgress);
+                    questSave.objectiveCompleted.Add(obj.isCompleted);
+                }
+
+                data.activeQuests.Add(questSave);
+            }
+
+            data.completedQuests.Clear();
+            foreach (var quest in QuestManager.Instance.GetCompletedQuests())
+            {
+                data.completedQuests.Add(quest.questID);
+            }
+
+            if (QuestTrackerUI.Instance != null)
+            {
+                data.trackedQuests = QuestTrackerUI.Instance.GetTrackedQuests();
+            }
+        }
+
         File.WriteAllText(Path, JsonUtility.ToJson(data, true));
     }
 
@@ -185,6 +228,40 @@ public static class SaveSystem
 
             // Note: Restoring active scenarios requires additional logic
             // to find and resume the correct scenario
+        }
+
+        if (QuestManager.Instance != null)
+        {
+            // Load active quests
+            foreach (var questSave in data.activeQuests)
+            {
+                var quest = QuestManager.Instance.allQuests
+                    .FirstOrDefault(q => q.questID == questSave.questID);
+
+                if (quest != null)
+                {
+                    // Restore progress
+                    for (int i = 0; i < quest.objectives.Length && i < questSave.objectiveProgress.Count; i++)
+                    {
+                        quest.objectives[i].currentProgress = questSave.objectiveProgress[i];
+                        quest.objectives[i].isCompleted = questSave.objectiveCompleted[i];
+                    }
+
+                    QuestManager.Instance.StartQuest(quest);
+                }
+            }
+
+            // Load completed quests
+            // (Mark as completed without re-running completion logic)
+
+            // Load tracked quests
+            if (QuestTrackerUI.Instance != null)
+            {
+                foreach (var questID in data.trackedQuests)
+                {
+                    QuestTrackerUI.Instance.TrackQuest(questID);
+                }
+            }
         }
 
         if (!string.IsNullOrEmpty(data.currentScene))

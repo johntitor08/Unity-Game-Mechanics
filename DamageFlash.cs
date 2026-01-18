@@ -5,8 +5,8 @@ public class DamageFlash : MonoBehaviour
 {
     [Header("Flash Settings")]
     public Image flashImage;
-    public Color damageColor = new Color(1f, 0f, 0f, 0.3f);
-    public Color healColor = new Color(0f, 1f, 0f, 0.3f);
+    public Color damageColor = new(1f, 0f, 0f, 0.3f);
+    public Color healColor = new(0f, 1f, 0f, 0.3f);
     public float flashDuration = 0.2f;
 
     void Start()

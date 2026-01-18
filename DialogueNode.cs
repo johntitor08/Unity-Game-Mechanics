@@ -7,7 +7,7 @@ public class DialogueNode : ScriptableObject
     [Header("Speaker")]
     public string speakerName = "NPC";
     public Sprite speakerPortrait;
-    public Color speakerNameColor = Color.white;
+    public Color speakerNameColor = Color.wheat;
 
     [Header("Dialogue Lines")]
     [TextArea(2, 5)]
