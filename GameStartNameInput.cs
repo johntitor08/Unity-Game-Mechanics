@@ -5,11 +5,11 @@ using System.Collections;
 
 public class GameStartNameInput : MonoBehaviour
 {
+    private static WaitForSeconds _waitForSeconds0_5 = new WaitForSeconds(0.5f);
     public static GameStartNameInput Instance;
 
     [Header("Panels")]
     public GameObject nameInputPanel;
-    public GameObject mainGameUI;
 
     [Header("Input Fields")]
     public TMP_InputField nameInputField;
@@ -107,10 +107,6 @@ public class GameStartNameInput : MonoBehaviour
         if (confirmButton != null)
             confirmButton.interactable = false;
 
-        // Hide main game UI
-        if (mainGameUI != null)
-            mainGameUI.SetActive(false);
-
         // Show welcome message with typewriter effect
         if (useTypewriterEffect && welcomeText != null)
         {
@@ -150,7 +146,8 @@ public class GameStartNameInput : MonoBehaviour
 
     IEnumerator FocusInputField()
     {
-        yield return new WaitForSeconds(0.5f);
+        yield return _waitForSeconds0_5;
+
         if (nameInputField != null)
         {
             nameInputField.ActivateInputField();
@@ -282,6 +279,7 @@ public class GameStartNameInput : MonoBehaviour
             if (lowerText.Contains(badWord.ToLower()))
                 return true;
         }
+
         return false;
     }
 
@@ -384,10 +382,6 @@ public class GameStartNameInput : MonoBehaviour
         if (nameInputPanel != null)
             nameInputPanel.SetActive(false);
 
-        // Show main game UI
-        if (mainGameUI != null)
-            mainGameUI.SetActive(true);
-
         // Initialize game systems
         InitializeGame();
     }
@@ -404,6 +398,11 @@ public class GameStartNameInput : MonoBehaviour
         if (ProfileManager.Instance != null)
         {
             // Already has starting currency from profile
+        }
+
+        if (DialogueManager.Instance != null)
+        {
+            DialogueManager.Instance.StartDialogue(DialogueManager.Instance.startNodeForButton);
         }
 
         // Show tutorial or first scene
@@ -464,9 +463,6 @@ public class GameStartNameInput : MonoBehaviour
 
         if (nameInputPanel != null)
             nameInputPanel.SetActive(true);
-
-        if (mainGameUI != null)
-            mainGameUI.SetActive(false);
 
         if (nameInputField != null)
         {

@@ -52,7 +52,7 @@ public class DialogueManager : MonoBehaviour
     void Start()
     {
         dialoguePanel.SetActive(false);
-        StartDialogue(startNodeForButton);
+        //StartDialogue(startNodeForButton);
 
         if (speakerPortrait != null)
         {
