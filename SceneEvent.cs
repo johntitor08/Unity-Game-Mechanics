@@ -6,6 +6,7 @@ public class SceneEvent : MonoBehaviour
 {
     private static readonly WaitForSeconds _waitForSeconds0_5 = new(0.5f);
     bool hasTriggered = false;
+    bool canTrigger = false;
 
     public static SceneEvent Instance { get; private set; }
 
@@ -117,7 +118,6 @@ public class SceneEvent : MonoBehaviour
 
         // Toggle the panel
         panel.SetActive(!isActive);
-
         Debug.Log($"{panelName} panel: {(panel.activeSelf ? "Opened" : "Closed")}");
     }
 
@@ -149,7 +149,10 @@ public class SceneEvent : MonoBehaviour
 
     public void Trigger()
     {
-        HandleDialogueEnd();
+        if (!canTrigger) return;
+        if (hasTriggered) return;
+        hasTriggered = true;
+        StartCoroutine(TriggerDelayed());
     }
 
     IEnumerator TriggerDelayed()
@@ -215,10 +218,7 @@ public class SceneEvent : MonoBehaviour
 
     void HandleDialogueEnd()
     {
-        if (hasTriggered) return;
-        hasTriggered = true;
-
-        StartCoroutine(TriggerDelayed());
+        canTrigger = true;
     }
 
 }
