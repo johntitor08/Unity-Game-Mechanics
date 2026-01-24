@@ -21,23 +21,23 @@ public class SceneEvent : MonoBehaviour
     public GameObject char1;
 
     [Header("Icon Buttons")]
-    public Button profileIcon;
+    public Button statsIcon;
     public Button inventoryIcon;
     public Button shopIcon;
     public Button mapIcon;
+    public Button combatIcon;
     public Button equipmentIcon;
-    public Button statsIcon;
 
     [Header("Close Buttons")]
     public Button closeMapButton;
 
-    [Header("UI Panels (Auto-detect)")]
-    public GameObject profilePanel;
+    [Header("UI Panels")]
+    public GameObject statsPanel;
     public GameObject inventoryPanel;
     public GameObject shopPanel;
     public GameObject mapPanel;
+    public GameObject combatPanel;
     public GameObject equipmentPanel;
-    public GameObject statsPanel;
 
     [Header("Icon Settings")]
     public bool closeOtherPanelsOnOpen = true;
@@ -69,17 +69,14 @@ public class SceneEvent : MonoBehaviour
         if (char1 != null)
             char1.SetActive(true);
 
-        // Setup icon buttons
         SetupIconButtons();
-
-        // Initially hide all panels
         HideAllPanels();
     }
 
     void SetupIconButtons()
     {
-        if (profileIcon != null)
-            profileIcon.onClick.AddListener(() => TogglePanel(profilePanel, "Profile"));
+        if (statsIcon != null)
+            statsIcon.onClick.AddListener(() => TogglePanel(statsPanel, "Stats"));
 
         if (inventoryIcon != null)
             inventoryIcon.onClick.AddListener(() => TogglePanel(inventoryPanel, "Inventory"));
@@ -90,11 +87,11 @@ public class SceneEvent : MonoBehaviour
         if (mapIcon != null)
             mapIcon.onClick.AddListener(() => TogglePanel(mapPanel, "Map"));
 
+        if (combatIcon != null)
+            combatIcon.onClick.AddListener(() => TogglePanel(combatPanel, "Combat"));
+
         if (equipmentIcon != null)
             equipmentIcon.onClick.AddListener(() => TogglePanel(equipmentPanel, "Equipment"));
-
-        if (statsIcon != null)
-            statsIcon.onClick.AddListener(() => TogglePanel(statsPanel, "Stats"));
 
         if (closeMapButton != null)
             closeMapButton.onClick.AddListener(() => HideAllPanels());
@@ -118,13 +115,12 @@ public class SceneEvent : MonoBehaviour
 
         // Toggle the panel
         panel.SetActive(!isActive);
-        Debug.Log($"{panelName} panel: {(panel.activeSelf ? "Opened" : "Closed")}");
     }
 
     void HideAllPanels()
     {
-        if (profilePanel != null)
-            profilePanel.SetActive(false);
+        if (statsPanel != null)
+            statsPanel.SetActive(false);
 
         if (inventoryPanel != null)
             inventoryPanel.SetActive(false);
@@ -135,11 +131,11 @@ public class SceneEvent : MonoBehaviour
         if (mapPanel != null)
             mapPanel.SetActive(false);
 
+        if (combatPanel != null)
+            combatPanel.SetActive(false);
+
         if (equipmentPanel != null)
             equipmentPanel.SetActive(false);
-
-        if (statsPanel != null)
-            statsPanel.SetActive(false);
     }
 
     public void CloseAllPanels()
@@ -177,12 +173,12 @@ public class SceneEvent : MonoBehaviour
     }
 
     // Public methods to programmatically control panels
-    public void OpenProfile() => OpenPanel(profilePanel, "Profile");
+    public void OpenProfile() => OpenPanel(statsPanel, "Profile");
     public void OpenInventory() => OpenPanel(inventoryPanel, "Inventory");
     public void OpenShop() => OpenPanel(shopPanel, "Shop");
     public void OpenMap() => OpenPanel(mapPanel, "Map");
-    public void OpenEquipment() => OpenPanel(equipmentPanel, "Equipment");
-    public void OpenStats() => OpenPanel(statsPanel, "Stats");
+    public void OpenEquipment() => OpenPanel(combatPanel, "Equipment");
+    public void OpenStats() => OpenPanel(equipmentPanel, "Stats");
 
     void OpenPanel(GameObject panel, string panelName)
     {
