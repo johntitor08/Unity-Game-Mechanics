@@ -34,14 +34,16 @@ public class DialogueManager : MonoBehaviour
     public string openTrigger = "Open";
     public string closeTrigger = "Close";
     private bool isClosing;
-    public string closedStateName = "Closed";
+
     private DialogueNode currentNode;
     private int currentLineIndex;
     private bool isShowingChoices;
     private bool isInDialogue;
     private System.Action onDialogueEnd;
+    private WaitForSeconds autoAdvanceWait;
     public event System.Action<DialogueNode> OnDialogueStart;
     public event System.Action OnDialogueEnd;
+    public event System.Action<DialogueChoice> OnChoiceSelected;
 
     void Awake()
     {
@@ -57,13 +59,11 @@ public class DialogueManager : MonoBehaviour
 
     void Start()
     {
-        dialoguePanel.SetActive(false);
-        //StartDialogue(startNodeForButton);
+        if (dialoguePanel != null)
+            dialoguePanel.SetActive(false);
 
         if (speakerPortrait != null)
-        {
             speakerPortrait.enabled = true;
-        }
 
         if (startDialogueButton != null)
         {
@@ -79,14 +79,13 @@ public class DialogueManager : MonoBehaviour
     {
         if (!isInDialogue || isShowingChoices) return;
 
-        // Space or Click to continue
-        if (Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0))
+        if (Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0) || Input.touchCount > 0)
         {
-            if (skipTypewriterOnClick && typewriter.IsTyping)
+            if (typewriter != null && skipTypewriterOnClick && typewriter.IsTyping)
             {
-                typewriter.Complete(dialogueText, ParseLine(currentNode.lines[currentLineIndex]));
+                typewriter.Complete(dialogueText, ParseLineSafe());
             }
-            else if (!typewriter.IsTyping)
+            else if (typewriter == null || !typewriter.IsTyping)
             {
                 NextLine();
             }
@@ -97,7 +96,7 @@ public class DialogueManager : MonoBehaviour
     {
         if (startNodeForButton == null)
         {
-            Debug.LogWarning("DialogueManager: startNodeForButton null — Inspector'da bir DialogueNode atayın.");
+            Debug.LogWarning("DialogueManager: startNodeForButton null — assign a DialogueNode in the Inspector.");
             return;
         }
 
@@ -106,6 +105,12 @@ public class DialogueManager : MonoBehaviour
 
     public void StartDialogue(DialogueNode startNode, System.Action callback = null)
     {
+        if (startNode == null)
+        {
+            Debug.LogWarning("DialogueManager: StartDialogue called with null node.");
+            return;
+        }
+
         StopAllCoroutines();
         if (isInDialogue) return;
         currentNode = startNode;
@@ -115,28 +120,28 @@ public class DialogueManager : MonoBehaviour
         onDialogueEnd = callback;
         OpenPanel();
 
-        if (dialoguePanelAnimator != null && !string.IsNullOrEmpty(openTrigger))
-        {
+        if (dialoguePanelAnimator != null)
             dialoguePanelAnimator.SetTrigger(openTrigger);
-        }
 
         PlaySound(dialogueOpenSound);
-        currentNode.onEnter?.Invoke();
-        OnDialogueStart?.Invoke(currentNode);
+        if (currentNode != null && currentNode.onEnter != null)
+            currentNode.onEnter.Invoke();
+        if (OnDialogueStart != null)
+            OnDialogueStart.Invoke(currentNode);
         SetupVisuals();
         ClearChoices();
         ShowLine();
     }
 
-    string ParseLine(string line)
+    string ParseLineSafe()
     {
+        if (currentNode == null || currentNode.lines == null || currentLineIndex >= currentNode.lines.Length)
+            return "";
+
+        string line = currentNode.lines[currentLineIndex];
+
         if (ProfileManager.Instance != null)
-        {
-            line = line.Replace(
-                "{playerName}",
-                ProfileManager.Instance.profile.playerName
-            );
-        }
+            line = line.Replace("{playerName}", ProfileManager.Instance.profile.playerName);
 
         return line;
     }
@@ -145,42 +150,35 @@ public class DialogueManager : MonoBehaviour
     {
         if (speakerNameText != null)
         {
-            speakerNameText.text = currentNode.speakerName;
-            speakerNameText.color = currentNode.speakerNameColor;
+            speakerNameText.text = currentNode != null ? currentNode.speakerName : "";
+            speakerNameText.color = currentNode != null ? currentNode.speakerNameColor : Color.white;
         }
 
         if (speakerPortrait != null)
         {
-            if (currentNode.speakerPortrait != null)
-            {
-                speakerPortrait.sprite = currentNode.speakerPortrait;
-            }
-
-            speakerPortrait.enabled = true;
+            speakerPortrait.sprite = currentNode != null ? currentNode.speakerPortrait : null;
+            speakerPortrait.enabled = currentNode != null && currentNode.speakerPortrait != null;
         }
 
-        if (backgroundImage != null && currentNode.backgroundImage != null)
+        if (backgroundImage != null)
         {
-            backgroundImage.sprite = currentNode.backgroundImage;
-            backgroundImage.enabled = true;
+            backgroundImage.sprite = currentNode != null ? currentNode.backgroundImage : null;
+            backgroundImage.enabled = currentNode != null && currentNode.backgroundImage != null;
         }
 
         if (continueButton != null)
-        {
             continueButton.SetActive(false);
-        }
     }
 
     void ShowLine()
     {
-        if (currentLineIndex >= currentNode.lines.Length)
+        if (currentNode == null || currentNode.lines == null || currentLineIndex >= currentNode.lines.Length)
         {
             ShowChoicesOrEnd();
             return;
         }
 
-        string rawLine = currentNode.lines[currentLineIndex];
-        string line = ParseLine(rawLine);
+        string line = ParseLineSafe();
 
         if (typewriter != null)
         {
@@ -188,6 +186,7 @@ public class DialogueManager : MonoBehaviour
 
             if (currentNode.autoAdvance)
             {
+                autoAdvanceWait = new WaitForSeconds(currentNode.autoAdvanceDelay);
                 StartCoroutine(AutoAdvanceLine());
             }
             else if (continueButton != null)
@@ -206,29 +205,29 @@ public class DialogueManager : MonoBehaviour
 
     IEnumerator ShowContinueButtonAfterTyping()
     {
-        yield return new WaitUntil(() => !typewriter.IsTyping);
-        continueButton.SetActive(true);
+        yield return new WaitUntil(() => typewriter == null || !typewriter.IsTyping);
+
+        if (continueButton != null)
+            continueButton.SetActive(true);
     }
 
     IEnumerator AutoAdvanceLine()
     {
-        yield return new WaitUntil(() => !typewriter.IsTyping);
-        yield return new WaitForSeconds(currentNode.autoAdvanceDelay);
+        yield return new WaitUntil(() => typewriter == null || !typewriter.IsTyping);
+        if (autoAdvanceWait != null) yield return autoAdvanceWait;
         NextLine();
     }
 
     void NextLine()
     {
-        if (typewriter.IsTyping) return;
+        if (typewriter != null && typewriter.IsTyping) return;
 
         if (continueButton != null)
-        {
             continueButton.SetActive(false);
-        }
 
         currentLineIndex++;
 
-        if (currentLineIndex < currentNode.lines.Length)
+        if (currentNode != null && currentNode.lines != null && currentLineIndex < currentNode.lines.Length)
         {
             ShowLine();
         }
@@ -242,7 +241,7 @@ public class DialogueManager : MonoBehaviour
     {
         ClearChoices();
 
-        if (currentNode.choices == null || currentNode.choices.Length == 0)
+        if (currentNode == null || currentNode.choices == null || currentNode.choices.Length == 0)
         {
             EndDialogue();
             return;
@@ -253,18 +252,17 @@ public class DialogueManager : MonoBehaviour
         foreach (var choice in currentNode.choices)
         {
             if (!CanShowChoice(choice)) continue;
-            DialogueChoice localChoice = choice;
             Button btn = Instantiate(choiceButtonPrefab, choicesParent);
             TextMeshProUGUI btnText = btn.GetComponentInChildren<TextMeshProUGUI>();
 
             if (btnText != null)
             {
-                btnText.text = localChoice.choiceText;
-                btnText.color = localChoice.choiceColor;
+                btnText.text = choice.choiceText;
+                btnText.color = choice.choiceColor;
             }
 
-            bool canSelect = CanSelectChoice(localChoice);
-            btn.interactable = canSelect;
+            btn.interactable = CanSelectChoice(choice);
+            DialogueChoice localChoice = choice;
             btn.onClick.AddListener(() => SelectChoice(localChoice));
         }
 
@@ -273,126 +271,87 @@ public class DialogueManager : MonoBehaviour
 
     bool CanShowChoice(DialogueChoice choice)
     {
-        // Flag requirement
-        if (choice.requiresFlag && !StoryFlags.Has(choice.requiredFlag))
-            return false;
-
-        return true;
+        return choice != null && (!choice.requiresFlag || StoryFlags.Has(choice.requiredFlag));
     }
 
     bool CanSelectChoice(DialogueChoice choice)
     {
-        // Disabled choice
-        if (choice.isDisabledChoice)
+        if (choice == null) return false;
+        if (choice.isDisabledChoice) return false;
+
+        if (choice.requiresItem && InventoryManager.Instance != null && InventoryManager.Instance.GetQuantity(choice.requiredItem) <= 0)
             return false;
 
-        // Item requirement
-        if (choice.requiresItem && InventoryManager.Instance != null)
-        {
-            if (InventoryManager.Instance.GetQuantity(choice.requiredItem) <= 0)
-                return false;
-        }
+        if (choice.requiresStat && PlayerStats.Instance != null && PlayerStats.Instance.Get(choice.requiredStat) < choice.requiredStatValue)
+            return false;
 
-        // Stat requirement
-        if (choice.requiresStat && PlayerStats.Instance != null)
-        {
-            if (PlayerStats.Instance.Get(choice.requiredStat) < choice.requiredStatValue)
-                return false;
-        }
-
-        // Currency requirement
-        if (choice.requiresCurrency && CurrencyManager.Instance != null)
-        {
-            if (!CurrencyManager.Instance.Has(choice.requiredCurrency, choice.requiredCurrencyAmount))
-                return false;
-        }
+        if (choice.requiresCurrency && CurrencyManager.Instance != null && !CurrencyManager.Instance.Has(choice.requiredCurrency, choice.requiredCurrencyAmount))
+            return false;
 
         return true;
     }
 
     void SelectChoice(DialogueChoice choice)
     {
+        if (choice == null) return;
         PlaySound(choiceSelectSound);
+        OnChoiceSelected?.Invoke(choice);
 
-        // Consume item
+        // Item tüket
         if (choice.consumeItem && choice.requiredItem != null && InventoryManager.Instance != null)
-        {
             InventoryManager.Instance.RemoveItem(choice.requiredItem, 1);
-        }
 
-        // Set flag
+        // Flag ayarla
         if (choice.setFlag && !string.IsNullOrEmpty(choice.flagToSet))
-        {
             StoryFlags.Add(choice.flagToSet);
-        }
 
-        // Give rewards
+        // Ödüller
         if (choice.giveReward)
-        {
             GiveRewards(choice);
-        }
 
-        // Continue to next node
+        // Sonraki node varsa devam et
         if (choice.nextNode != null)
         {
+            // Mevcut node çıkış callback
             if (currentNode != null && currentNode.onExit != null)
-            {
                 currentNode.onExit.Invoke();
-            }
 
+            // Yeni node
             currentNode = choice.nextNode;
             currentLineIndex = 0;
             isShowingChoices = false;
             ClearChoices();
 
+            // Yeni node giriş callback
             if (currentNode != null && currentNode.onEnter != null)
-            {
                 currentNode.onEnter.Invoke();
-            }
 
             SetupVisuals();
             ShowLine();
         }
         else
         {
+            // Yoksa diyaloğu bitir
             EndDialogue();
         }
     }
 
     void GiveRewards(DialogueChoice choice)
     {
-        // Currency rewards
         if (choice.currencyRewards != null)
-        {
-            foreach (var reward in choice.currencyRewards)
-            {
-                reward.Grant();
-            }
-        }
+            foreach (var reward in choice.currencyRewards) reward.Grant();
 
-        // Item rewards
         if (choice.itemRewards != null && InventoryManager.Instance != null)
-        {
-            foreach (var item in choice.itemRewards)
-            {
-                InventoryManager.Instance.AddItem(item, 1);
-            }
-        }
+            foreach (var item in choice.itemRewards) InventoryManager.Instance.AddItem(item, 1);
 
-        // Experience reward
         if (choice.experienceReward > 0 && ProfileManager.Instance != null)
-        {
             ProfileManager.Instance.AddExperience(choice.experienceReward);
-        }
     }
 
     void ClearChoices()
     {
-        foreach (Transform child in choicesParent)
-        {
-            Destroy(child.gameObject);
-        }
-
+        if (choicesParent == null) return;
+        foreach (Transform child in choicesParent) Destroy(child.gameObject);
         choicesParent.gameObject.SetActive(false);
     }
 
@@ -402,9 +361,7 @@ public class DialogueManager : MonoBehaviour
         isClosing = true;
 
         if (currentNode != null && currentNode.onExit != null)
-        {
             currentNode.onExit.Invoke();
-        }
 
         if (dialoguePanelAnimator != null)
         {
@@ -414,7 +371,10 @@ public class DialogueManager : MonoBehaviour
         }
         else
         {
-            dialoguePanel.SetActive(false);
+            if (dialoguePanel != null)
+                dialoguePanel.SetActive(false);
+
+            isClosing = false;
         }
 
         PlaySound(dialogueCloseSound);
@@ -429,32 +389,51 @@ public class DialogueManager : MonoBehaviour
 
     void OpenPanel()
     {
-        dialoguePanel.SetActive(true);
-        dialoguePanelAnimator.ResetTrigger(closeTrigger);
-        dialoguePanelAnimator.SetTrigger(openTrigger);
+        if (dialoguePanel != null)
+            dialoguePanel.SetActive(true);
+
+        if (dialoguePanelAnimator != null)
+        {
+            dialoguePanelAnimator.ResetTrigger(closeTrigger);
+            dialoguePanelAnimator.SetTrigger(openTrigger);
+        }
     }
 
     IEnumerator WaitForCloseAnimation()
     {
-        yield return null;
-
-        while (!dialoguePanelAnimator
-            .GetCurrentAnimatorStateInfo(0)
-            .IsName(closedStateName))
+        if (dialoguePanelAnimator == null)
         {
-            yield return null;
+            if (dialoguePanel != null)
+                dialoguePanel.SetActive(false);
+
+            isClosing = false;
+            yield break;
         }
 
-        dialoguePanel.SetActive(false);
+        float duration = 0f;
+        AnimatorClipInfo[] clips = dialoguePanelAnimator.GetCurrentAnimatorClipInfo(0);
+
+        if (clips.Length > 0)
+            duration = clips[0].clip.length;
+
+        yield return new WaitForSeconds(duration);
+
+        if (dialoguePanel != null)
+            dialoguePanel.SetActive(false);
+        
+        isClosing = false;
+        yield return null;
+
+        if (dialoguePanel != null)
+            dialoguePanel.SetActive(false);
+
         isClosing = false;
     }
 
     void PlaySound(AudioClip clip)
     {
         if (clip != null && Camera.main != null)
-        {
             AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, 0.5f);
-        }
     }
 
     public bool IsInDialogue() => isInDialogue;
