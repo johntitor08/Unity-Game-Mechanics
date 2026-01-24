@@ -7,7 +7,6 @@ public class ItemSlot : MonoBehaviour
     public Image icon;
     public TextMeshProUGUI title;
     public TextMeshProUGUI quantityText;
-
     ItemData item;
 
     public void Setup(string id, int qty)

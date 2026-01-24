@@ -15,9 +15,7 @@ public class PlayerProfile
 public class ProfileManager : MonoBehaviour
 {
     public static ProfileManager Instance;
-
     public PlayerProfile profile = new();
-
     public event Action OnProfileChanged;
     public event Action OnLevelUp;
     public event Action OnCurrencyChanged;
@@ -50,13 +48,10 @@ public class ProfileManager : MonoBehaviour
         profile.experience -= profile.experienceToNextLevel;
         profile.level++;
         profile.experienceToNextLevel = Mathf.RoundToInt(profile.experienceToNextLevel * 1.5f);
-
-        // Increase all stats on level up
         PlayerStats.Instance.Modify(StatType.Health, 10);
         PlayerStats.Instance.Modify(StatType.Energy, 5);
         PlayerStats.Instance.Modify(StatType.Strength, 2);
         PlayerStats.Instance.Modify(StatType.Intelligence, 2);
-
         OnLevelUp?.Invoke();
         OnProfileChanged?.Invoke();
     }
@@ -64,7 +59,6 @@ public class ProfileManager : MonoBehaviour
     public bool SpendCurrency(int amount)
     {
         if (profile.currency < amount) return false;
-
         profile.currency -= amount;
         OnCurrencyChanged?.Invoke();
         OnProfileChanged?.Invoke();

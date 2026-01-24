@@ -15,23 +15,19 @@ public class EquipmentSetBonus
 
     public int GetBonusForPieces(int pieces)
     {
-        // For defense calculation
-        if (pieces >= 2)
-            return twoPieceDefenseBonus;
-        return 0;
+        int bonus = 0;
+        if (pieces >= 2) bonus += twoPieceDefenseBonus;
+        if (pieces >= 3) bonus += threePieceDamageBonus;
+        if (pieces >= 4) bonus += fourPieceStatBonus;
+        return bonus;
     }
 
     public string GetActiveBonusDescription(int pieces)
     {
         string desc = "";
-
-        if (pieces >= 2)
-            desc += $"2-Piece: +{twoPieceDefenseBonus} Defense\n";
-        if (pieces >= 3)
-            desc += $"3-Piece: +{threePieceDamageBonus} Damage\n";
-        if (pieces >= 4)
-            desc += $"4-Piece: +{fourPieceStatBonus} {fourPieceStat}\n";
-
+        if (pieces >= 2) desc += $"2-Piece: +{twoPieceDefenseBonus} Defense\n";
+        if (pieces >= 3) desc += $"3-Piece: +{threePieceDamageBonus} Damage\n";
+        if (pieces >= 4) desc += $"4-Piece: +{fourPieceStatBonus} {fourPieceStat}\n";
         return desc;
     }
 }

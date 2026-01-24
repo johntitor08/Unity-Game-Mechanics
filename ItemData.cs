@@ -8,9 +8,20 @@ public class ItemData : ScriptableObject
     public string itemName;
     public Sprite icon;
     [TextArea] public string description;
+
     public bool useable;
     public StatType affectedStat;
     public int statAmount;
-
     public UnityEvent onUse;
+
+    [Header("Rarity")]
+    public Rarity rarity = Rarity.Common;
+}
+
+public enum Rarity
+{
+    Common,
+    Rare,
+    Epic,
+    Legendary
 }

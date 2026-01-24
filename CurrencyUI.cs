@@ -20,7 +20,7 @@ public class CurrencyUI : MonoBehaviour
         public bool animateOnChange = true;
     }
 
-    private Dictionary<CurrencyType, CurrencyDisplay> displayDict = new();
+    private readonly Dictionary<CurrencyType, CurrencyDisplay> displayDict = new();
 
     void Awake()
     {
@@ -29,25 +29,19 @@ public class CurrencyUI : MonoBehaviour
 
     void Start()
     {
-        // Build dictionary
         foreach (var display in currencyDisplays)
-        {
             displayDict[display.type] = display;
-        }
 
         if (CurrencyManager.Instance != null)
-        {
             CurrencyManager.Instance.OnCurrencyChanged += OnCurrencyChanged;
-            RefreshAll();
-        }
+
+        RefreshAll();
     }
 
     void OnDestroy()
     {
         if (CurrencyManager.Instance != null)
-        {
             CurrencyManager.Instance.OnCurrencyChanged -= OnCurrencyChanged;
-        }
     }
 
     void OnCurrencyChanged(CurrencyType type, int oldAmount, int newAmount)
@@ -55,40 +49,30 @@ public class CurrencyUI : MonoBehaviour
         UpdateDisplay(type, newAmount);
 
         if (displayDict.ContainsKey(type) && displayDict[type].animateOnChange)
+            StartCoroutine(AnimateCountUp(displayDict[type].amountText, oldAmount, newAmount, 0.5f));
+    }
+
+    public void UpdateMultiple(Dictionary<CurrencyType, int> newAmounts)
+    {
+        foreach (var kvp in newAmounts)
         {
-            AnimateCurrencyChange(type, oldAmount, newAmount);
+            UpdateDisplay(kvp.Key, kvp.Value);
         }
     }
 
     void UpdateDisplay(CurrencyType type, int amount)
     {
         if (!displayDict.ContainsKey(type)) return;
-
         var display = displayDict[type];
 
         if (display.amountText != null)
-        {
             display.amountText.text = FormatCurrency(amount);
-        }
 
         if (display.icon != null)
         {
             var currencyInfo = CurrencyManager.Instance.GetCurrencyInfo(type);
             if (currencyInfo != null && currencyInfo.icon != null)
-            {
                 display.icon.sprite = currencyInfo.icon;
-            }
-        }
-    }
-
-    void AnimateCurrencyChange(CurrencyType type, int oldAmount, int newAmount)
-    {
-        if (!displayDict.ContainsKey(type)) return;
-
-        var display = displayDict[type];
-        if (display.amountText != null)
-        {
-            StartCoroutine(AnimateCountUp(display.amountText, oldAmount, newAmount, 0.5f));
         }
     }
 

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "StatModifierItem", menuName = "Scriptable Objects/StatModifierItem")]
+[CreateAssetMenu(fileName = "StatModifierItem", menuName = "Stat/StatModifierItem")]
 public class StatModifierItem : ItemData
 {
     [Header("Stat Modification")]

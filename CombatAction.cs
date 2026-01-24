@@ -11,7 +11,7 @@ public class CombatAction
     [Header("Damage")]
     public int baseDamage = 10;
     public StatType scalingStat = StatType.Strength;
-    public float statScaling = 0.5f; // Damage = base + (stat * scaling)
+    public float statScaling = 0.5f;
 
     [Header("Energy Cost")]
     public int energyCost = 10;
@@ -28,17 +28,15 @@ public class CombatAction
 
     public int CalculateDamage()
     {
-        if (PlayerStats.Instance == null) return baseDamage;
+        if (PlayerStats.Instance == null)
+            return baseDamage;
 
         int statValue = PlayerStats.Instance.Get(scalingStat);
-        int totalDamage = baseDamage + Mathf.RoundToInt(statValue * statScaling);
+        int damage = baseDamage + Mathf.RoundToInt(statValue * statScaling);
 
-        // Add equipment bonuses
-        //if (EquipmentManager.Instance != null)
-        //{
-        //    totalDamage += EquipmentManager.Instance.GetTotalDamageBonus();
-        //}
+        if (EquipmentManager.Instance != null)
+            damage += EquipmentManager.Instance.GetTotalDamageBonus();
 
-        return totalDamage;
+        return Mathf.Max(1, damage);
     }
 }

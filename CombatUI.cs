@@ -123,31 +123,31 @@ public class CombatUI : MonoBehaviour
 
     void UpdateEnemyDisplay()
     {
-        var enemy = CombatManager.Instance.currentEnemy;
-        if (enemy == null) return;
+        var enemyStats = CombatManager.Instance.enemyStats;
+        if (enemyStats == null) return;
+        var enemyData = CombatManager.Instance.currentEnemy;
 
-        if (enemySprite != null)
-            enemySprite.sprite = enemy.sprite;
+        if (enemySprite != null && enemyData != null)
+            enemySprite.sprite = enemyData.sprite;
 
-        if (enemyNameText != null)
-            enemyNameText.text = enemy.enemyName;
+        if (enemyNameText != null && enemyData != null)
+            enemyNameText.text = enemyData.enemyName;
 
         if (enemyHealthBar != null)
         {
-            enemyHealthBar.maxValue = enemy.maxHealth;
-            enemyHealthBar.value = CombatManager.Instance.enemyCurrentHealth;
+            enemyHealthBar.maxValue = enemyStats.Get(StatType.MaxHealth);
+            enemyHealthBar.value = enemyStats.Get(StatType.Health);
         }
 
         if (enemyHealthText != null)
         {
-            enemyHealthText.text = $"{CombatManager.Instance.enemyCurrentHealth} / {enemy.maxHealth}";
+            enemyHealthText.text = $"HP: {enemyStats.Get(StatType.Health)} / {enemyStats.Get(StatType.MaxHealth)}";
         }
     }
 
     void UpdatePlayerHealth()
     {
         if (PlayerStats.Instance == null) return;
-
         int currentHealth = PlayerStats.Instance.Get(StatType.Health);
         int maxHealth = PlayerStats.Instance.Get(StatType.MaxHealth);
 
@@ -159,14 +159,13 @@ public class CombatUI : MonoBehaviour
 
         if (playerHealthText != null)
         {
-            playerHealthText.text = $"HP: {currentHealth}/{maxHealth}";
+            playerHealthText.text = $"HP: {currentHealth} / {maxHealth}";
         }
     }
 
     void UpdatePlayerEnergy()
     {
         if (PlayerStats.Instance == null) return;
-
         int currentEnergy = PlayerStats.Instance.Get(StatType.Energy);
         int maxEnergy = PlayerStats.Instance.Get(StatType.MaxEnergy);
 
@@ -178,7 +177,7 @@ public class CombatUI : MonoBehaviour
 
         if (playerEnergyText != null)
         {
-            playerEnergyText.text = $"Energy: {currentEnergy}/{maxEnergy}";
+            playerEnergyText.text = $"Energy: {currentEnergy} / {maxEnergy}";
         }
     }
 
@@ -189,10 +188,10 @@ public class CombatUI : MonoBehaviour
         {
             if (btn != null) Destroy(btn.gameObject);
         }
-        actionButtons.Clear();
 
-        // Create new buttons
+        actionButtons.Clear();
         var actions = CombatManager.Instance.GetAvailableActions();
+
         foreach (var action in actions)
         {
             var btn = Instantiate(actionButtonPrefab, actionsParent);
@@ -212,7 +211,7 @@ public class CombatUI : MonoBehaviour
         }
     }
 
-    void AddLogMessage(string message)
+    public void AddLogMessage(string message)
     {
         logLines.Add(message);
 
@@ -228,7 +227,6 @@ public class CombatUI : MonoBehaviour
     void UpdateLogDisplay()
     {
         if (combatLogText == null) return;
-
         combatLogText.text = string.Join("\n", logLines);
     }
 }

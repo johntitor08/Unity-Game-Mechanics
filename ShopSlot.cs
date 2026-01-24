@@ -1,11 +1,14 @@
 ﻿using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections;
+using System.Collections.Generic;
 
 public class ShopSlot : MonoBehaviour
 {
-    private static WaitForSeconds _waitForSeconds0_5 = new WaitForSeconds(0.5f);
-    private static WaitForSeconds _waitForSeconds0_1 = new WaitForSeconds(0.1f);
+    private static readonly WaitForSeconds waitForSeconds0_1 = new(0.1f);
+    private static readonly WaitForSeconds waitForSeconds0_5 = new(0.5f);
+
     [Header("Visual Elements")]
     public Image itemIcon;
     public Image background;
@@ -18,10 +21,11 @@ public class ShopSlot : MonoBehaviour
     public TextMeshProUGUI stockText;
     public TextMeshProUGUI rarityText;
     public TextMeshProUGUI requirementText;
+    public TextMeshProUGUI propertiesText;
 
     [Header("Stats Display")]
     public GameObject statsContainer;
-    public TextMeshProUGUI[] statTexts; // For displaying item stats
+    public TextMeshProUGUI[] statTexts;
 
     [Header("Interaction")]
     public Button buyButton;
@@ -29,7 +33,6 @@ public class ShopSlot : MonoBehaviour
 
     [Header("Locked State")]
     public GameObject lockedOverlay;
-    public TextMeshProUGUI lockReasonText;
 
     [Header("Visual Feedback")]
     public Color normalColor = Color.white;
@@ -54,162 +57,176 @@ public class ShopSlot : MonoBehaviour
     public void Setup(ShopItemData shopItem)
     {
         currentItem = shopItem;
-
-        // Basic info
-        if (itemIcon != null && shopItem.item.icon != null)
-            itemIcon.sprite = shopItem.item.icon;
-
-        if (itemNameText != null)
-            itemNameText.text = shopItem.item.itemName;
-
-        if (itemDescriptionText != null)
-            itemDescriptionText.text = shopItem.item.description;
-
-        if (priceText != null)
-            priceText.text = $"{shopItem.price}";
-
-        // Stock
-        int stock = ShopManager.Instance.GetStock(shopItem.item.itemID);
-        if (stockText != null)
-            stockText.text = stock == -1 ? "∞" : $"Stock: {stock}";
-
-        // Rarity
+        itemIcon.sprite = shopItem.item.icon;
+        itemNameText.text = shopItem.item.itemName;
+        itemDescriptionText.text = shopItem.item.description;
+        priceText.text = $"{shopItem.price}";
+        int stockAmount = ShopManager.Instance.GetStock(shopItem.item.itemID);
+        stockText.text = stockAmount == -1 ? "∞" : $"Stock: {stockAmount}";
         SetupRarity(shopItem.item);
-
-        // Requirements
         SetupRequirements(shopItem);
-
-        // Check if can buy
+        SetupStats(shopItem.item);
+        SetupProperties(shopItem.item);
         bool canBuy = ShopManager.Instance.CanBuy(shopItem);
-        bool hasEnoughGold = ProfileManager.Instance.profile.currency >= shopItem.price;
-
-        UpdateVisuals(canBuy, hasEnoughGold);
+        UpdateVisuals(shopItem, canBuy);
+        LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
     }
 
     void SetupRarity(ItemData item)
     {
-        // Assuming ItemData has a rarity field
-        // If not, you can skip this or add it to ItemData
-        if (rarityBadge != null && rarityText != null)
+        Rarity rarityEnum = item.rarity;
+        Color color;
+
+        if (item is EquipmentData equip)
         {
-            // Example: determine rarity based on item name or add rarity field
-            string rarity = "Common"; // Default
-            Color rarityColor = commonColor;
+            rarityEnum = (Rarity)equip.rarity; // cast for UI
+            color = equip.GetRarityColor();
+        }
+        else
+        {
+            color = rarityEnum switch
+            {
+                Rarity.Common => commonColor,
+                Rarity.Rare => rareColor,
+                Rarity.Epic => epicColor,
+                Rarity.Legendary => legendaryColor,
+                _ => commonColor
+            };
+        }
 
-            // You can add rarity logic here
-            // For now, just showing the setup
+        rarityText.text = rarityEnum.ToString();
+        rarityBadge.color = color;
+    }
 
-            rarityText.text = rarity;
-            rarityBadge.color = rarityColor;
+    void SetupStats(ItemData item)
+    {
+        if (statsContainer == null) return;
+
+        if (item is EquipmentData equip)
+        {
+            statsContainer.SetActive(true);
+            int shown = 0;
+
+            if (equip.damageBonus > 0 && shown < statTexts.Length) statTexts[shown++].text = $"Damage: +{equip.damageBonus}";
+            else if (shown < statTexts.Length) statTexts[shown++].text = "";
+
+            if (equip.defenseBonus > 0 && shown < statTexts.Length) statTexts[shown++].text = $"Defense: +{equip.defenseBonus}";
+            else if (shown < statTexts.Length) statTexts[shown++].text = "";
+
+            if (equip.primaryStatBonus > 0 && shown < statTexts.Length) statTexts[shown++].text = $"{equip.primaryStat}: +{equip.primaryStatBonus}";
+            else if (shown < statTexts.Length) statTexts[shown++].text = "";
+
+            if (equip.secondaryStatBonus > 0 && shown < statTexts.Length) statTexts[shown++].text = $"{equip.secondaryStat}: +{equip.secondaryStatBonus}";
+            else if (shown < statTexts.Length) statTexts[shown++].text = "";
+
+            // Hide unused stat texts
+            for (int i = shown; i < statTexts.Length; i++)
+                statTexts[i].text = "";
+        }
+        else
+        {
+            statsContainer.SetActive(false);
+        }
+    }
+
+    void SetupProperties(ItemData item)
+    {
+        if (propertiesText == null) return;
+
+        if (item is EquipmentData equip)
+        {
+            string props = $"Slot: {equip.slot}";
+
+            if (!string.IsNullOrEmpty(equip.setName))
+                props += $"\nSet: {equip.setName}";
+
+            propertiesText.gameObject.SetActive(true);
+            propertiesText.text = props;
+        }
+        else
+        {
+            propertiesText.gameObject.SetActive(false);
         }
     }
 
     void SetupRequirements(ShopItemData shopItem)
     {
-        if (requirementText == null) return;
+        List<string> unmet = new();
+        var profile = ProfileManager.Instance.profile;
 
-        string requirement = "";
+        if (profile.level < shopItem.requiredLevel)
+            unmet.Add($"Requires Level {shopItem.requiredLevel}");
 
-        if (shopItem.requiredLevel > 1)
-            requirement = $"Requires Level {shopItem.requiredLevel}";
+        if (shopItem.requiresFlag && !StoryFlags.Has(shopItem.requiredFlag))
+            unmet.Add("Story Progress Required");
 
-        if (shopItem.requiresFlag)
-            requirement += (requirement.Length > 0 ? "\n" : "") + "Special unlock required";
+        int stockAmount = ShopManager.Instance.GetStock(shopItem.item.itemID);
+        if (!shopItem.unlimitedStock && stockAmount <= 0)
+            unmet.Add("Out of Stock");
 
-        requirementText.text = requirement;
-        requirementText.gameObject.SetActive(requirement.Length > 0);
+        if (unmet.Count > 0)
+        {
+            requirementText.gameObject.SetActive(true);
+            requirementText.text = string.Join("\n", unmet);
+            requirementText.color = Color.red;
+        }
+        else
+        {
+            requirementText.gameObject.SetActive(false);
+        }
     }
 
-    void UpdateVisuals(bool canBuy, bool hasEnoughGold)
+    void UpdateVisuals(ShopItemData shopItem, bool canBuy)
     {
-        // Update button
-        if (buyButton != null)
-        {
-            buyButton.interactable = canBuy;
+        buyButton.interactable = canBuy;
 
-            if (buyButtonText != null)
-            {
-                if (!canBuy)
-                    buyButtonText.text = hasEnoughGold ? "LOCKED" : "TOO EXPENSIVE";
-                else
-                    buyButtonText.text = "BUY";
-            }
-        }
+        if (buyButtonText != null)
+            buyButtonText.text = canBuy ? "BUY" : "LOCKED";
 
-        // Update background color
-        if (background != null)
-        {
-            if (!canBuy)
-                background.color = lockedColor;
-            else if (hasEnoughGold)
-                background.color = canAffordColor * 0.3f; // Subtle tint
-            else
-                background.color = cannotAffordColor * 0.3f;
-        }
+        if (!canBuy)
+            background.color = lockedColor;
+        else if (ProfileManager.Instance.profile.currency >= shopItem.price)
+            background.color = canAffordColor * 0.3f;
+        else
+            background.color = cannotAffordColor * 0.3f;
 
-        // Show/hide locked overlay
         if (lockedOverlay != null)
-        {
-            bool isLocked = !canBuy && hasEnoughGold; // Locked due to requirements
-            lockedOverlay.SetActive(isLocked);
-
-            if (isLocked && lockReasonText != null)
-            {
-                if (ProfileManager.Instance.profile.level < currentItem.requiredLevel)
-                    lockReasonText.text = $"Level {currentItem.requiredLevel} Required";
-                else if (currentItem.requiresFlag)
-                    lockReasonText.text = "Story Progress Required";
-            }
-        }
-
-        // Update price text color
-        if (priceText != null)
-            priceText.color = hasEnoughGold ? Color.white : Color.red;
+            lockedOverlay.SetActive(!canBuy);
     }
 
     void OnBuyClicked()
     {
         if (ShopManager.Instance.BuyItem(currentItem))
         {
-            // Success feedback
             StartCoroutine(PurchaseFeedback());
             ShopUI.Instance.RefreshShop();
         }
         else
         {
-            // Failure feedback
             StartCoroutine(FailureFeedback());
         }
     }
 
-    System.Collections.IEnumerator PurchaseFeedback()
+    IEnumerator PurchaseFeedback()
     {
-        if (buyButtonText != null)
-        {
-            string originalText = buyButtonText.text;
-            buyButtonText.text = "PURCHASED!";
-            buyButtonText.color = Color.green;
-
-            yield return _waitForSeconds0_5;
-
-            buyButtonText.text = originalText;
-            buyButtonText.color = Color.white;
-        }
+        string originalText = buyButtonText.text;
+        buyButtonText.text = "PURCHASED!";
+        buyButtonText.color = Color.green;
+        yield return waitForSeconds0_5;
+        buyButtonText.text = originalText;
+        buyButtonText.color = Color.white;
     }
 
-    System.Collections.IEnumerator FailureFeedback()
+    IEnumerator FailureFeedback()
     {
-        if (background != null)
-        {
-            Color originalColor = background.color;
+        Color original = background.color;
 
-            for (int i = 0; i < 3; i++)
-            {
-                background.color = Color.red * 0.5f;
-                yield return _waitForSeconds0_1;
-                background.color = originalColor;
-                yield return _waitForSeconds0_1;
-            }
+        for (int i = 0; i < 3; i++)
+        {
+            background.color = Color.red * 0.5f;
+            yield return waitForSeconds0_1;
+            background.color = original;
+            yield return waitForSeconds0_1;
         }
     }
 }

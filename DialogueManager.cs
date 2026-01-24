@@ -339,6 +339,7 @@ public class DialogueManager : MonoBehaviour
             {
                 currentNode.onExit.Invoke();
             }
+
             currentNode = choice.nextNode;
             currentLineIndex = 0;
             isShowingChoices = false;

@@ -5,7 +5,9 @@ using System.Collections;
 
 public class GameStartNameInput : MonoBehaviour
 {
-    private static WaitForSeconds _waitForSeconds0_5 = new WaitForSeconds(0.5f);
+    private static readonly WaitForSeconds _waitForSeconds1 = new(1f);
+    private static readonly WaitForSeconds _waitForSeconds1_5 = new(1.5f);
+    private static readonly WaitForSeconds _waitForSeconds0_5 = new(0.5f);
     public static GameStartNameInput Instance;
 
     [Header("Panels")]
@@ -303,6 +305,9 @@ public class GameStartNameInput : MonoBehaviour
             return;
         }
 
+        confirmButton.gameObject.SetActive(false);
+        randomNameButton.gameObject.SetActive(false);
+
         // Save name and start game
         StartGame(playerName);
         PlaySound(confirmSound);
@@ -350,7 +355,7 @@ public class GameStartNameInput : MonoBehaviour
         {
             welcomeText.text = "";
             yield return StartCoroutine(TypewriterEffect(welcomeText, welcomeMessage, typewriterSpeed));
-            yield return new WaitForSeconds(1.5f);
+            yield return _waitForSeconds1_5;
         }
 
         CompleteStart();
@@ -372,7 +377,7 @@ public class GameStartNameInput : MonoBehaviour
 
     IEnumerator WaitForAnimation()
     {
-        yield return new WaitForSeconds(1f);
+        yield return _waitForSeconds1;
         FinalizeStart();
     }
 
@@ -404,9 +409,6 @@ public class GameStartNameInput : MonoBehaviour
         {
             DialogueManager.Instance.StartDialogue(DialogueManager.Instance.startNodeForButton);
         }
-
-        // Show tutorial or first scene
-        Debug.Log("Game started!");
     }
 
     void ShowError(string message)

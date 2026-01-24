@@ -12,19 +12,19 @@ public class MarketController : MonoBehaviour
     public bool openDuringEvening = false;
     public bool openDuringNight = false;
 
+    public static MarketController Instance;
+
+    void Awake() => Instance = this;
+
     void Start()
     {
-        if (TimePhaseManager.Instance != null)
-        {
-            TimePhaseManager.Instance.OnPhaseChanged += OnPhaseChanged;
-            OnPhaseChanged(TimePhaseManager.Instance.currentPhase);
-        }
+        TimePhaseManager.Instance.OnPhaseChanged += OnPhaseChanged;
+        OnPhaseChanged(TimePhaseManager.Instance.currentPhase);
     }
 
     void OnDestroy()
     {
-        if (TimePhaseManager.Instance != null)
-            TimePhaseManager.Instance.OnPhaseChanged -= OnPhaseChanged;
+        TimePhaseManager.Instance.OnPhaseChanged -= OnPhaseChanged;
     }
 
     void OnPhaseChanged(TimePhase phase)
@@ -38,10 +38,21 @@ public class MarketController : MonoBehaviour
             _ => false
         };
 
-        if (marketOpenUI != null)
-            marketOpenUI.SetActive(isOpen);
+        marketOpenUI.SetActive(isOpen);
+        marketClosedUI.SetActive(!isOpen);
+    }
 
-        if (marketClosedUI != null)
-            marketClosedUI.SetActive(!isOpen);
+    public bool IsOpen()
+    {
+        TimePhase phase = TimePhaseManager.Instance.currentPhase;
+
+        return phase switch
+        {
+            TimePhase.Morning => openDuringMorning,
+            TimePhase.Noon => openDuringNoon,
+            TimePhase.Evening => openDuringEvening,
+            TimePhase.Night => openDuringNight,
+            _ => false
+        };
     }
 }

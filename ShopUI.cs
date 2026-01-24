@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 public class ShopUI : MonoBehaviour
 {
@@ -26,114 +27,78 @@ public class ShopUI : MonoBehaviour
     [Header("Scroll Settings")]
     public ScrollRect scrollRect;
 
-    private System.Collections.Generic.List<ShopSlot> slots = new();
+    private readonly List<ShopSlot> slots = new();
 
     void Awake()
     {
-        if (Instance == null)
-            Instance = this;
-        else
-            Destroy(gameObject);
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
     }
 
     void Start()
     {
-        // Subscribe to events
-        if (ProfileManager.Instance != null)
-            ProfileManager.Instance.OnCurrencyChanged += UpdateCurrency;
-
-        if (TimePhaseManager.Instance != null)
-            TimePhaseManager.Instance.OnPhaseChanged += UpdateMarketStatus;
-
-        // Setup buttons
-        if (closeButton != null)
-            closeButton.onClick.AddListener(CloseShop);
-
-        if (refreshButton != null)
-            refreshButton.onClick.AddListener(RefreshShop);
-
-        // Initial setup
-        shopPanel?.SetActive(false);
+        ProfileManager.Instance.OnCurrencyChanged += UpdateCurrency;
+        if (closeButton != null) closeButton.onClick.AddListener(CloseShop);
+        if (refreshButton != null) refreshButton.onClick.AddListener(RefreshShop);
+        shopPanel.SetActive(false);
         RefreshShop();
         UpdateCurrency();
-        UpdateMarketStatus(TimePhaseManager.Instance?.currentPhase ?? TimePhase.Morning);
+        UpdateMarketStatus();
     }
 
     public void OpenShop()
     {
-        // Check if market is open
-        if (IsMarketClosed())
+        if (!MarketController.Instance.IsOpen())
         {
-            if (marketClosedPanel != null)
-                marketClosedPanel.SetActive(true);
+            marketClosedPanel.SetActive(true);
             return;
         }
 
-        shopPanel?.SetActive(true);
+        shopPanel.SetActive(true);
         RefreshShop();
         UpdateCurrency();
     }
 
     public void CloseShop()
     {
-        shopPanel?.SetActive(false);
-        marketClosedPanel?.SetActive(false);
-    }
-
-    bool IsMarketClosed()
-    {
-        if (TimePhaseManager.Instance == null) return false;
-
-        TimePhase phase = TimePhaseManager.Instance.currentPhase;
-        // You can customize this based on your MarketController settings
-        return phase == TimePhase.Evening || phase == TimePhase.Night;
+        shopPanel.SetActive(false);
+        marketClosedPanel.SetActive(false);
     }
 
     public void RefreshShop()
     {
         if (ShopManager.Instance == null) return;
-
         int index = 0;
+
+        foreach (ShopSlot slot in slots) {
+            slot.gameObject.SetActive(false);
+        }
+
         foreach (var shopItem in ShopManager.Instance.shopItems)
         {
             if (index >= slots.Count)
-            {
-                var slot = Instantiate(shopSlotPrefab, shopContent);
-                slots.Add(slot);
-            }
+                slots.Add(Instantiate(shopSlotPrefab, shopContent));
 
             slots[index].Setup(shopItem);
             slots[index].gameObject.SetActive(true);
             index++;
         }
 
-        // Hide unused slots
         for (int i = index; i < slots.Count; i++)
             slots[i].gameObject.SetActive(false);
 
-        // Scroll to top
-        if (scrollRect != null)
-            scrollRect.verticalNormalizedPosition = 1f;
+        scrollRect.verticalNormalizedPosition = 1f;
     }
 
     void UpdateCurrency()
     {
-        if (ProfileManager.Instance != null && currencyText != null)
-        {
-            int currency = ProfileManager.Instance.profile.currency;
-            currencyText.text = $"{currency} Gold";
-        }
+        currencyText.text = $"{ProfileManager.Instance.profile.currency} Gold";
     }
 
-    void UpdateMarketStatus(TimePhase phase)
+    public void UpdateMarketStatus()
     {
-        if (marketStatusText == null) return;
-
-        bool isOpen = phase == TimePhase.Morning || phase == TimePhase.Noon;
-        string status = isOpen ? "Market Open" : "Market Closed";
-        string timeString = phase.ToString();
-
-        marketStatusText.text = $"{status} - {timeString}";
+        bool isOpen = MarketController.Instance?.IsOpen() ?? true;
+        marketStatusText.text = isOpen ? "Market Open" : "Market Closed";
         marketStatusText.color = isOpen ? Color.green : Color.red;
     }
 }

@@ -1,29 +1,20 @@
 using UnityEngine;
 using System;
 
+[System.Serializable]
 public class DailyCurrencyReward : MonoBehaviour
 {
     [Header("Daily Reward")]
     public CurrencyType rewardType = CurrencyType.Gold;
     public int baseRewardAmount = 100;
-    public int streakBonus = 50; // Bonus per consecutive day
+    public int streakBonus = 50;
 
     private DateTime lastClaimDate;
     private int currentStreak = 0;
 
-    void Start()
-    {
-        LoadLastClaimDate();
-    }
+    void Start() => LoadLastClaimDate();
 
-    public bool CanClaim()
-    {
-        if (lastClaimDate == DateTime.MinValue)
-            return true;
-
-        TimeSpan timeSinceClaim = DateTime.Now - lastClaimDate;
-        return timeSinceClaim.TotalHours >= 24;
-    }
+    public bool CanClaim() => lastClaimDate == DateTime.MinValue || (DateTime.Now - lastClaimDate).TotalHours >= 24;
 
     public void ClaimDailyReward()
     {
@@ -33,30 +24,22 @@ public class DailyCurrencyReward : MonoBehaviour
             return;
         }
 
-        // Check if streak continues
         TimeSpan timeSinceClaim = DateTime.Now - lastClaimDate;
-        if (timeSinceClaim.TotalHours >= 24 && timeSinceClaim.TotalHours < 48)
-        {
-            currentStreak++;
-        }
-        else
-        {
-            currentStreak = 1; // Reset streak
-        }
-
-        // Calculate reward
+        currentStreak = (timeSinceClaim.TotalHours >= 24 && timeSinceClaim.TotalHours < 48) ? currentStreak + 1 : 1;
         int totalReward = baseRewardAmount + (streakBonus * (currentStreak - 1));
 
-        // Grant reward
         if (CurrencyManager.Instance != null)
         {
-            CurrencyManager.Instance.Add(rewardType, totalReward);
+            CurrencyManager.Instance.AddMultiple(
+                new System.Collections.Generic.Dictionary<CurrencyType, int>
+                {
+                    { rewardType, totalReward }
+                }
+            );
         }
 
-        // Update last claim
         lastClaimDate = DateTime.Now;
         SaveLastClaimDate();
-
         Debug.Log($"Daily reward claimed! {totalReward} {rewardType} (Streak: {currentStreak})");
     }
 
@@ -70,20 +53,14 @@ public class DailyCurrencyReward : MonoBehaviour
     void LoadLastClaimDate()
     {
         string saved = PlayerPrefs.GetString("LastDailyRewardClaim", "");
+
         if (!string.IsNullOrEmpty(saved))
-        {
             DateTime.TryParse(saved, out lastClaimDate);
-        }
 
         currentStreak = PlayerPrefs.GetInt("DailyRewardStreak", 0);
     }
 
     public int GetCurrentStreak() => currentStreak;
-    public TimeSpan GetTimeUntilNextReward()
-    {
-        if (CanClaim()) return TimeSpan.Zero;
 
-        TimeSpan timeSinceClaim = DateTime.Now - lastClaimDate;
-        return TimeSpan.FromHours(24) - timeSinceClaim;
-    }
+    public TimeSpan GetTimeUntilNextReward() => CanClaim() ? TimeSpan.Zero : TimeSpan.FromHours(24) - (DateTime.Now - lastClaimDate);
 }

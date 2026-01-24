@@ -54,10 +54,13 @@ public class EquipmentUI : MonoBehaviour
                 kvp.Value.Setup(kvp.Key);
         }
 
+        // Listen to equipment changes
         if (EquipmentManager.Instance != null)
-        {
             EquipmentManager.Instance.OnEquipmentChanged += RefreshUI;
-        }
+
+        // Listen to combat updates
+        if (CombatManager.Instance != null)
+            CombatManager.Instance.OnCombatStateChanged += RefreshCombatStats;
 
         equipmentPanel.SetActive(false);
         RefreshUI();
@@ -66,9 +69,10 @@ public class EquipmentUI : MonoBehaviour
     void OnDestroy()
     {
         if (EquipmentManager.Instance != null)
-        {
             EquipmentManager.Instance.OnEquipmentChanged -= RefreshUI;
-        }
+
+        if (CombatManager.Instance != null)
+            CombatManager.Instance.OnCombatStateChanged -= RefreshCombatStats;
     }
 
     void Update()
@@ -81,27 +85,42 @@ public class EquipmentUI : MonoBehaviour
         }
     }
 
-    void RefreshUI()
+    // Refresh UI outside of combat
+    public void RefreshUI()
     {
-        // Refresh all slots
+        if (EquipmentManager.Instance == null) return;
+        RefreshSlots();
+        RefreshStats();
+        RefreshSetBonuses();
+    }
+
+    // Refresh UI stats during combat
+    public void RefreshCombatStats()
+    {
+        if (EquipmentManager.Instance == null) return;
+        RefreshStats();
+        RefreshSetBonuses();
+    }
+
+    void RefreshSlots()
+    {
         foreach (var slotUI in slotUIMap.Values)
         {
             if (slotUI != null)
                 slotUI.Refresh();
         }
+    }
 
-        // Update total stats
+    void RefreshStats()
+    {
         if (totalDamageText != null)
             totalDamageText.text = "Total Damage: +" + EquipmentManager.Instance.GetTotalDamageBonus();
 
         if (totalDefenseText != null)
             totalDefenseText.text = "Total Defense: +" + EquipmentManager.Instance.GetTotalDefenseBonus();
-
-        // Update set bonuses
-        UpdateSetBonuses();
     }
 
-    void UpdateSetBonuses()
+    void RefreshSetBonuses()
     {
         // Clear existing texts
         foreach (var text in setBonusTexts)
@@ -109,11 +128,9 @@ public class EquipmentUI : MonoBehaviour
             if (text != null)
                 Destroy(text.gameObject);
         }
+
         setBonusTexts.Clear();
-
         if (setBonusesParent == null || setBonusTextPrefab == null) return;
-
-        // Get active set bonuses
         var bonuses = EquipmentManager.Instance.GetActiveSetBonusDescriptions();
 
         foreach (var bonus in bonuses)

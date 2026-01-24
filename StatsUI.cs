@@ -75,45 +75,46 @@ public class StatsUI : MonoBehaviour
     void OnStatChanged(StatType type, int oldValue, int newValue)
     {
         // Update specific stat display
+        int displayValue = PlayerStats.Instance != null ? PlayerStats.Instance.Get(type) : 0;
+
         switch (type)
         {
             case StatType.Strength:
                 if (strengthText != null)
-                    strengthText.text = $"Strength: {newValue}";
+                    strengthText.text = $"Strength: {displayValue}";
                 break;
             case StatType.Intelligence:
                 if (intelligenceText != null)
-                    intelligenceText.text = $"Intelligence: {newValue}";
+                    intelligenceText.text = $"Intelligence: {displayValue}";
                 break;
             case StatType.Charisma:
                 if (charismaText != null)
-                    charismaText.text = $"Charisma: {newValue}";
+                    charismaText.text = $"Charisma: {displayValue}";
                 break;
             case StatType.Defense:
                 if (defenseText != null)
-                    defenseText.text = $"Defense: {newValue}";
+                    defenseText.text = $"Defense: {displayValue}";
                 break;
             case StatType.Speed:
                 if (speedText != null)
-                    speedText.text = $"Speed: {newValue}";
+                    speedText.text = $"Speed: {displayValue}";
                 break;
             case StatType.Luck:
                 if (luckText != null)
-                    luckText.text = $"Luck: {newValue}";
+                    luckText.text = $"Luck: {displayValue}";
                 break;
         }
 
         // Animate the change
         if (type != StatType.Health && type != StatType.Energy)
         {
-            AnimateStatChange(type, oldValue, newValue);
+            AnimateStatChange(type);
         }
     }
 
     void UpdateHealthBar()
     {
         if (PlayerStats.Instance == null) return;
-
         int currentHealth = PlayerStats.Instance.Get(StatType.Health);
         int maxHealth = PlayerStats.Instance.Get(StatType.MaxHealth);
         float percentage = PlayerStats.Instance.GetHealthPercentage();
@@ -125,10 +126,13 @@ public class StatsUI : MonoBehaviour
             healthBar.value = currentHealth;
         }
 
+        if (currentHealth > maxHealth)
+            currentHealth = maxHealth;
+
         // Update text
         if (healthText != null)
         {
-            healthText.text = $"{currentHealth} / {maxHealth}";
+            healthText.text = $"Health: {currentHealth} / {maxHealth}";
         }
 
         // Update color based on percentage
@@ -146,7 +150,6 @@ public class StatsUI : MonoBehaviour
     void UpdateEnergyBar()
     {
         if (PlayerStats.Instance == null) return;
-
         int currentEnergy = PlayerStats.Instance.Get(StatType.Energy);
         int maxEnergy = PlayerStats.Instance.Get(StatType.MaxEnergy);
 
@@ -157,10 +160,13 @@ public class StatsUI : MonoBehaviour
             energyBar.value = currentEnergy;
         }
 
+        if (currentEnergy > maxEnergy)
+            currentEnergy = maxEnergy;
+
         // Update text
         if (energyText != null)
         {
-            energyText.text = $"{currentEnergy} / {maxEnergy}";
+            energyText.text = $"Energy: {currentEnergy} / {maxEnergy}";
         }
 
         // Update color
@@ -174,7 +180,6 @@ public class StatsUI : MonoBehaviour
     {
         UpdateHealthBar();
         UpdateEnergyBar();
-
         if (PlayerStats.Instance == null) return;
 
         if (strengthText != null)
@@ -191,7 +196,7 @@ public class StatsUI : MonoBehaviour
             luckText.text = $"Luck: {PlayerStats.Instance.Get(StatType.Luck)}";
     }
 
-    void AnimateStatChange(StatType type, int oldValue, int newValue)
+    void AnimateStatChange(StatType type)
     {
         // Simple pulse animation on stat change
         TextMeshProUGUI targetText = type switch

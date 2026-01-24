@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "EquipmentData", menuName = "Scriptable Objects/EquipmentData")]
+[CreateAssetMenu(fileName = "EquipmentData", menuName = "Equipment/EquipmentData")]
 public class EquipmentData : ItemData
 {
     [Header("Equipment Properties")]
@@ -21,8 +21,8 @@ public class EquipmentData : ItemData
     public StatType requiredStat;
     public int requiredStatValue = 0;
 
-    [Header("Rarity")]
-    public EquipmentRarity rarity = EquipmentRarity.Common;
+    [Header("Equipment Rarity Mapping")]
+    public EquipmentRarity equipmentRarity = EquipmentRarity.Common;
 
     [Header("Set Bonus")]
     public string setName = "";
@@ -49,7 +49,7 @@ public class EquipmentData : ItemData
 
     public Color GetRarityColor()
     {
-        return rarity switch
+        return equipmentRarity switch
         {
             EquipmentRarity.Common => new Color(0.8f, 0.8f, 0.8f), // Gray
             EquipmentRarity.Uncommon => new Color(0.2f, 0.8f, 0.2f), // Green

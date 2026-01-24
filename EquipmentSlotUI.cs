@@ -1,8 +1,9 @@
 using UnityEngine;
-using TMPro;
 using UnityEngine.UI;
+using TMPro;
+using UnityEngine.EventSystems;
 
-public class EquipmentSlotUI : MonoBehaviour
+public class EquipmentSlotUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
     [Header("UI Elements")]
     public Image iconImage;
@@ -10,8 +11,8 @@ public class EquipmentSlotUI : MonoBehaviour
     public GameObject emptyIndicator;
     public TextMeshProUGUI slotNameText;
     public Image rarityBorder;
-
-    private EquipmentSlot slot;
+    public EquipmentSlot slot;
+    private EquipmentData currentItem;
 
     public void Setup(EquipmentSlot equipmentSlot)
     {
@@ -21,21 +22,24 @@ public class EquipmentSlotUI : MonoBehaviour
             slotNameText.text = slot.ToString();
 
         if (slotButton != null)
+        {
+            slotButton.onClick.RemoveAllListeners();
             slotButton.onClick.AddListener(OnSlotClicked);
+        }
 
         Refresh();
     }
 
     public void Refresh()
     {
-        var equipped = EquipmentManager.Instance.GetEquipped(slot);
+        currentItem = EquipmentManager.Instance.GetEquipped(slot);
 
-        if (equipped != null)
+        if (currentItem != null)
         {
             // Show equipped item
             if (iconImage != null)
             {
-                iconImage.sprite = equipped.icon;
+                iconImage.sprite = currentItem.icon;
                 iconImage.enabled = true;
             }
 
@@ -44,7 +48,7 @@ public class EquipmentSlotUI : MonoBehaviour
 
             if (rarityBorder != null)
             {
-                rarityBorder.color = equipped.GetRarityColor();
+                rarityBorder.color = currentItem.GetRarityColor();
                 rarityBorder.enabled = true;
             }
         }
@@ -64,16 +68,27 @@ public class EquipmentSlotUI : MonoBehaviour
 
     void OnSlotClicked()
     {
-        var equipped = EquipmentManager.Instance.GetEquipped(slot);
-
-        if (equipped != null)
+        if (currentItem != null)
         {
-            EquipmentDetailPanel.Instance.Show(equipped, slot);
+            if (EquipmentDetailPanel.Instance != null)
+                EquipmentDetailPanel.Instance.Show(currentItem, slot);
         }
         else
         {
             Debug.Log($"No {slot} equipped. Open inventory to equip.");
-            // Could open inventory filtered to this slot type
         }
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (currentItem != null && EquipmentTooltip.Instance != null)
+        {
+            EquipmentTooltip.Instance.Show(currentItem);
+        }
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        EquipmentTooltip.Instance?.Hide();
     }
 }

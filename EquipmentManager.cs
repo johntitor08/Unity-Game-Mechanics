@@ -10,7 +10,6 @@ public class EquipmentManager : MonoBehaviour
     public EquipmentSetBonus[] equipmentSets;
 
     private readonly Dictionary<EquipmentSlot, EquipmentData> equippedItems = new();
-
     public event Action OnEquipmentChanged;
     public event Action<EquipmentData> OnEquipmentEquipped;
     public event Action<EquipmentData> OnEquipmentUnequipped;
@@ -28,24 +27,21 @@ public class EquipmentManager : MonoBehaviour
         }
     }
 
+    // Kontroller: level ve stat
     public bool CanEquip(EquipmentData equipment)
     {
         if (equipment == null) return false;
 
-        // Check level requirement
-        if (ProfileManager.Instance != null)
+        if (ProfileManager.Instance != null && ProfileManager.Instance.profile.level < equipment.requiredLevel)
         {
-            if (ProfileManager.Instance.profile.level < equipment.requiredLevel)
-            {
-                Debug.Log($"Level {equipment.requiredLevel} required!");
-                return false;
-            }
+            Debug.Log($"Level {equipment.requiredLevel} required!");
+            return false;
         }
 
-        // Check stat requirement
         if (equipment.requiredStatValue > 0 && PlayerStats.Instance != null)
         {
             int currentStat = PlayerStats.Instance.Get(equipment.requiredStat);
+
             if (currentStat < equipment.requiredStatValue)
             {
                 Debug.Log($"{equipment.requiredStat} {equipment.requiredStatValue} required!");
@@ -61,19 +57,15 @@ public class EquipmentManager : MonoBehaviour
         if (!CanEquip(equipment))
             return false;
 
-        // Unequip current item in slot
         if (equippedItems.ContainsKey(equipment.slot))
         {
             Unequip(equipment.slot, false);
         }
 
-        // Equip new item
         equippedItems[equipment.slot] = equipment;
         ApplyEquipmentStats(equipment, true);
-
         OnEquipmentEquipped?.Invoke(equipment);
         OnEquipmentChanged?.Invoke();
-
         Debug.Log($"Equipped: {equipment.itemName}");
         SaveSystem.SaveGame();
         return true;
@@ -87,10 +79,8 @@ public class EquipmentManager : MonoBehaviour
         EquipmentData equipment = equippedItems[slot];
         ApplyEquipmentStats(equipment, false);
         equippedItems.Remove(slot);
-
         OnEquipmentUnequipped?.Invoke(equipment);
         OnEquipmentChanged?.Invoke();
-
         Debug.Log($"Unequipped: {equipment.itemName}");
 
         if (save)
@@ -102,26 +92,13 @@ public class EquipmentManager : MonoBehaviour
     void ApplyEquipmentStats(EquipmentData equipment, bool apply)
     {
         if (PlayerStats.Instance == null) return;
-
         int multiplier = apply ? 1 : -1;
 
-        // Apply primary stat
         if (equipment.primaryStatBonus > 0)
-        {
-            PlayerStats.Instance.Modify(equipment.primaryStat,
-                equipment.primaryStatBonus * multiplier, false);
-        }
+            PlayerStats.Instance.Modify(equipment.primaryStat, equipment.primaryStatBonus * multiplier, false);
 
-        // Apply secondary stat
         if (equipment.secondaryStatBonus > 0)
-        {
-            PlayerStats.Instance.Modify(equipment.secondaryStat,
-                equipment.secondaryStatBonus * multiplier, false);
-        }
-
-        // Save after all stat changes
-        if (apply)
-            SaveSystem.SaveGame();
+            PlayerStats.Instance.Modify(equipment.secondaryStat, equipment.secondaryStatBonus * multiplier, false);
     }
 
     public EquipmentData GetEquipped(EquipmentSlot slot)
@@ -138,24 +115,22 @@ public class EquipmentManager : MonoBehaviour
     public int GetTotalDamageBonus()
     {
         int total = 0;
-        foreach (var equipment in equippedItems.Values)
-        {
-            total += equipment.damageBonus;
-        }
+
+        foreach (var eq in equippedItems.Values)
+            total += eq.damageBonus;
+
+        total += GetActiveSetBonuses();
         return total;
     }
 
     public int GetTotalDefenseBonus()
     {
         int total = 0;
-        foreach (var equipment in equippedItems.Values)
-        {
-            total += equipment.defenseBonus;
-        }
 
-        // Add set bonuses
+        foreach (var eq in equippedItems.Values)
+            total += eq.defenseBonus;
+
         total += GetActiveSetBonuses();
-
         return total;
     }
 
@@ -167,18 +142,19 @@ public class EquipmentManager : MonoBehaviour
     public int GetEquippedSetPieces(int setID)
     {
         int count = 0;
-        foreach (var equipment in equippedItems.Values)
+
+        foreach (var eq in equippedItems.Values)
         {
-            if (equipment.setID == setID && setID > 0)
+            if (eq.setID == setID && setID > 0)
                 count++;
         }
+
         return count;
     }
 
     public int GetActiveSetBonuses()
     {
         int totalBonus = 0;
-
         if (equipmentSets == null) return 0;
 
         foreach (var set in equipmentSets)
@@ -193,12 +169,12 @@ public class EquipmentManager : MonoBehaviour
     public List<string> GetActiveSetBonusDescriptions()
     {
         List<string> descriptions = new();
-
         if (equipmentSets == null) return descriptions;
 
         foreach (var set in equipmentSets)
         {
             int equipped = GetEquippedSetPieces(set.setID);
+
             if (equipped >= 2)
             {
                 descriptions.Add($"{set.setName} ({equipped}/{set.totalPieces})");

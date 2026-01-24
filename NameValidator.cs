@@ -39,7 +39,7 @@ public class NameValidator
         // Capitalize first letter
         if (name.Length > 0)
         {
-            name = char.ToUpper(name[0]) + name.Substring(1);
+            name = char.ToUpper(name[0]) + name[1..];
         }
 
         return name;

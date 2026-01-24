@@ -6,12 +6,12 @@ public class CurrencyManager : MonoBehaviour
 {
     public static CurrencyManager Instance;
 
-    [System.Serializable]
+    [Serializable]
     public class Currency
     {
         public CurrencyType type;
         public int amount = 0;
-        public int maxAmount = 999999;
+        public int maxAmount = 999_999;
         public Sprite icon;
         public Color displayColor = Color.yellow;
 
@@ -23,7 +23,7 @@ public class CurrencyManager : MonoBehaviour
     }
 
     [Header("Currency Configuration")]
-    public List<Currency> currencies = new List<Currency>
+    public List<Currency> currencies = new()
     {
         new Currency(CurrencyType.Gold, 100),
         new Currency(CurrencyType.Gems, 0),
@@ -36,11 +36,10 @@ public class CurrencyManager : MonoBehaviour
     public AudioClip purchaseSound;
     public AudioClip insufficientFundsSound;
 
-    private Dictionary<CurrencyType, Currency> currencyDict = new();
-
-    public event Action<CurrencyType, int, int> OnCurrencyChanged; // (type, oldAmount, newAmount)
-    public event Action<CurrencyType, int> OnCurrencyAdded; // (type, amount)
-    public event Action<CurrencyType, int> OnCurrencySpent; // (type, amount)
+    private readonly Dictionary<CurrencyType, Currency> currencyDict = new();
+    public event Action<CurrencyType, int, int> OnCurrencyChanged;
+    public event Action<CurrencyType, int> OnCurrencyAdded;
+    public event Action<CurrencyType, int> OnCurrencySpent;
     public event Action<CurrencyType> OnInsufficientFunds;
 
     void Awake()
@@ -59,7 +58,7 @@ public class CurrencyManager : MonoBehaviour
         InitializeCurrencies();
     }
 
-    void InitializeCurrencies()
+    private void InitializeCurrencies()
     {
         currencyDict.Clear();
 
@@ -80,84 +79,100 @@ public class CurrencyManager : MonoBehaviour
         return currencyDict[type].amount;
     }
 
-    public bool Has(CurrencyType type, int amount)
-    {
-        return Get(type) >= amount;
-    }
+    public bool Has(CurrencyType type, int amount) => Get(type) >= amount;
 
-    public void Add(CurrencyType type, int amount, bool showNotification = true)
-    {
-        if (amount <= 0) return;
+    public Currency GetCurrencyInfo(CurrencyType type) => currencyDict.ContainsKey(type) ? currencyDict[type] : null;
 
-        if (!currencyDict.ContainsKey(type))
+    public Dictionary<CurrencyType, int> GetAllCurrencies()
+    {
+        var result = new Dictionary<CurrencyType, int>();
+
+        foreach (var currency in currencies)
         {
-            Debug.LogWarning($"Currency type {type} not found!");
-            return;
+            result[currency.type] = currency.amount;
         }
 
-        Currency currency = currencyDict[type];
-        int oldAmount = currency.amount;
-        currency.amount = Mathf.Min(currency.amount + amount, currency.maxAmount);
-        int actualAdded = currency.amount - oldAmount;
+        return result;
+    }
 
-        if (actualAdded > 0)
+    public void AddMultiple(Dictionary<CurrencyType, int> amounts, bool showNotification = true)
+    {
+        if (amounts == null || amounts.Count == 0) return;
+        var actualChanges = new Dictionary<CurrencyType, int>();
+
+        foreach (var kvp in amounts)
         {
-            OnCurrencyAdded?.Invoke(type, actualAdded);
-            OnCurrencyChanged?.Invoke(type, oldAmount, currency.amount);
+            if (!currencyDict.ContainsKey(kvp.Key) || kvp.Value <= 0) continue;
+            var currency = currencyDict[kvp.Key];
+            int oldAmount = currency.amount;
+            currency.amount = Mathf.Min(currency.amount + kvp.Value, currency.maxAmount);
+            int actualAdded = currency.amount - oldAmount;
 
-            if (showNotification)
+            if (actualAdded > 0)
             {
-                ShowCurrencyNotification(type, actualAdded, true);
+                actualChanges[kvp.Key] = actualAdded;
+                OnCurrencyAdded?.Invoke(kvp.Key, actualAdded);
+                OnCurrencyChanged?.Invoke(kvp.Key, oldAmount, currency.amount);
+            }
+        }
+
+        if (actualChanges.Count > 0)
+        {
+            if (showNotification && CurrencyNotificationUI.Instance != null)
+                CurrencyNotificationUI.Instance.Show(actualChanges);
+
+            foreach (var kvp in actualChanges)
+            {
+                if (showNotification)
+                    ShowCurrencyNotification(kvp.Key, kvp.Value, true);
             }
 
             PlaySound(coinSound);
             SaveSystem.SaveGame();
-
-            Debug.Log($"Added {actualAdded} {type}. Total: {currency.amount}");
         }
     }
 
-    public bool Spend(CurrencyType type, int amount, bool showNotification = true)
+    public bool SpendMultiple(Dictionary<CurrencyType, int> amounts, bool showNotification = true)
     {
-        if (amount <= 0) return false;
+        if (amounts == null || amounts.Count == 0) return false;
 
-        if (!currencyDict.ContainsKey(type))
+        // Ensure all currencies are available
+        foreach (var kvp in amounts)
         {
-            Debug.LogWarning($"Currency type {type} not found!");
-            return false;
-        }
-
-        Currency currency = currencyDict[type];
-
-        if (currency.amount < amount)
-        {
-            OnInsufficientFunds?.Invoke(type);
-            PlaySound(insufficientFundsSound);
-
-            if (showNotification)
+            if (!Has(kvp.Key, kvp.Value))
             {
-                ShowInsufficientFundsNotification(type, amount);
+                OnInsufficientFunds?.Invoke(kvp.Key);
+                if (showNotification) ShowInsufficientFundsNotification(kvp.Key, kvp.Value);
+                PlaySound(insufficientFundsSound);
+                Debug.Log($"Insufficient {kvp.Key} for multi-currency transaction!");
+                return false;
             }
-
-            Debug.Log($"Insufficient {type}! Need {amount}, have {currency.amount}");
-            return false;
         }
 
-        int oldAmount = currency.amount;
-        currency.amount -= amount;
+        var actualChanges = new Dictionary<CurrencyType, int>();
 
-        OnCurrencySpent?.Invoke(type, amount);
-        OnCurrencyChanged?.Invoke(type, oldAmount, currency.amount);
-
-        if (showNotification)
+        // Deduct
+        foreach (var kvp in amounts)
         {
-            ShowCurrencyNotification(type, amount, false);
+            var currency = currencyDict[kvp.Key];
+            int oldAmount = currency.amount;
+            currency.amount -= kvp.Value;
+            actualChanges[kvp.Key] = -kvp.Value;
+            OnCurrencySpent?.Invoke(kvp.Key, kvp.Value);
+            OnCurrencyChanged?.Invoke(kvp.Key, oldAmount, currency.amount);
+        }
+
+        if (showNotification && CurrencyNotificationUI.Instance != null)
+            CurrencyNotificationUI.Instance.Show(actualChanges);
+
+        foreach (var kvp in actualChanges)
+        {
+            if (showNotification)
+                ShowCurrencyNotification(kvp.Key, Mathf.Abs(kvp.Value), false);
         }
 
         PlaySound(purchaseSound);
         SaveSystem.SaveGame();
-
-        Debug.Log($"Spent {amount} {type}. Remaining: {currency.amount}");
         return true;
     }
 
@@ -169,7 +184,7 @@ public class CurrencyManager : MonoBehaviour
             return;
         }
 
-        Currency currency = currencyDict[type];
+        var currency = currencyDict[type];
         int oldAmount = currency.amount;
         currency.amount = Mathf.Clamp(amount, 0, currency.maxAmount);
 
@@ -180,63 +195,64 @@ public class CurrencyManager : MonoBehaviour
         }
     }
 
-    public Currency GetCurrencyInfo(CurrencyType type)
-    {
-        return currencyDict.ContainsKey(type) ? currencyDict[type] : null;
-    }
-
-    public Dictionary<CurrencyType, int> GetAllCurrencies()
-    {
-        Dictionary<CurrencyType, int> result = new();
-        foreach (var currency in currencies)
-        {
-            result[currency.type] = currency.amount;
-        }
-        return result;
-    }
-
-    void ShowCurrencyNotification(CurrencyType type, int amount, bool isGain)
+    private void ShowCurrencyNotification(CurrencyType type, int amount, bool isGain)
     {
         if (CurrencyNotificationUI.Instance != null)
         {
-            string prefix = isGain ? "+" : "-";
-            CurrencyNotificationUI.Instance.Show($"{prefix}{amount} {type}",
-                currencyDict[type].displayColor);
+            // Each currency gets its own notification
+            var changes = new Dictionary<CurrencyType, int>
+            {
+                { type, isGain ? amount : -amount }
+            };
+
+            CurrencyNotificationUI.Instance.Show(changes);
         }
     }
 
-    void ShowInsufficientFundsNotification(CurrencyType type, int required)
+    private void ShowInsufficientFundsNotification(CurrencyType type, int required)
     {
         if (CurrencyNotificationUI.Instance != null)
         {
-            CurrencyNotificationUI.Instance.Show(
-                $"Not enough {type}! (Need {required})",
-                Color.red);
+            CurrencyNotificationUI.Instance.Show(new Dictionary<CurrencyType, int>
+            {
+                { type, -required }
+            });
         }
     }
 
-    void PlaySound(AudioClip clip)
+    private void PlaySound(AudioClip clip)
     {
         if (clip != null && Camera.main != null)
-        {
             AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, 0.5f);
-        }
     }
 
-    // Admin/Debug methods
     public void AddAllCurrencies(int amount)
     {
         foreach (CurrencyType type in Enum.GetValues(typeof(CurrencyType)))
-        {
             Add(type, amount, false);
-        }
     }
 
     public void ResetAllCurrencies()
     {
         foreach (var currency in currencies)
-        {
             Set(currency.type, 0);
-        }
+    }
+
+    public void GrantReward(MultiCurrencyReward reward)
+    {
+        if (reward == null) return;
+        reward.GrantAll(true); // show notifications
+    }
+
+    // Simple Add for convenience
+    public void Add(CurrencyType type, int amount, bool showNotification = true)
+    {
+        AddMultiple(new Dictionary<CurrencyType, int> { { type, amount } }, showNotification);
+    }
+
+    // Simple Spend for convenience
+    public bool Spend(CurrencyType type, int amount, bool showNotification = true)
+    {
+        return SpendMultiple(new Dictionary<CurrencyType, int> { { type, amount } }, showNotification);
     }
 }

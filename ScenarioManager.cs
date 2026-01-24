@@ -4,6 +4,7 @@ using System;
 
 public class ScenarioManager : MonoBehaviour
 {
+    private static readonly WaitForSeconds _waitForSeconds0_5 = new(0.5f);
     public static ScenarioManager Instance;
 
     [Header("Active Scenario")]
@@ -77,7 +78,6 @@ public class ScenarioManager : MonoBehaviour
         currentScenario = scenario;
         currentStepIndex = 0;
         isScenarioActive = true;
-
         OnScenarioStart?.Invoke(scenario);
 
         // Start intro dialogue
@@ -105,9 +105,7 @@ public class ScenarioManager : MonoBehaviour
 
         ScenarioStep step = currentScenario.steps[currentStepIndex];
         OnStepStart?.Invoke(step);
-
         step.onStepStart?.Invoke();
-
         Debug.Log($"Starting step: {step.stepName}");
 
         // Execute step based on type
@@ -223,12 +221,14 @@ public class ScenarioManager : MonoBehaviour
         while (true)
         {
             float distance = Vector3.Distance(target.transform.position, player.transform.position);
+
             if (distance < 2f)
             {
                 CompleteCurrentStep();
                 yield break;
             }
-            yield return new WaitForSeconds(0.5f);
+
+            yield return _waitForSeconds0_5;
         }
     }
 
@@ -246,14 +246,10 @@ public class ScenarioManager : MonoBehaviour
     public void CompleteCurrentStep()
     {
         if (!isScenarioActive || currentScenario == null) return;
-
         ScenarioStep step = currentScenario.steps[currentStepIndex];
         step.onStepComplete?.Invoke();
-
         OnStepComplete?.Invoke(step);
-
         Debug.Log($"Completed step: {step.stepName}");
-
         currentStepIndex++;
         StartNextStep();
     }
@@ -261,11 +257,7 @@ public class ScenarioManager : MonoBehaviour
     void CompleteScenario()
     {
         if (currentScenario == null) return;
-
-        // Mark as completed
         completedScenarios.Add(currentScenario.scenarioID);
-
-        // Give rewards
         GiveScenarioRewards();
 
         // Set flags
@@ -318,13 +310,10 @@ public class ScenarioManager : MonoBehaviour
     void FinalizeScenario()
     {
         Debug.Log($"Scenario completed: {currentScenario.scenarioName}");
-
         OnScenarioComplete?.Invoke(currentScenario);
-
         isScenarioActive = false;
         currentScenario = null;
         currentStepIndex = 0;
-
         SaveSystem.SaveGame();
     }
 

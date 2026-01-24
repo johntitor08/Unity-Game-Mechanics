@@ -34,16 +34,12 @@ public class ProfileUI : MonoBehaviour
     void UpdateUI()
     {
         var profile = ProfileManager.Instance.profile;
-
         playerNameText.text = profile.playerName;
         levelText.text = "Level " + profile.level;
         currencyText.text = profile.currency + " Gold";
-
         experienceSlider.maxValue = profile.experienceToNextLevel;
         experienceSlider.value = profile.experience;
         experienceText.text = profile.experience + " / " + profile.experienceToNextLevel + " XP";
-
-        // Update stats
         healthText.text = "Health: " + PlayerStats.Instance.Get(StatType.Health);
         energyText.text = "Energy: " + PlayerStats.Instance.Get(StatType.Energy);
         strengthText.text = "Strength: " + PlayerStats.Instance.Get(StatType.Strength);

@@ -26,7 +26,7 @@ public class DialogueNode : ScriptableObject
 
     [Header("Camera")]
     public bool changeCameraOnEnter = false;
-    public string cameraTargetTag = "DialogueCamera";
+    public string cameraTargetTag = "MainCamera";
 
     [Header("Background")]
     public Sprite backgroundImage;
