@@ -129,9 +129,7 @@ public class EquipmentUI : MonoBehaviour
         }
 
         setBonusTexts.Clear();
-
         if (setBonusesParent == null || setBonusTextPrefab == null) return;
-
         var bonuses = EquipmentManager.Instance.GetActiveSetBonusDescriptions();
 
         foreach (var bonus in bonuses)
