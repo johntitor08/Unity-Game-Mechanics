@@ -15,7 +15,7 @@ public class QuestSlotUI : MonoBehaviour
 
     private QuestData quest;
 
-    public void Setup(QuestData questData, bool isActive, bool isCompleted = false)
+    public void Setup(QuestData questData, bool isCompleted = false)
     {
         quest = questData;
 
@@ -32,23 +32,19 @@ public class QuestSlotUI : MonoBehaviour
             completedIndicator.SetActive(isCompleted);
 
         if (difficultyIcon != null)
-        {
             difficultyIcon.color = GetDifficultyColor(questData.difficulty);
-        }
 
         if (detailsButton != null)
         {
             detailsButton.onClick.RemoveAllListeners();
-            detailsButton.onClick.AddListener(() => OnDetailsClicked());
+            detailsButton.onClick.AddListener(OnDetailsClicked);
         }
     }
 
     void OnDetailsClicked()
     {
-        if (QuestUI.Instance != null)
-        {
+        if (QuestUI.Instance != null && quest != null)
             QuestUI.Instance.ShowQuestDetails(quest);
-        }
     }
 
     Color GetDifficultyColor(QuestDifficulty difficulty)
@@ -58,8 +54,8 @@ public class QuestSlotUI : MonoBehaviour
             QuestDifficulty.Easy => Color.gray,
             QuestDifficulty.Normal => Color.white,
             QuestDifficulty.Hard => Color.yellow,
-            QuestDifficulty.Elite => new Color(1f, 0.5f, 0f), // Orange
-            QuestDifficulty.Epic => new Color(0.8f, 0.2f, 0.8f), // Purple
+            QuestDifficulty.Elite => new Color(1f, 0.5f, 0f),
+            QuestDifficulty.Epic => new Color(0.8f, 0.2f, 0.8f),
             _ => Color.white
         };
     }

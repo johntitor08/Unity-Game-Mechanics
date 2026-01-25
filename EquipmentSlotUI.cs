@@ -89,6 +89,7 @@ public class EquipmentSlotUI : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        EquipmentTooltip.Instance?.Hide();
+        if (EquipmentTooltip.Instance != null)
+            EquipmentTooltip.Instance.Hide();
     }
 }

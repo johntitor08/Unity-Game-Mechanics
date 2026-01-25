@@ -57,6 +57,22 @@ public class ShopManager : MonoBehaviour
         return true;
     }
 
+    public bool CanSell(ItemData item, int quantity)
+    {
+        if (InventoryManager.Instance == null) return false;
+        return InventoryManager.Instance.GetQuantity(item) >= quantity;
+    }
+
+    public bool SellItem(ItemData item, int quantity, float sellRatio)
+    {
+        if (!CanSell(item, quantity)) return false;
+        int price = Mathf.RoundToInt(item.basePrice * sellRatio) * quantity;
+        InventoryManager.Instance.RemoveItem(item, quantity);
+        ProfileManager.Instance.AddCurrency(price);
+        SaveSystem.SaveGame();
+        return true;
+    }
+
     public int GetStock(string itemID)
     {
         return stock.ContainsKey(itemID) ? stock[itemID] : -1;

@@ -27,4 +27,16 @@ public class EnemyData : ScriptableObject
     public bool isAggressive = true;
     public float defendChance = 0.2f;
     public float specialAttackChance = 0.3f;
+
+    [Header("Equipment Drops")]
+    public EquipmentLootTable equipmentLootTable;
+
+    [Header("AI Pattern")]
+    public EnemyAIPattern aiPattern = EnemyAIPattern.Random;
+
+    [Range(0f, 1f)]
+    public float lowHealthThreshold = 0.3f;
+
+    [Range(0f, 1f)]
+    public float finisherThreshold = 0.25f;
 }

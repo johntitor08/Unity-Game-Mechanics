@@ -25,6 +25,7 @@ public class DamageFlash : MonoBehaviour
 
     private Coroutine flashRoutine;
     private Vector2 originalPosition;
+    private bool isSubscribed = false;
 
     void Awake()
     {
@@ -40,9 +41,24 @@ public class DamageFlash : MonoBehaviour
 
     void OnEnable()
     {
-        if (statsTarget != null)
+        TrySubscribe();
+    }
+
+    void OnDisable()
+    {
+        if (isSubscribed && statsTarget != null)
+        {
+            statsTarget.OnStatChanged -= HandleStatChanged;
+            isSubscribed = false;
+        }
+    }
+
+    void TrySubscribe()
+    {
+        if (statsTarget != null && !isSubscribed)
         {
             statsTarget.OnStatChanged += HandleStatChanged;
+            isSubscribed = true;
 
             if (healthBarFill != null)
             {
@@ -51,12 +67,6 @@ public class DamageFlash : MonoBehaviour
                 healthBarFill.fillAmount = Mathf.Clamp01((float)health / maxHealth);
             }
         }
-    }
-
-    void OnDisable()
-    {
-        if (statsTarget != null)
-            statsTarget.OnStatChanged -= HandleStatChanged;
     }
 
     private void HandleStatChanged(StatType type, int oldValue, int newValue)

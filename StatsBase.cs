@@ -28,10 +28,8 @@ public abstract class StatsBase : MonoBehaviour, IStatOwner
     public List<Stat> stats = new();
 
     protected readonly Dictionary<StatType, Stat> statDict = new();
-
     public event Action<StatType, int, int> OnStatChanged;
     public event Action OnDeath;
-
     protected StatusEffectManager statusEffectManager;
 
     protected virtual void Awake()

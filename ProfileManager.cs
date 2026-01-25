@@ -19,6 +19,7 @@ public class ProfileManager : MonoBehaviour
     public event Action OnProfileChanged;
     public event Action OnLevelUp;
     public event Action OnCurrencyChanged;
+    public static event Action OnReady;
 
     void Awake()
     {
@@ -26,6 +27,7 @@ public class ProfileManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            OnReady?.Invoke();
         }
         else Destroy(gameObject);
     }
@@ -33,14 +35,18 @@ public class ProfileManager : MonoBehaviour
     public void AddExperience(int amount)
     {
         profile.experience += amount;
+        bool leveledUp = false;
 
         while (profile.experience >= profile.experienceToNextLevel)
         {
             LevelUp();
+            leveledUp = true;
         }
 
         OnProfileChanged?.Invoke();
-        SaveSystem.SaveGame();
+
+        if (amount > 0 || leveledUp)
+            SaveSystem.SaveGame();
     }
 
     void LevelUp()
@@ -48,12 +54,16 @@ public class ProfileManager : MonoBehaviour
         profile.experience -= profile.experienceToNextLevel;
         profile.level++;
         profile.experienceToNextLevel = Mathf.RoundToInt(profile.experienceToNextLevel * 1.5f);
-        PlayerStats.Instance.Modify(StatType.Health, 10);
-        PlayerStats.Instance.Modify(StatType.Energy, 5);
-        PlayerStats.Instance.Modify(StatType.Strength, 2);
-        PlayerStats.Instance.Modify(StatType.Intelligence, 2);
+
+        if (PlayerStats.Instance != null)
+        {
+            PlayerStats.Instance.Modify(StatType.Health, 10);
+            PlayerStats.Instance.Modify(StatType.Energy, 5);
+            PlayerStats.Instance.Modify(StatType.Strength, 2);
+            PlayerStats.Instance.Modify(StatType.Intelligence, 2);
+        }
+
         OnLevelUp?.Invoke();
-        OnProfileChanged?.Invoke();
     }
 
     public bool SpendCurrency(int amount)

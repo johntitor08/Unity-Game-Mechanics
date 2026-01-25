@@ -134,7 +134,6 @@ public class StatusEffectManager : MonoBehaviour
         }
     }
 
-    // Public removal helpers
     public void RemoveEffect(StatusEffectType type)
     {
         ActiveStatusEffect effect = GetActiveEffect(type);
@@ -156,13 +155,13 @@ public class StatusEffectManager : MonoBehaviour
         }
     }
 
-    // Queries
     public bool HasEffect(StatusEffectType type) => GetActiveEffect(type) != null;
 
     public ActiveStatusEffect GetActiveEffect(StatusEffectType type) =>
         activeEffects.FirstOrDefault(e => e.data.effectType == type);
 
     public bool CanAct() => !activeEffects.Any(e => e.data.preventActions);
+
     public bool CanMove() => !activeEffects.Any(e => e.data.preventMovement);
 
     public float GetDamageMultiplier()
@@ -197,6 +196,7 @@ public class StatusEffectManager : MonoBehaviour
             if (mod.isPercentage)
                 amount = Mathf.RoundToInt(statOwner.Get(mod.statType) * mod.amount / 100f);
 
+            if (amount == 0) amount = apply ? 0 : 0;
             statOwner.Modify(mod.statType, apply ? amount : -amount);
         }
     }

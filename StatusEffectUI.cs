@@ -10,27 +10,37 @@ public class StatusEffectUI : MonoBehaviour
     public StatusEffectIcon iconPrefab;
 
     private readonly List<StatusEffectIcon> activeIcons = new();
+    private bool isSubscribed = false;
 
-    void Start()
+    void OnEnable()
     {
-        if (effectManager != null)
-        {
-            effectManager.OnEffectApplied += OnEffectApplied;
-            effectManager.OnEffectRemoved += OnEffectRemoved;
-        }
+        TrySubscribe();
     }
 
-    void OnDestroy()
+    void OnDisable()
     {
-        if (effectManager != null)
+        if (isSubscribed && effectManager != null)
         {
             effectManager.OnEffectApplied -= OnEffectApplied;
             effectManager.OnEffectRemoved -= OnEffectRemoved;
+            isSubscribed = false;
+        }
+    }
+
+    void TrySubscribe()
+    {
+        if (effectManager != null && !isSubscribed)
+        {
+            effectManager.OnEffectApplied += OnEffectApplied;
+            effectManager.OnEffectRemoved += OnEffectRemoved;
+            isSubscribed = true;
         }
     }
 
     void Update()
     {
+        if (effectManager == null) return;
+
         for (int i = activeIcons.Count - 1; i >= 0; i--)
         {
             var icon = activeIcons[i];

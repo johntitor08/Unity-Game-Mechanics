@@ -28,6 +28,9 @@ public class EquipmentData : ItemData
     public string setName = "";
     public int setID = 0;
 
+    [Header("Set Data")]
+    public EquipmentSetData setData;
+
     public string GetStatsDescription()
     {
         string desc = "";
@@ -45,19 +48,6 @@ public class EquipmentData : ItemData
             desc += $"{secondaryStat}: +{secondaryStatBonus}\n";
 
         return desc;
-    }
-
-    public Color GetRarityColor()
-    {
-        return equipmentRarity switch
-        {
-            EquipmentRarity.Common => new Color(0.8f, 0.8f, 0.8f), // Gray
-            EquipmentRarity.Uncommon => new Color(0.2f, 0.8f, 0.2f), // Green
-            EquipmentRarity.Rare => new Color(0.2f, 0.5f, 1f), // Blue
-            EquipmentRarity.Epic => new Color(0.8f, 0.2f, 0.8f), // Purple
-            EquipmentRarity.Legendary => new Color(1f, 0.6f, 0f), // Orange
-            _ => Color.white
-        };
     }
 }
 

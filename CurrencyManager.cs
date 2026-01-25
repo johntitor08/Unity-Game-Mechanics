@@ -5,6 +5,11 @@ using System;
 public class CurrencyManager : MonoBehaviour
 {
     public static CurrencyManager Instance;
+    private readonly Dictionary<CurrencyType, Currency> currencyDict = new();
+    public event Action<CurrencyType, int, int> OnCurrencyChanged;
+    public event Action<CurrencyType, int> OnCurrencyAdded;
+    public event Action<CurrencyType, int> OnCurrencySpent;
+    public event Action<CurrencyType> OnInsufficientFunds;
 
     [Serializable]
     public class Currency
@@ -32,15 +37,9 @@ public class CurrencyManager : MonoBehaviour
     };
 
     [Header("Sound Effects")]
-    public AudioClip coinSound;
-    public AudioClip purchaseSound;
+    public AudioClip gainSound;
+    public AudioClip spendSound;
     public AudioClip insufficientFundsSound;
-
-    private readonly Dictionary<CurrencyType, Currency> currencyDict = new();
-    public event Action<CurrencyType, int, int> OnCurrencyChanged;
-    public event Action<CurrencyType, int> OnCurrencyAdded;
-    public event Action<CurrencyType, int> OnCurrencySpent;
-    public event Action<CurrencyType> OnInsufficientFunds;
 
     void Awake()
     {
@@ -58,39 +57,46 @@ public class CurrencyManager : MonoBehaviour
         InitializeCurrencies();
     }
 
+    void OnEnable()
+    {
+        if (Instance == this)
+            InitializeCurrencies();
+    }
+
     private void InitializeCurrencies()
     {
         currencyDict.Clear();
 
         foreach (var currency in currencies)
         {
-            currencyDict[currency.type] = currency;
+            if (!currencyDict.ContainsKey(currency.type))
+                currencyDict.Add(currency.type, currency);
         }
     }
 
     public int Get(CurrencyType type)
     {
-        if (!currencyDict.ContainsKey(type))
-        {
-            Debug.LogWarning($"Currency type {type} not found!");
-            return 0;
-        }
-
-        return currencyDict[type].amount;
+        return currencyDict.TryGetValue(type, out var currency)
+            ? currency.amount
+            : 0;
     }
 
-    public bool Has(CurrencyType type, int amount) => Get(type) >= amount;
+    public bool Has(CurrencyType type, int amount)
+    {
+        return Get(type) >= amount;
+    }
 
-    public Currency GetCurrencyInfo(CurrencyType type) => currencyDict.ContainsKey(type) ? currencyDict[type] : null;
+    public Currency GetCurrencyInfo(CurrencyType type)
+    {
+        return currencyDict.TryGetValue(type, out var currency) ? currency : null;
+    }
 
     public Dictionary<CurrencyType, int> GetAllCurrencies()
     {
-        var result = new Dictionary<CurrencyType, int>();
+        Dictionary<CurrencyType, int> result = new();
 
-        foreach (var currency in currencies)
-        {
-            result[currency.type] = currency.amount;
-        }
+        foreach (var c in currencies)
+            result[c.type] = c.amount;
 
         return result;
     }
@@ -98,138 +104,78 @@ public class CurrencyManager : MonoBehaviour
     public void AddMultiple(Dictionary<CurrencyType, int> amounts, bool showNotification = true)
     {
         if (amounts == null || amounts.Count == 0) return;
-        var actualChanges = new Dictionary<CurrencyType, int>();
+        Dictionary<CurrencyType, int> changes = new();
 
         foreach (var kvp in amounts)
         {
-            if (!currencyDict.ContainsKey(kvp.Key) || kvp.Value <= 0) continue;
-            var currency = currencyDict[kvp.Key];
-            int oldAmount = currency.amount;
+            if (!currencyDict.TryGetValue(kvp.Key, out var currency)) continue;
+            if (kvp.Value <= 0) continue;
+            int old = currency.amount;
             currency.amount = Mathf.Min(currency.amount + kvp.Value, currency.maxAmount);
-            int actualAdded = currency.amount - oldAmount;
+            int delta = currency.amount - old;
 
-            if (actualAdded > 0)
+            if (delta > 0)
             {
-                actualChanges[kvp.Key] = actualAdded;
-                OnCurrencyAdded?.Invoke(kvp.Key, actualAdded);
-                OnCurrencyChanged?.Invoke(kvp.Key, oldAmount, currency.amount);
+                changes[kvp.Key] = delta;
+                OnCurrencyAdded?.Invoke(kvp.Key, delta);
+                OnCurrencyChanged?.Invoke(kvp.Key, old, currency.amount);
             }
         }
 
-        if (actualChanges.Count > 0)
-        {
-            if (showNotification && CurrencyNotificationUI.Instance != null)
-                CurrencyNotificationUI.Instance.Show(actualChanges);
-
-            foreach (var kvp in actualChanges)
-            {
-                if (showNotification)
-                    ShowCurrencyNotification(kvp.Key, kvp.Value, true);
-            }
-
-            PlaySound(coinSound);
-            SaveSystem.SaveGame();
-        }
+        FinalizeTransaction(changes, true, showNotification);
     }
 
     public bool SpendMultiple(Dictionary<CurrencyType, int> amounts, bool showNotification = true)
     {
         if (amounts == null || amounts.Count == 0) return false;
 
-        // Ensure all currencies are available
         foreach (var kvp in amounts)
         {
             if (!Has(kvp.Key, kvp.Value))
             {
                 OnInsufficientFunds?.Invoke(kvp.Key);
-                if (showNotification) ShowInsufficientFundsNotification(kvp.Key, kvp.Value);
                 PlaySound(insufficientFundsSound);
-                Debug.Log($"Insufficient {kvp.Key} for multi-currency transaction!");
                 return false;
             }
         }
 
-        var actualChanges = new Dictionary<CurrencyType, int>();
+        Dictionary<CurrencyType, int> changes = new();
 
-        // Deduct
         foreach (var kvp in amounts)
         {
             var currency = currencyDict[kvp.Key];
-            int oldAmount = currency.amount;
+            int old = currency.amount;
             currency.amount -= kvp.Value;
-            actualChanges[kvp.Key] = -kvp.Value;
+            changes[kvp.Key] = -kvp.Value;
             OnCurrencySpent?.Invoke(kvp.Key, kvp.Value);
-            OnCurrencyChanged?.Invoke(kvp.Key, oldAmount, currency.amount);
+            OnCurrencyChanged?.Invoke(kvp.Key, old, currency.amount);
         }
 
-        if (showNotification && CurrencyNotificationUI.Instance != null)
-            CurrencyNotificationUI.Instance.Show(actualChanges);
-
-        foreach (var kvp in actualChanges)
-        {
-            if (showNotification)
-                ShowCurrencyNotification(kvp.Key, Mathf.Abs(kvp.Value), false);
-        }
-
-        PlaySound(purchaseSound);
-        SaveSystem.SaveGame();
+        FinalizeTransaction(changes, false, showNotification);
         return true;
+    }
+
+    public void Add(CurrencyType type, int amount, bool showNotification = true)
+    {
+        AddMultiple(new Dictionary<CurrencyType, int> { { type, amount } }, showNotification);
+    }
+
+    public bool Spend(CurrencyType type, int amount, bool showNotification = true)
+    {
+        return SpendMultiple(new Dictionary<CurrencyType, int> { { type, amount } }, showNotification);
     }
 
     public void Set(CurrencyType type, int amount)
     {
-        if (!currencyDict.ContainsKey(type))
-        {
-            Debug.LogWarning($"Currency type {type} not found!");
-            return;
-        }
-
-        var currency = currencyDict[type];
-        int oldAmount = currency.amount;
+        if (!currencyDict.TryGetValue(type, out var currency)) return;
+        int old = currency.amount;
         currency.amount = Mathf.Clamp(amount, 0, currency.maxAmount);
 
-        if (oldAmount != currency.amount)
+        if (old != currency.amount)
         {
-            OnCurrencyChanged?.Invoke(type, oldAmount, currency.amount);
+            OnCurrencyChanged?.Invoke(type, old, currency.amount);
             SaveSystem.SaveGame();
         }
-    }
-
-    private void ShowCurrencyNotification(CurrencyType type, int amount, bool isGain)
-    {
-        if (CurrencyNotificationUI.Instance != null)
-        {
-            // Each currency gets its own notification
-            var changes = new Dictionary<CurrencyType, int>
-            {
-                { type, isGain ? amount : -amount }
-            };
-
-            CurrencyNotificationUI.Instance.Show(changes);
-        }
-    }
-
-    private void ShowInsufficientFundsNotification(CurrencyType type, int required)
-    {
-        if (CurrencyNotificationUI.Instance != null)
-        {
-            CurrencyNotificationUI.Instance.Show(new Dictionary<CurrencyType, int>
-            {
-                { type, -required }
-            });
-        }
-    }
-
-    private void PlaySound(AudioClip clip)
-    {
-        if (clip != null && Camera.main != null)
-            AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, 0.5f);
-    }
-
-    public void AddAllCurrencies(int amount)
-    {
-        foreach (CurrencyType type in Enum.GetValues(typeof(CurrencyType)))
-            Add(type, amount, false);
     }
 
     public void ResetAllCurrencies()
@@ -240,19 +186,27 @@ public class CurrencyManager : MonoBehaviour
 
     public void GrantReward(MultiCurrencyReward reward)
     {
-        if (reward == null) return;
-        reward.GrantAll(true); // show notifications
+        reward?.GrantAll(true);
     }
 
-    // Simple Add for convenience
-    public void Add(CurrencyType type, int amount, bool showNotification = true)
+    private void FinalizeTransaction(
+        Dictionary<CurrencyType, int> changes,
+        bool isGain,
+        bool showNotification)
     {
-        AddMultiple(new Dictionary<CurrencyType, int> { { type, amount } }, showNotification);
+        if (changes.Count == 0) return;
+
+        if (showNotification && CurrencyNotificationUI.Instance != null)
+            CurrencyNotificationUI.Instance.Show(changes);
+
+        PlaySound(isGain ? gainSound : spendSound);
+        SaveSystem.SaveGame();
     }
 
-    // Simple Spend for convenience
-    public bool Spend(CurrencyType type, int amount, bool showNotification = true)
+    private void PlaySound(AudioClip clip)
     {
-        return SpendMultiple(new Dictionary<CurrencyType, int> { { type, amount } }, showNotification);
+        if (clip != null && Camera.main != null)
+            AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, 0.5f);
     }
+
 }

@@ -41,10 +41,12 @@ public class EnemyStats : StatsBase
 
     protected override void OnDie()
     {
+        if (CombatManager.Instance != null &&
+            CombatManager.Instance.inCombat)
+            return;
+
         if (destroyOnDeath)
-        {
             StartCoroutine(DieDelayed());
-        }
     }
 
     System.Collections.IEnumerator DieDelayed()

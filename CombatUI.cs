@@ -1,7 +1,8 @@
-using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
 using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 public class CombatUI : MonoBehaviour
 {
@@ -91,6 +92,8 @@ public class CombatUI : MonoBehaviour
     void OnCombatEnded()
     {
         combatPanel.SetActive(false);
+        logLines.Clear();
+        UpdateLogDisplay();
     }
 
     void OnTurnChanged(bool isPlayerTurn)
@@ -124,13 +127,13 @@ public class CombatUI : MonoBehaviour
     void UpdateEnemyDisplay()
     {
         var enemyStats = CombatManager.Instance.enemyStats;
-        if (enemyStats == null) return;
         var enemyData = CombatManager.Instance.currentEnemy;
+        if (enemyStats == null || enemyData == null) return;
 
-        if (enemySprite != null && enemyData != null)
+        if (enemySprite != null)
             enemySprite.sprite = enemyData.sprite;
 
-        if (enemyNameText != null && enemyData != null)
+        if (enemyNameText != null)
             enemyNameText.text = enemyData.enemyName;
 
         if (enemyHealthBar != null)
@@ -140,9 +143,7 @@ public class CombatUI : MonoBehaviour
         }
 
         if (enemyHealthText != null)
-        {
             enemyHealthText.text = $"HP: {enemyStats.Get(StatType.Health)} / {enemyStats.Get(StatType.MaxHealth)}";
-        }
     }
 
     void UpdatePlayerHealth()
@@ -158,9 +159,7 @@ public class CombatUI : MonoBehaviour
         }
 
         if (playerHealthText != null)
-        {
             playerHealthText.text = $"HP: {currentHealth} / {maxHealth}";
-        }
     }
 
     void UpdatePlayerEnergy()
@@ -176,9 +175,7 @@ public class CombatUI : MonoBehaviour
         }
 
         if (playerEnergyText != null)
-        {
             playerEnergyText.text = $"Energy: {currentEnergy} / {maxEnergy}";
-        }
     }
 
     void SetupActionButtons()
@@ -190,6 +187,7 @@ public class CombatUI : MonoBehaviour
         }
 
         actionButtons.Clear();
+        if (CombatManager.Instance == null) return;
         var actions = CombatManager.Instance.GetAvailableActions();
 
         foreach (var action in actions)
@@ -217,16 +215,60 @@ public class CombatUI : MonoBehaviour
 
         // Keep only last N lines
         while (logLines.Count > maxLogLines)
-        {
             logLines.RemoveAt(0);
-        }
 
         UpdateLogDisplay();
     }
 
     void UpdateLogDisplay()
     {
-        if (combatLogText == null) return;
-        combatLogText.text = string.Join("\n", logLines);
+        if (combatLogText != null)
+            combatLogText.text = string.Join("\n", logLines);
+    }
+}
+
+public class BuffUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+{
+    public Image icon;
+    public TextMeshProUGUI timerText;
+    public GameObject tooltip;
+    public TextMeshProUGUI tooltipText;
+    private string buffName;
+    private float duration;
+
+    public void Setup(Sprite buffIcon, string name, float duration)
+    {
+        icon.sprite = buffIcon;
+        buffName = name;
+        this.duration = duration;
+        timerText.text = duration.ToString("F1") + "s";
+
+        if (tooltip != null)
+        {
+            tooltip.SetActive(false);
+            tooltipText.text = $"{buffName}\nDuration: {duration:F1}s";
+        }
+    }
+
+    public void UpdateTimer(float timeLeft)
+    {
+        timerText.text = Mathf.Max(0f, timeLeft).ToString("F1") + "s";
+
+        if (tooltip != null)
+        {
+            tooltipText.text = $"{buffName}\nDuration: {Mathf.Max(0f, timeLeft):F1}s";
+        }
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (tooltip != null)
+            tooltip.SetActive(true);
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        if (tooltip != null)
+            tooltip.SetActive(false);
     }
 }

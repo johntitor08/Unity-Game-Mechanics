@@ -4,46 +4,82 @@ using UnityEngine.UI;
 
 public class ProfileUI : MonoBehaviour
 {
+    public static ProfileUI Instance;
+    private bool isSubscribed = false;
+
     [Header("Profile Panel")]
     public GameObject profilePanel;
     public TextMeshProUGUI playerNameText;
     public TextMeshProUGUI levelText;
     public TextMeshProUGUI currencyText;
-    public Slider experienceSlider;
-    public TextMeshProUGUI experienceText;
+    public Slider expBar;
+    public TextMeshProUGUI expText;
 
-    [Header("Stats Display")]
-    public TextMeshProUGUI healthText;
-    public TextMeshProUGUI energyText;
-    public TextMeshProUGUI strengthText;
-    public TextMeshProUGUI intelligenceText;
-    public TextMeshProUGUI charismaText;
+    [Header("Settings")]
+    public bool showProfilePanel = true;
+    public KeyCode toggleKey = KeyCode.P;
+
+    void Awake()
+    {
+        Instance = this;
+    }
 
     void Start()
     {
-        ProfileManager.Instance.OnProfileChanged += UpdateUI;
-        UpdateUI();
+        if (profilePanel != null)
+            profilePanel.SetActive(showProfilePanel);
+
+        TrySubscribe();
+    }
+
+    void OnEnable()
+    {
+        if (ProfileManager.Instance == null)
+        {
+            ProfileManager.OnReady += TrySubscribe;
+        }
+    }
+
+    void OnDisable()
+    {
+        if (isSubscribed && ProfileManager.Instance != null)
+        {
+            ProfileManager.Instance.OnProfileChanged -= UpdateProfileUI;
+            isSubscribed = false;
+        }
+
+        ProfileManager.OnReady -= TrySubscribe;
     }
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.P))
+        if (Input.GetKeyDown(toggleKey) && profilePanel != null)
             profilePanel.SetActive(!profilePanel.activeSelf);
     }
 
-    void UpdateUI()
+    void TrySubscribe()
     {
-        var profile = ProfileManager.Instance.profile;
+        if (ProfileManager.Instance != null && !isSubscribed)
+        {
+            ProfileManager.Instance.OnProfileChanged += UpdateProfileUI;
+            isSubscribed = true;
+            UpdateProfileUI();
+        }
+    }
+
+    void UpdateProfileUI()
+    {
+        PlayerProfile profile;
+
+        if (ProfileManager.Instance != null)
+            profile = ProfileManager.Instance.profile;
+        else return;
+        
         playerNameText.text = profile.playerName;
         levelText.text = "Level " + profile.level;
         currencyText.text = profile.currency + " Gold";
-        experienceSlider.maxValue = profile.experienceToNextLevel;
-        experienceSlider.value = profile.experience;
-        experienceText.text = profile.experience + " / " + profile.experienceToNextLevel + " XP";
-        healthText.text = "Health: " + PlayerStats.Instance.Get(StatType.Health);
-        energyText.text = "Energy: " + PlayerStats.Instance.Get(StatType.Energy);
-        strengthText.text = "Strength: " + PlayerStats.Instance.Get(StatType.Strength);
-        intelligenceText.text = "Intelligence: " + PlayerStats.Instance.Get(StatType.Intelligence);
-        charismaText.text = "Charisma: " + PlayerStats.Instance.Get(StatType.Charisma);
+        expBar.maxValue = profile.experienceToNextLevel;
+        expBar.value = profile.experience;
+        expText.text = $"{profile.experience} / {profile.experienceToNextLevel} XP";
     }
 }

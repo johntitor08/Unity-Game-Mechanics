@@ -10,10 +10,7 @@ public class ItemSlotEquipment : MonoBehaviour
         {
             if (EquipmentManager.Instance.CanEquip(equipment))
             {
-                // Remove from inventory
                 InventoryManager.Instance.RemoveItem(equipment, 1);
-
-                // Equip
                 EquipmentManager.Instance.Equip(equipment);
             }
             else

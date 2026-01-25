@@ -4,11 +4,9 @@ using UnityEngine;
 public class InventoryUI : MonoBehaviour
 {
     public static InventoryUI Instance;
-
     public GameObject panel;
     public Transform content;
     public ItemSlot slotPrefab;
-
     private readonly List<ItemSlot> slots = new();
 
     void Awake()
@@ -16,16 +14,33 @@ public class InventoryUI : MonoBehaviour
         Instance = this;
     }
 
-    void Start()
-    {
-        InventoryManager.Instance.OnChanged += Refresh;
-        Refresh();
-    }
-
     void Update()
     {
         if (Input.GetKeyDown(KeyCode.I))
             panel.SetActive(!panel.activeSelf);
+    }
+
+    void OnEnable()
+    {
+        TrySubscribe();
+        InventoryManager.OnReady += TrySubscribe;
+    }
+
+    void OnDisable()
+    {
+        if (InventoryManager.Instance != null)
+            InventoryManager.Instance.OnChanged -= Refresh;
+
+        InventoryManager.OnReady -= TrySubscribe;
+    }
+
+    void TrySubscribe()
+    {
+        if (InventoryManager.Instance == null) return;
+
+        InventoryManager.Instance.OnChanged -= Refresh;
+        InventoryManager.Instance.OnChanged += Refresh;
+        Refresh();
     }
 
     void Refresh()

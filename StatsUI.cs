@@ -6,6 +6,7 @@ using System.Collections;
 public class StatsUI : MonoBehaviour
 {
     public static StatsUI Instance;
+    private bool isSubscribed = false;
 
     [Header("Health Bar")]
     public Slider healthBar;
@@ -22,7 +23,6 @@ public class StatsUI : MonoBehaviour
     public Color energyColor = new(0.3f, 0.5f, 1f);
 
     [Header("Stats Display")]
-    public GameObject statsPanel;
     public TextMeshProUGUI strengthText;
     public TextMeshProUGUI intelligenceText;
     public TextMeshProUGUI charismaText;
@@ -30,45 +30,47 @@ public class StatsUI : MonoBehaviour
     public TextMeshProUGUI speedText;
     public TextMeshProUGUI luckText;
 
-    [Header("Settings")]
-    public bool showStatsPanel = true;
-    public KeyCode toggleKey = KeyCode.C;
-
     void Awake()
     {
         Instance = this;
     }
 
-    void Start()
+    void OnEnable()
     {
         if (PlayerStats.Instance != null)
         {
-            PlayerStats.Instance.OnHealthChanged += UpdateHealthBar;
-            PlayerStats.Instance.OnEnergyChanged += UpdateEnergyBar;
-            PlayerStats.Instance.OnStatChanged += OnStatChanged;
+            SubscribeToStats();
         }
-
-        if (statsPanel != null)
-            statsPanel.SetActive(showStatsPanel);
-
-        RefreshAllStats();
+        else
+        {
+            PlayerStats.OnReady += SubscribeToStats;
+        }
     }
 
-    void OnDestroy()
+    void OnDisable()
     {
-        if (PlayerStats.Instance != null)
+        if (isSubscribed && PlayerStats.Instance != null)
         {
             PlayerStats.Instance.OnHealthChanged -= UpdateHealthBar;
             PlayerStats.Instance.OnEnergyChanged -= UpdateEnergyBar;
             PlayerStats.Instance.OnStatChanged -= OnStatChanged;
+            isSubscribed = false;
         }
+
+        PlayerStats.OnReady -= SubscribeToStats;
     }
 
-    void Update()
+    void SubscribeToStats()
     {
-        if (Input.GetKeyDown(toggleKey) && statsPanel != null)
+        if (PlayerStats.Instance != null && !isSubscribed)
         {
-            statsPanel.SetActive(!statsPanel.activeSelf);
+            PlayerStats.Instance.OnHealthChanged += UpdateHealthBar;
+            PlayerStats.Instance.OnEnergyChanged += UpdateEnergyBar;
+            PlayerStats.Instance.OnStatChanged += OnStatChanged;
+            isSubscribed = true;
+            RefreshAllStats();
+            UpdateHealthBar();
+            UpdateEnergyBar();
         }
     }
 
@@ -178,8 +180,6 @@ public class StatsUI : MonoBehaviour
 
     void RefreshAllStats()
     {
-        UpdateHealthBar();
-        UpdateEnergyBar();
         if (PlayerStats.Instance == null) return;
 
         if (strengthText != null)

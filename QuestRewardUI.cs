@@ -40,18 +40,15 @@ public class QuestRewardUI : MonoBehaviour
         if (titleText != null)
             titleText.text = "Quest Complete!";
 
-        // Clear old rewards
         foreach (Transform child in rewardsContainer)
             Destroy(child.gameObject);
 
-        // Show experience
         if (quest.experienceReward > 0)
         {
             var rewardUI = Instantiate(rewardItemPrefab, rewardsContainer);
             rewardUI.Setup("Experience", quest.experienceReward.ToString(), null);
         }
 
-        // Show currency
         if (quest.currencyRewards != null)
         {
             foreach (var reward in quest.currencyRewards)
@@ -62,7 +59,6 @@ public class QuestRewardUI : MonoBehaviour
             }
         }
 
-        // Show items
         if (quest.itemRewards != null)
         {
             foreach (var item in quest.itemRewards)
@@ -72,7 +68,6 @@ public class QuestRewardUI : MonoBehaviour
             }
         }
 
-        // Auto-close after duration
         StartCoroutine(AutoClose());
     }
 

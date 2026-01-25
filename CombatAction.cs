@@ -26,6 +26,10 @@ public class CombatAction
     public float critChanceBonus = 0f;
     public bool ignoreDefense = false;
 
+    [Header("Armor Interaction")]
+    [Range(0f, 1f)]
+    public float armorPenetration = 0f;
+
     public int CalculateDamage()
     {
         if (PlayerStats.Instance == null)

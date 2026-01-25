@@ -22,7 +22,7 @@ public class ScenarioData : ScriptableObject
     [Header("Rewards")]
     public int experienceReward;
     public CurrencyReward[] currencyRewards;
-    public ItemData[] itemRewards;
+    public ItemReward[] itemRewards;
     public string[] flagsToSet;
 
     [Header("Failure")]
@@ -34,29 +34,20 @@ public class ScenarioData : ScriptableObject
 public class ScenarioStep
 {
     public string stepName;
-    public string stepDescription;
-
+    [TextArea] public string stepDescription;
     public ScenarioStepType type;
-
-    // Combat step
+    [Header("Step Data")]
     public EnemyData enemy;
-
-    // Dialogue step
     public DialogueNode dialogue;
-
-    // Item collection
     public ItemData requiredItem;
     public int requiredQuantity = 1;
-
-    // Location step
     public string targetLocationTag;
-
-    // Wait step
     public float waitDuration = 5f;
 
-    // Custom step
+    [Header("Events")]
     public UnityEngine.Events.UnityEvent onStepStart;
     public UnityEngine.Events.UnityEvent onStepComplete;
+    public UnityEngine.Events.UnityEvent onCustomStepEvent;
 }
 
 public enum ScenarioStepType
@@ -67,4 +58,11 @@ public enum ScenarioStepType
     GoToLocation,
     Wait,
     Custom
+}
+
+[System.Serializable]
+public class ItemReward
+{
+    public ItemData item;
+    public int quantity = 1;
 }

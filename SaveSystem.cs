@@ -83,8 +83,8 @@ public static class SaveSystem
         if (EquipmentManager.Instance != null)
         {
             data.equippedItems.Clear();
-
             var equipped = EquipmentManager.Instance.GetAllEquipped();
+
             foreach (var kvp in equipped)
             {
                 data.equippedItems.Add(new EquippedItemSave
@@ -99,12 +99,12 @@ public static class SaveSystem
         {
             data.currencyTypes.Clear();
             data.currencyAmounts.Clear();
-
             var currencies = CurrencyManager.Instance.GetAllCurrencies();
-            foreach (var kvp in currencies)
-            {
-                data.currencyTypes.Add(kvp.Key);
-                data.currencyAmounts.Add(kvp.Value);
+
+            foreach (var currency in currencies)
+                {
+                data.currencyTypes.Add(currency.Key);
+                data.currencyAmounts.Add(currency.Value);
             }
         }
 
@@ -122,6 +122,7 @@ public static class SaveSystem
         if (QuestManager.Instance != null)
         {
             data.activeQuests.Clear();
+
             foreach (var quest in QuestManager.Instance.GetActiveQuests())
             {
                 var questSave = new QuestSaveData { questID = quest.questID };
@@ -136,6 +137,7 @@ public static class SaveSystem
             }
 
             data.completedQuests.Clear();
+
             foreach (var quest in QuestManager.Instance.GetCompletedQuests())
             {
                 data.completedQuests.Add(quest.questID);
@@ -153,9 +155,7 @@ public static class SaveSystem
     public static void LoadGame()
     {
         if (!File.Exists(Path)) return;
-
         SaveData data = JsonUtility.FromJson<SaveData>(File.ReadAllText(Path));
-
         InventoryManager.Instance.Clear();
 
         for (int i = 0; i < data.itemIDs.Count; i++)
@@ -170,7 +170,7 @@ public static class SaveSystem
         {
             TimePhaseManager.Instance.SetPhase(data.currentTimePhase);
             TimePhaseManager.Instance.SetPhaseTimer(data.phaseTimer);
-            TimePhaseManager.Instance.SetIsFirstMorning(false); // Prevent day increment on load
+            TimePhaseManager.Instance.SetIsFirstMorning(false);
         }
 
         if (TimeUI.Instance != null)
@@ -197,16 +197,15 @@ public static class SaveSystem
 
         if (EquipmentManager.Instance != null)
         {
-            // First unequip all
             foreach (EquipmentSlot slot in System.Enum.GetValues(typeof(EquipmentSlot)))
             {
                 EquipmentManager.Instance.Unequip(slot, false);
             }
 
-            // Then equip saved items
             foreach (var saved in data.equippedItems)
             {
                 var equipment = ItemDatabase.Instance.GetByID(saved.itemID) as EquipmentData;
+
                 if (equipment != null)
                 {
                     EquipmentManager.Instance.Equip(equipment);
@@ -225,14 +224,10 @@ public static class SaveSystem
         if (ScenarioManager.Instance != null)
         {
             ScenarioManager.Instance.SetCompletedScenarios(new HashSet<string>(data.completedScenarios));
-
-            // Note: Restoring active scenarios requires additional logic
-            // to find and resume the correct scenario
         }
 
         if (QuestManager.Instance != null)
         {
-            // Load active quests
             foreach (var questSave in data.activeQuests)
             {
                 var quest = QuestManager.Instance.allQuests
@@ -240,7 +235,6 @@ public static class SaveSystem
 
                 if (quest != null)
                 {
-                    // Restore progress
                     for (int i = 0; i < quest.objectives.Length && i < questSave.objectiveProgress.Count; i++)
                     {
                         quest.objectives[i].currentProgress = questSave.objectiveProgress[i];
@@ -251,10 +245,6 @@ public static class SaveSystem
                 }
             }
 
-            // Load completed quests
-            // (Mark as completed without re-running completion logic)
-
-            // Load tracked quests
             if (QuestTrackerUI.Instance != null)
             {
                 foreach (var questID in data.trackedQuests)

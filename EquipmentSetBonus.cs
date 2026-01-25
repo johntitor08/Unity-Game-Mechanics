@@ -1,33 +1,40 @@
-using UnityEngine;
-
 [System.Serializable]
 public class EquipmentSetBonus
 {
-    public int setID;
-    public string setName;
-    public int totalPieces = 4;
+    public EquipmentSetData data;
 
-    [Header("Set Bonuses")]
-    public int twoPieceDefenseBonus = 5;
-    public int threePieceDamageBonus = 10;
-    public int fourPieceStatBonus = 15;
-    public StatType fourPieceStat = StatType.Strength;
-
-    public int GetBonusForPieces(int pieces)
+    public void Apply(int pieces, bool apply)
     {
-        int bonus = 0;
-        if (pieces >= 2) bonus += twoPieceDefenseBonus;
-        if (pieces >= 3) bonus += threePieceDamageBonus;
-        if (pieces >= 4) bonus += fourPieceStatBonus;
-        return bonus;
+        if (PlayerStats.Instance == null || data == null) return;
+
+        int mult = apply ? 1 : -1;
+
+        foreach (var bonus in data.bonuses)
+        {
+            if (pieces >= bonus.requiredPieces)
+            {
+                PlayerStats.Instance.Modify(
+                    bonus.stat,
+                    bonus.value * mult,
+                    false
+                );
+            }
+        }
     }
 
-    public string GetActiveBonusDescription(int pieces)
+    public string GetDescription(int pieces)
     {
         string desc = "";
-        if (pieces >= 2) desc += $"2-Piece: +{twoPieceDefenseBonus} Defense\n";
-        if (pieces >= 3) desc += $"3-Piece: +{threePieceDamageBonus} Damage\n";
-        if (pieces >= 4) desc += $"4-Piece: +{fourPieceStatBonus} {fourPieceStat}\n";
+
+        foreach (var bonus in data.bonuses)
+        {
+            if (pieces >= bonus.requiredPieces)
+            {
+                desc += $"<color=#FFD966>{bonus.requiredPieces}-Piece:</color> " +
+                        $"+{bonus.value} {bonus.stat}\n";
+            }
+        }
+
         return desc;
     }
 }

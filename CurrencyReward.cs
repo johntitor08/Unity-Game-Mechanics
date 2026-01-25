@@ -1,6 +1,7 @@
+using System;
 using System.Collections.Generic;
 
-[System.Serializable]
+[Serializable]
 public class CurrencyReward
 {
     public CurrencyType type;
@@ -8,14 +9,13 @@ public class CurrencyReward
 
     public void Grant(bool showNotification = true)
     {
-        if (CurrencyManager.Instance != null)
-        {
-            CurrencyManager.Instance.Add(type, amount, showNotification);
-        }
+        if (CurrencyManager.Instance == null) return;
+        if (amount <= 0) return;
+        CurrencyManager.Instance.Add(type, amount, showNotification);
     }
 }
 
-[System.Serializable]
+[Serializable]
 public class MultiCurrencyReward
 {
     public CurrencyReward[] rewards;
@@ -23,23 +23,20 @@ public class MultiCurrencyReward
     public void GrantAll(bool showNotification = true)
     {
         if (rewards == null || rewards.Length == 0) return;
-        var rewardDict = new Dictionary<CurrencyType, int>();
+        if (CurrencyManager.Instance == null) return;
+        Dictionary<CurrencyType, int> rewardDict = new();
 
-        // Aggregate rewards into a dictionary
         foreach (var reward in rewards)
         {
-            if (reward.amount <= 0) continue;
+            if (reward == null || reward.amount <= 0) continue;
 
             if (rewardDict.ContainsKey(reward.type))
                 rewardDict[reward.type] += reward.amount;
             else
-                rewardDict[reward.type] = reward.amount;
+                rewardDict.Add(reward.type, reward.amount);
         }
 
-        // Give all rewards at once
-        if (CurrencyManager.Instance != null)
-        {
+        if (rewardDict.Count > 0)
             CurrencyManager.Instance.AddMultiple(rewardDict, showNotification);
-        }
     }
 }
