@@ -21,7 +21,6 @@ public class UIHoverRegion : MonoBehaviour,
     float alpha = 0f;
     float drawProgress = 0f;
     bool hovering = false;
-
     Vector2[] shapePoints;
 
     void Start()
@@ -36,7 +35,6 @@ public class UIHoverRegion : MonoBehaviour,
         outline.positionCount = count + 1;
         outline.useWorldSpace = false;
         outline.gameObject.SetActive(false);
-
         SetAlpha(0);
     }
 
@@ -73,7 +71,8 @@ public class UIHoverRegion : MonoBehaviour,
         if (DialogueManager.Instance.IsInDialogue())
             return;
 
-        SceneEvent.Instance.Trigger();
+        if (SceneEvent.Instance.Progress == SceneProgress.Scene1)
+            SceneEvent.Instance.TriggerScene2();
     }
 
     void SetAlpha(float a)
@@ -81,7 +80,6 @@ public class UIHoverRegion : MonoBehaviour,
         Color c = hoverShape.color;
         c.a = a * maxAlpha;
         hoverShape.color = c;
-
         outline.startColor = c;
         outline.endColor = c;
     }

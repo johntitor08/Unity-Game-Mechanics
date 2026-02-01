@@ -50,10 +50,15 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         }
     }
 
+    void OnDisable()
+    {
+        ResetVisual();
+    }
+
     public void OnPointerEnter(PointerEventData eventData)
     {
+        if (!isActiveAndEnabled) return;
         if (!enableHoverEffect) return;
-
         isHovering = true;
         StopAllCoroutines();
         StartCoroutine(ScaleEffect(hoverScale, hoverDuration));
@@ -66,8 +71,8 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     public void OnPointerExit(PointerEventData eventData)
     {
+        if (!isActiveAndEnabled) return;
         if (!enableHoverEffect) return;
-
         isHovering = false;
         StopAllCoroutines();
         StartCoroutine(ScaleEffect(1f, hoverDuration));
@@ -78,14 +83,16 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     public void OnPointerClick(PointerEventData eventData)
     {
+        if (!isActiveAndEnabled) return;
         if (!enableClickEffect) return;
-
+        StopAllCoroutines();
         StartCoroutine(ClickEffect());
         PlaySound(clickSound);
     }
 
     System.Collections.IEnumerator ScaleEffect(float targetScale, float duration)
     {
+        if (gameObject == null) yield break;
         Vector3 startScale = transform.localScale;
         Vector3 endScale = originalScale * targetScale;
         float elapsed = 0f;
@@ -103,11 +110,11 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     System.Collections.IEnumerator ClickEffect()
     {
+        if (gameObject == null) yield break;
         Vector3 currentScale = transform.localScale;
         Vector3 clickedScale = originalScale * clickScale;
-
-        // Shrink
         float elapsed = 0f;
+        
         while (elapsed < clickDuration)
         {
             elapsed += Time.deltaTime;
@@ -116,11 +123,9 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
             yield return null;
         }
 
-        // Return to hover or normal scale
         float targetScale = isHovering ? hoverScale : 1f;
         Vector3 endScale = originalScale * targetScale;
-
-        elapsed = 0f;
+        
         while (elapsed < clickDuration)
         {
             elapsed += Time.deltaTime;
@@ -138,5 +143,16 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         {
             AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, 0.5f);
         }
+    }
+
+    public void ResetVisual()
+    {
+        StopAllCoroutines();
+        transform.localScale = originalScale;
+
+        if (iconImage != null)
+            iconImage.color = originalColor;
+        
+        isHovering = false;
     }
 }
