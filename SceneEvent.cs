@@ -2,33 +2,39 @@
 using UnityEngine;
 using UnityEngine.UI;
 
+public enum SceneProgress
+{
+    Scene1,
+    Scene2,
+    Scene3,
+    Scene4
+}
+
 public class SceneEvent : MonoBehaviour
 {
-    private static readonly WaitForSeconds _waitForSeconds0_5 = new(0.5f);
-    bool hasTriggered = false;
-    bool canTrigger = false;
-
+    private static readonly WaitForSeconds WAIT_HALF_SEC = new(0.5f);
     public static SceneEvent Instance { get; private set; }
+    public SceneProgress Progress { get; private set; } = SceneProgress.Scene1;
+    public ItemDatabase itemDatabase;
+    bool subscribed;
 
     [Header("Dialogues")]
-    public DialogueNode scene2AStartDialogueNode;
+    public DialogueNode[] sceneStartDialogueNodes;
 
     [Header("Backgrounds")]
-    public GameObject bg1;
-    public GameObject bg2;
+    public GameObject[] bgs;
 
     [Header("Characters")]
-    public GameObject char1;
+    public GameObject[] chars;
 
-    [Header("Icon Buttons")]
+    [Header("UI Icons")]
     public Button profileIcon;
     public Button inventoryIcon;
     public Button shopIcon;
     public Button mapIcon;
     public Button combatIcon;
     public Button equipmentIcon;
-
-    [Header("Close Buttons")]
+    public Button coinButton;
     public Button closeMapButton;
 
     [Header("UI Panels")]
@@ -36,16 +42,16 @@ public class SceneEvent : MonoBehaviour
     public GameObject inventoryPanel;
     public GameObject shopPanel;
     public GameObject mapPanel;
-    public GameObject combatPanel;
+    public GameObject combatMapPanel;
     public GameObject equipmentPanel;
+    public GameObject coinPanel;
 
     [Header("Icon Settings")]
     public bool closeOtherPanelsOnOpen = true;
     public bool allowMultiplePanels = false;
 
-    private void Awake()
+    void Awake()
     {
-        // Singleton pattern
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
@@ -54,23 +60,30 @@ public class SceneEvent : MonoBehaviour
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
+
+        if (itemDatabase != null)
+            itemDatabase.SetInstance();
     }
 
-    private void Start()
+    void Start()
     {
-        // Setup backgrounds
-        if (bg1 != null)
-            bg1.SetActive(true);
+        SetBackground(0);
 
-        if (bg2 != null)
-            bg2.SetActive(false);
+        if (SaveSystem.CachedData != null)
+        {
+            ApplySceneProgress(
+                (SceneProgress)SaveSystem.CachedData.sceneProgress
+            );
+        }
 
-        // Setup character
-        if (char1 != null)
-            char1.SetActive(true);
-
+        if (chars.Length > 0 && chars[0] != null)
+            chars[0].SetActive(true);
+        
         SetupIconButtons();
         HideAllPanels();
+
+        if (SaveSystem.CachedData != null)
+            SaveSystem.ApplyLoadedData(SaveSystem.CachedData);
     }
 
     void SetupIconButtons()
@@ -88,10 +101,13 @@ public class SceneEvent : MonoBehaviour
             mapIcon.onClick.AddListener(() => TogglePanel(mapPanel, "Map"));
 
         if (combatIcon != null)
-            combatIcon.onClick.AddListener(() => TogglePanel(combatPanel, "Combat"));
+            combatIcon.onClick.AddListener(() => TogglePanel(combatMapPanel, "Combat"));
 
         if (equipmentIcon != null)
             equipmentIcon.onClick.AddListener(() => TogglePanel(equipmentPanel, "Equipment"));
+
+        if (coinButton != null)
+            coinButton.onClick.AddListener(() => TogglePanel(coinPanel, "Coin"));
 
         if (closeMapButton != null)
             closeMapButton.onClick.AddListener(() => HideAllPanels());
@@ -107,35 +123,12 @@ public class SceneEvent : MonoBehaviour
 
         bool isActive = panel.activeSelf;
 
-        // Close other panels if setting is enabled
         if (closeOtherPanelsOnOpen && !allowMultiplePanels && !isActive)
         {
             HideAllPanels();
         }
 
-        // Toggle the panel
         panel.SetActive(!isActive);
-    }
-
-    void HideAllPanels()
-    {
-        if (profilePanel != null)
-            profilePanel.SetActive(false);
-
-        if (inventoryPanel != null)
-            inventoryPanel.SetActive(false);
-
-        if (shopPanel != null)
-            shopPanel.SetActive(false);
-
-        if (mapPanel != null)
-            mapPanel.SetActive(false);
-
-        if (combatPanel != null)
-            combatPanel.SetActive(false);
-
-        if (equipmentPanel != null)
-            equipmentPanel.SetActive(false);
     }
 
     public void CloseAllPanels()
@@ -143,41 +136,75 @@ public class SceneEvent : MonoBehaviour
         HideAllPanels();
     }
 
-    public void Trigger()
+    public void OpenProfile()
     {
-        if (!canTrigger) return;
-        if (hasTriggered) return;
-        hasTriggered = true;
-        StartCoroutine(TriggerDelayed());
-    }
+        OpenPanel(profilePanel, "Profile");
 
-    IEnumerator TriggerDelayed()
-    {
-        yield return _waitForSeconds0_5;
-
-        if (bg1 != null)
-            bg1.SetActive(false);
-
-        if (bg2 != null)
-            bg2.SetActive(true);
-
-        if (char1 != null)
-            char1.SetActive(false);
-
-        DialogueNode nextNode = scene2AStartDialogueNode;
-
-        if (nextNode != null && DialogueManager.Instance != null)
+        if (ProfileUI.Instance != null)
         {
-            DialogueManager.Instance.StartDialogue(nextNode);
+            ProfileUI.Instance.RefreshAll();
         }
     }
 
-    public void OpenProfile() => OpenPanel(profilePanel, "Profile");
-    public void OpenInventory() => OpenPanel(inventoryPanel, "Inventory");
-    public void OpenShop() => OpenPanel(shopPanel, "Shop");
-    public void OpenMap() => OpenPanel(mapPanel, "Map");
-    public void OpenCombat() => OpenPanel(combatPanel, "Combat");
-    public void OpenEquipment() => OpenPanel(equipmentPanel, "Equipment");
+    public void OpenInventory()
+    {
+        OpenPanel(inventoryPanel, "Inventory");
+
+        if (ProfileUI.Instance != null)
+        {
+            ProfileUI.Instance.RefreshAll();
+        }
+    }
+
+    public void OpenShop()
+    {
+        OpenPanel(shopPanel, "Shop");
+
+        if (ProfileUI.Instance != null)
+        {
+            ProfileUI.Instance.RefreshAll();
+        }
+    }
+
+    public void OpenMap()
+    {
+        OpenPanel(mapPanel, "Map");
+
+        if (ProfileUI.Instance != null)
+        {
+            ProfileUI.Instance.RefreshAll();
+        }
+    }
+
+    public void OpenCombat()
+    {
+        OpenPanel(combatMapPanel, "Combat");
+
+        if (ProfileUI.Instance != null)
+        {
+            ProfileUI.Instance.RefreshAll();
+        }
+    }
+
+    public void OpenEquipment()
+    {
+        OpenPanel(equipmentPanel, "Equipment");
+
+        if (ProfileUI.Instance != null)
+        {
+            ProfileUI.Instance.RefreshAll();
+        }
+    }
+
+    public void OpenCoin()
+    {
+        OpenPanel(coinPanel, "Coin");
+
+        if (ProfileUI.Instance != null)
+        {
+            ProfileUI.Instance.RefreshAll();
+        }
+    }
 
     void OpenPanel(GameObject panel, string panelName)
     {
@@ -195,25 +222,153 @@ public class SceneEvent : MonoBehaviour
         panel.SetActive(true);
     }
 
-    private void OnEnable()
+    public void TriggerScene2()
     {
+        if (Progress != SceneProgress.Scene1)
+            return;
+
+        Progress = SceneProgress.Scene2;
+        StartCoroutine(Scene2Routine());
+    }
+
+    IEnumerator Scene2Routine()
+    {
+        yield return WAIT_HALF_SEC;
+        SetBackground(1);
+
+        if (sceneStartDialogueNodes[0] != null && DialogueManager.Instance != null)
+        {
+            DialogueManager.Instance.StartDialogue(sceneStartDialogueNodes[0]);
+        }
+    }
+
+    public void TriggerScene3()
+    {
+        if (Progress != SceneProgress.Scene2)
+            return;
+
+        Progress = SceneProgress.Scene3;
+        SetBackground(2);
+
+        if (sceneStartDialogueNodes[1] != null && DialogueManager.Instance != null)
+        {
+            DialogueManager.Instance.StartDialogue(sceneStartDialogueNodes[1]);
+        }
+    }
+
+    public void TriggerScene4()
+    {
+        if (Progress != SceneProgress.Scene3)
+            return;
+
+        Progress = SceneProgress.Scene4;
+        SetBackground(3);
+
+        if (sceneStartDialogueNodes[2] != null && DialogueManager.Instance != null)
+        {
+            DialogueManager.Instance.StartDialogue(sceneStartDialogueNodes[2]);
+        }
+    }
+
+    void OnEnable()
+    {
+        SubscribeDialogue();
+    }
+
+    void OnDisable()
+    {
+        UnsubscribeDialogue();
+    }
+
+    void SubscribeDialogue()
+    {
+        if (subscribed)
+            return;
+
         if (DialogueManager.Instance != null)
         {
             DialogueManager.Instance.OnDialogueEnd += HandleDialogueEnd;
+            subscribed = true;
         }
     }
 
-    private void OnDisable()
+    void UnsubscribeDialogue()
     {
+        if (!subscribed)
+            return;
+
         if (DialogueManager.Instance != null)
         {
             DialogueManager.Instance.OnDialogueEnd -= HandleDialogueEnd;
+            subscribed = false;
         }
     }
 
-    void HandleDialogueEnd()
+    void HandleDialogueEnd(DialogueNode endedNode)
     {
-        canTrigger = true;
+        if (endedNode == null)
+            return;
+
+        if (endedNode.name.Contains("S2") && endedNode.isFinalNode)
+        {
+            TriggerScene3();
+        }
+        else if (endedNode.name.Contains("S3") && endedNode.isFinalNode)
+        {
+            TriggerScene4();
+        }
     }
 
+    public void ApplySceneProgress(SceneProgress progress)
+    {
+        Progress = progress;
+
+        switch (Progress)
+        {
+            case SceneProgress.Scene1:
+                SetBackground(0);
+                break;
+
+            case SceneProgress.Scene2:
+                SetBackground(1);
+                break;
+
+            case SceneProgress.Scene3:
+                SetBackground(2);
+                break;
+        }
+    }
+
+    void SetBackground(int index)
+    {
+        for (int i = 0; i < bgs.Length; i++)
+        {
+            if (bgs[i] != null)
+                bgs[i].SetActive(i == index);
+        }
+    }
+
+    void HideAllPanels()
+    {
+        if (profilePanel != null)
+            profilePanel.SetActive(false);
+
+        if (inventoryPanel != null)
+            inventoryPanel.SetActive(false);
+
+        if (shopPanel != null)
+            shopPanel.SetActive(false);
+
+        if (mapPanel != null)
+            mapPanel.SetActive(false);
+
+        if (combatMapPanel != null)
+            combatMapPanel.SetActive(false);
+
+        if (equipmentPanel != null)
+            equipmentPanel.SetActive(false);
+
+        if (coinButton != null)
+            coinPanel.SetActive(false);
+    }
 }

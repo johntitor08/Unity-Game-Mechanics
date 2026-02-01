@@ -19,7 +19,7 @@ public class SaveData
     public List<int> shopStockAmounts = new();
     public TimePhase currentTimePhase = TimePhase.Morning;
     public int currentDay = 1;
-    public float phaseTimer = 0f;
+    public float phaseProgress = 0f;
     public List<EquippedItemSave> equippedItems = new();
     public List<CurrencyType> currencyTypes = new();
     public List<int> currencyAmounts = new();
@@ -29,9 +29,11 @@ public class SaveData
     public List<QuestSaveData> activeQuests = new();
     public List<string> completedQuests = new();
     public List<string> trackedQuests = new();
+    public int sceneProgress;
+    public bool resumeDialogueOnLoad;
 }
 
-[System.Serializable]
+[Serializable]
 public class EquippedItemSave
 {
     public EquipmentSlot slot;

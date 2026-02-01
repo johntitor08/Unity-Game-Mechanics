@@ -5,6 +5,8 @@ using UnityEngine.UI;
 public class ItemDetailPanel : MonoBehaviour
 {
     public static ItemDetailPanel Instance;
+    private ItemData currentItem;
+    private bool isProcessingUse;
 
     [Header("UI")]
     public TextMeshProUGUI title;
@@ -12,64 +14,164 @@ public class ItemDetailPanel : MonoBehaviour
     public TextMeshProUGUI quantityText;
     public TextMeshProUGUI description;
     public Button useButton;
-    private ItemData currentItem;
+    public Button equipButton;
+    public Button closeButton;
 
     void Awake()
     {
-        if (Instance == null) Instance = this;
-        else Destroy(gameObject);
+        if (Instance != null)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
         gameObject.SetActive(false);
     }
 
-    public void Show(ItemData item, int quantity = -1)
+    void OnEnable()
     {
-        if (item == null) return;
+        if (InventoryManager.Instance != null)
+            InventoryManager.Instance.OnInventoryChanged += RefreshQuantity;
+    }
+
+    void OnDisable()
+    {
+        if (InventoryManager.Instance != null)
+            InventoryManager.Instance.OnInventoryChanged -= RefreshQuantity;
+    }
+
+    public void ShowItemDetail(ItemData item, int quantity)
+    {
         currentItem = item;
-        icon.sprite = item.icon;
-        title.text = item.itemName;
-        description.text = item.description;
+        isProcessingUse = false;
 
-        int qty = quantity >= 0
-            ? quantity
-            : InventoryManager.Instance.GetQuantity(item);
+        if (title != null)
+            title.text = item.itemName;
 
-        quantityText.text = $"Sahip olunan: {qty}";
-        useButton.onClick.RemoveAllListeners();
+        if (description != null)
+            description.text = item.description;
 
-        if (item.useable && qty > 0)
-        {
-            useButton.gameObject.SetActive(true);
-            useButton.onClick.AddListener(UseItem);
-        }
-        else
-        {
-            useButton.gameObject.SetActive(false);
-        }
+        if (icon != null)
+            icon.sprite = item.icon;
 
+        int qty = quantity >= 0 ? quantity : InventoryManager.Instance.GetQuantity(item);
+
+        if (quantityText != null)
+            quantityText.text = $"Sahip olunan: {qty}";
+
+        ConfigureButtons(item, qty);
         gameObject.SetActive(true);
     }
 
-    void UseItem()
+    private void ConfigureButtons(ItemData item, int quantity)
     {
-        if (currentItem == null) return;
-        if (!currentItem.useable) return;
-        currentItem.onUse?.Invoke();
-        InventoryManager.Instance.RemoveItem(currentItem, 1);
-        int remaining = InventoryManager.Instance.GetQuantity(currentItem);
+        if (closeButton != null)
+        {
+            closeButton.onClick.RemoveAllListeners();
+            closeButton.onClick.AddListener(Close);
+        }
 
-        if (remaining <= 0)
+        if (equipButton != null && useButton != null)
+        {
+            if (item.IsEquipment())
+            {
+                equipButton.gameObject.SetActive(true);
+                equipButton.interactable = item.useable && quantity > 0;
+                useButton.gameObject.SetActive(false);
+                equipButton.onClick.RemoveAllListeners();
+                equipButton.onClick.AddListener(UseItem);
+            }
+            else
+            {
+                useButton.gameObject.SetActive(true);
+                useButton.interactable = item.useable && quantity > 0;
+                equipButton.gameObject.SetActive(false);
+                useButton.onClick.RemoveAllListeners();
+                useButton.onClick.AddListener(UseItem);
+            }
+        }
+    }
+
+    private void EquipEquipment(EquipmentData equipment)
+    {
+        if (EquipmentManager.Instance.CanEquip(equipment))
+        {
+            InventoryManager.Instance.RemoveItem(equipment, 1);
+            EquipmentManager.Instance.Equip(equipment);
+        }
+        else
+        {
+            Debug.Log("Cannot equip this item!");
+        }
+    }
+
+    public void UseItem()
+    {
+        if (isProcessingUse || currentItem == null || !currentItem.useable)
+            return;
+
+        isProcessingUse = true;
+
+        if (useButton != null)
+            useButton.interactable = false;
+
+        currentItem.onUse?.Invoke();
+
+        // Apply stat effect if configured
+        if (currentItem.statAmount > 0 && PlayerStats.Instance != null)
+        {
+            PlayerStats.Instance.Modify(currentItem.affectedStat, currentItem.statAmount);
+        }
+
+        if (currentItem.IsEquipment())
+        {
+            EquipEquipment(currentItem as EquipmentData);
+            RefreshQuantity();
+            return;
+        }
+
+        bool removed = InventoryManager.Instance.RemoveItem(currentItem, 1);
+
+        if (!removed)
+        {
+            isProcessingUse = false;
+            if (useButton != null)
+                useButton.interactable = true;
+        }
+    }
+
+    void RefreshQuantity()
+    {
+        if (currentItem == null || InventoryManager.Instance == null) return;
+        int qty = InventoryManager.Instance.GetQuantity(currentItem);
+
+        if (quantityText != null)
+            quantityText.text = $"Sahip olunan: {qty}";
+
+        if (qty <= 0)
         {
             Close();
         }
         else
         {
-            Show(currentItem, remaining);
+            isProcessingUse = false;
+
+            if (useButton != null && currentItem.useable)
+                useButton.interactable = true;
         }
     }
 
     public void Close()
     {
+        if (useButton != null)
+        {
+            useButton.onClick.RemoveAllListeners();
+            useButton.interactable = false;
+        }
+
         currentItem = null;
+        isProcessingUse = false;
         gameObject.SetActive(false);
     }
 }

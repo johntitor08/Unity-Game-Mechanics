@@ -29,12 +29,16 @@ public class ScenarioManager : MonoBehaviour
             Instance = this;
             DontDestroyOnLoad(gameObject);
         }
-        else Destroy(gameObject);
+        else
+        {
+            Destroy(gameObject);
+        }
     }
 
     public bool CanStartScenario(ScenarioData scenario)
     {
         if (scenario == null) return false;
+        if (IsScenarioCompleted(scenario.scenarioID)) return false;
 
         if (ProfileManager.Instance != null &&
             ProfileManager.Instance.profile.level < scenario.requiredLevel)
@@ -91,12 +95,29 @@ public class ScenarioManager : MonoBehaviour
 
         switch (step.type)
         {
-            case ScenarioStepType.Dialogue: ExecuteDialogueStep(step); break;
-            case ScenarioStepType.Combat: ExecuteCombatStep(step); break;
-            case ScenarioStepType.CollectItem: ExecuteCollectItemStep(step); break;
-            case ScenarioStepType.GoToLocation: ExecuteLocationStep(step); break;
-            case ScenarioStepType.Wait: ExecuteWaitStep(step); break;
-            case ScenarioStepType.Custom: ExecuteCustomStep(step); break;
+            case ScenarioStepType.Dialogue:
+                ExecuteDialogueStep(step);
+                break;
+
+            case ScenarioStepType.Combat:
+                ExecuteCombatStep(step);
+                break;
+
+            case ScenarioStepType.CollectItem:
+                ExecuteCollectItemStep(step);
+                break;
+
+            case ScenarioStepType.GoToLocation:
+                ExecuteLocationStep(step);
+                break;
+
+            case ScenarioStepType.Wait:
+                ExecuteWaitStep(step);
+                break;
+
+            case ScenarioStepType.Custom:
+                ExecuteCustomStep(step);
+                break;
         }
     }
 
@@ -108,33 +129,6 @@ public class ScenarioManager : MonoBehaviour
         OnStepComplete?.Invoke(step);
         currentStepIndex++;
         StartNextStep();
-    }
-
-    void CompleteScenario()
-    {
-        completedScenarios.Add(currentScenario.scenarioID);
-        GiveScenarioRewards();
-
-        if (currentScenario.flagsToSet != null)
-        {
-            foreach (var flag in currentScenario.flagsToSet)
-                StoryFlags.Add(flag);
-        }
-
-        if (currentScenario.outroDialogue != null && DialogueManager.Instance != null)
-            DialogueManager.Instance.StartDialogue(currentScenario.outroDialogue, FinalizeScenario);
-        else
-            FinalizeScenario();
-    }
-
-    void FinalizeScenario()
-    {
-        OnScenarioComplete?.Invoke(currentScenario);
-        currentScenario = null;
-        currentStepIndex = 0;
-        isScenarioActive = false;
-        StopActiveCoroutine();
-        SaveSystem.SaveGame();
     }
 
     void ExecuteDialogueStep(ScenarioStep step)
@@ -149,15 +143,21 @@ public class ScenarioManager : MonoBehaviour
     {
         if (step.enemy != null && CombatManager.Instance != null)
         {
+            CombatManager.Instance.OnCombatEnded -= OnCombatEnded;
             CombatManager.Instance.OnCombatEnded += OnCombatEnded;
             CombatManager.Instance.StartCombat(step.enemy);
         }
-        else CompleteCurrentStep();
+        else
+        {
+            CompleteCurrentStep();
+        }
     }
 
     void OnCombatEnded()
     {
-        CombatManager.Instance.OnCombatEnded -= OnCombatEnded;
+        if (CombatManager.Instance != null)
+            CombatManager.Instance.OnCombatEnded -= OnCombatEnded;
+
         CompleteCurrentStep();
     }
 
@@ -171,12 +171,12 @@ public class ScenarioManager : MonoBehaviour
             return;
         }
 
-        activeCoroutine = StartCoroutine(WaitForItem(step));
+        activeCoroutine = StartCoroutine(WaitForItem(step, currentStepIndex));
     }
 
-    IEnumerator WaitForItem(ScenarioStep step)
+    IEnumerator WaitForItem(ScenarioStep step, int stepIndex)
     {
-        while (true)
+        while (isScenarioActive && currentStepIndex == stepIndex)
         {
             if (InventoryManager.Instance != null &&
                 InventoryManager.Instance.GetQuantity(step.requiredItem) >= step.requiredQuantity)
@@ -196,14 +196,14 @@ public class ScenarioManager : MonoBehaviour
         GameObject target = GameObject.FindGameObjectWithTag(step.targetLocationTag);
 
         if (player != null && target != null)
-            activeCoroutine = StartCoroutine(WaitForLocation(player, target));
+            activeCoroutine = StartCoroutine(WaitForLocation(player, target, currentStepIndex));
         else
             CompleteCurrentStep();
     }
 
-    IEnumerator WaitForLocation(GameObject player, GameObject target)
+    IEnumerator WaitForLocation(GameObject player, GameObject target, int stepIndex)
     {
-        while (true)
+        while (isScenarioActive && currentStepIndex == stepIndex)
         {
             if (Vector3.Distance(player.transform.position, target.transform.position) < 2f)
             {
@@ -217,19 +217,62 @@ public class ScenarioManager : MonoBehaviour
 
     void ExecuteWaitStep(ScenarioStep step)
     {
-        activeCoroutine = StartCoroutine(Wait(step.waitDuration));
+        activeCoroutine = StartCoroutine(Wait(step.waitDuration, currentStepIndex));
     }
 
-    IEnumerator Wait(float duration)
+    IEnumerator Wait(float duration, int stepIndex)
     {
         yield return new WaitForSeconds(duration);
-        CompleteCurrentStep();
+
+        if (isScenarioActive && currentStepIndex == stepIndex)
+            CompleteCurrentStep();
     }
 
     void ExecuteCustomStep(ScenarioStep step)
     {
         step.onCustomStepEvent?.Invoke();
         CompleteCurrentStep();
+    }
+
+    void CompleteScenario()
+    {
+        completedScenarios.Add(currentScenario.scenarioID);
+        GiveScenarioRewards();
+
+        if (currentScenario.flagsToSet != null)
+        {
+            foreach (var flag in currentScenario.flagsToSet)
+                StoryFlags.Add(flag);
+        }
+
+        if (currentScenario.outroDialogue != null && DialogueManager.Instance != null)
+            DialogueManager.Instance.StartDialogue(currentScenario.outroDialogue, FinalizeScenario);
+        else
+            FinalizeScenario();
+    }
+
+    public void FailScenario()
+    {
+        if (!isScenarioActive || !currentScenario.canFail) return;
+        StopActiveCoroutine();
+
+        if (currentScenario.failureDialogue != null && DialogueManager.Instance != null)
+            DialogueManager.Instance.StartDialogue(currentScenario.failureDialogue, FinalizeScenario);
+        else
+            FinalizeScenario();
+    }
+
+    void FinalizeScenario()
+    {
+        if (CombatManager.Instance != null)
+            CombatManager.Instance.OnCombatEnded -= OnCombatEnded;
+
+        OnScenarioComplete?.Invoke(currentScenario);
+        currentScenario = null;
+        currentStepIndex = 0;
+        isScenarioActive = false;
+        StopActiveCoroutine();
+        SaveSystem.SaveGame();
     }
 
     void GiveScenarioRewards()
@@ -275,18 +318,9 @@ public class ScenarioManager : MonoBehaviour
             completedScenarios.Add(id);
     }
 
-    public bool IsScenarioActive()
-    {
-        return isScenarioActive && currentScenario != null;
-    }
+    public bool IsScenarioActive() => isScenarioActive && currentScenario != null;
+    
+    public ScenarioData GetCurrentScenario() => currentScenario;
 
-    public ScenarioData GetCurrentScenario()
-    {
-        return currentScenario;
-    }
-
-    public int GetCurrentStepIndex()
-    {
-        return currentStepIndex;
-    }
+    public int GetCurrentStepIndex() => currentStepIndex;
 }

@@ -7,6 +7,8 @@ using UnityEngine.UI;
 public class CombatUI : MonoBehaviour
 {
     public static CombatUI Instance;
+    private readonly List<CombatActionButton> actionButtons = new();
+    private readonly List<string> logLines = new();
 
     [Header("Panels")]
     public GameObject combatPanel;
@@ -35,9 +37,6 @@ public class CombatUI : MonoBehaviour
     [Header("Combat Log")]
     public TextMeshProUGUI combatLogText;
     public int maxLogLines = 8;
-
-    private readonly List<CombatActionButton> actionButtons = new();
-    private readonly List<string> logLines = new();
 
     void Awake()
     {

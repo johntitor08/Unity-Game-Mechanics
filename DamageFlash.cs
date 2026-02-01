@@ -29,6 +29,9 @@ public class DamageFlash : MonoBehaviour
 
     void Awake()
     {
+        if (statsTarget == null)
+            statsTarget = FindAnyObjectByType<CombatManager>().GetComponent<PlayerStats>();
+
         if (flashImage != null)
             flashImage.color = new Color(0f, 0f, 0f, 0f);
 

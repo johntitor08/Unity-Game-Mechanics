@@ -19,9 +19,9 @@ public class ItemSlot : MonoBehaviour,
     private ItemData item;
     private int quantity;
 
-    public void Setup(string itemID, int qty)
+    public void Setup(string itemID, int qty = -1)
     {
-        item = InventoryManager.Instance.GetItem(itemID);
+        item = ItemDatabase.Instance.GetByID(itemID);
 
         if (item == null)
         {
@@ -29,11 +29,18 @@ public class ItemSlot : MonoBehaviour,
             return;
         }
 
-        quantity = qty;
+        if (qty >= 0)
+        {
+            quantity = qty;
+        }
+        else
+        {
+            InventoryManager.Instance.GetItems().TryGetValue(itemID, out quantity);
+        }
+
         icon.sprite = item.icon;
         icon.enabled = true;
         title.text = item.itemName;
-
         ApplyRarityUI(item);
 
         if (item.stackable && quantity > 1)
@@ -61,7 +68,7 @@ public class ItemSlot : MonoBehaviour,
     public void OnClick()
     {
         if (item == null) return;
-        ItemDetailPanel.Instance.Show(item, quantity);
+        ItemDetailPanel.Instance.ShowItemDetail(item, quantity);
     }
 
     public void OnPointerEnter(PointerEventData eventData)

@@ -1,49 +1,54 @@
-﻿using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
+﻿using System;
 using System.Collections;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+public enum DialogueState
+{
+    Idle,
+    Opening,
+    Typing,
+    WaitingInput,
+    Choices,
+    Closing
+}
 
 public class DialogueManager : MonoBehaviour
 {
+    private static readonly WaitForSeconds WAIT_CLOSE = new(0.25f);
     public static DialogueManager Instance;
+    public DialogueState State { get; private set; } = DialogueState.Idle;
+    private DialogueNode currentNode;
+    private int currentLineIndex;
+    private Action onDialogueEnd;
+    public event Action<DialogueNode> OnDialogueStart;
+    public event Action<DialogueChoice> OnChoiceSelected;
+    public event Action<DialogueNode> OnDialogueEnd;
 
     [Header("UI")]
     public GameObject dialoguePanel;
-    public Image backgroundImage;
-    public Image speakerPortrait;
     public TextMeshProUGUI speakerNameText;
     public TextMeshProUGUI dialogueText;
+    public Image speakerPortrait;
+    public Image backgroundImage;
     public GameObject continueButton;
-    public Transform choicesParent;
+    public GameObject choicesPanel;
+    public Transform choicesContainer;
     public Button choiceButtonPrefab;
-    public Button startDialogueButton;
-    public DialogueNode startNodeForButton;
 
     [Header("Typewriter")]
     public Typewriter typewriter;
-    public bool skipTypewriterOnClick = true;
-
-    [Header("Audio")]
-    public AudioClip dialogueOpenSound;
-    public AudioClip dialogueCloseSound;
-    public AudioClip choiceSelectSound;
-    public AudioClip typewriterSound;
 
     [Header("Animation")]
     public Animator dialoguePanelAnimator;
     public string openTrigger = "Open";
     public string closeTrigger = "Close";
-    private bool isClosing;
 
-    private DialogueNode currentNode;
-    private int currentLineIndex;
-    private bool isShowingChoices;
-    private bool isInDialogue;
-    private System.Action onDialogueEnd;
-    private WaitForSeconds autoAdvanceWait;
-    public event System.Action<DialogueNode> OnDialogueStart;
-    public event System.Action OnDialogueEnd;
-    public event System.Action<DialogueChoice> OnChoiceSelected;
+    [Header("Audio")]
+    public AudioClip dialogueOpenSound;
+    public AudioClip dialogueCloseSound;
+    public AudioClip choiceSelectSound;
 
     void Awake()
     {
@@ -57,384 +62,254 @@ public class DialogueManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
-    void Start()
-    {
-        if (dialoguePanel != null)
-            dialoguePanel.SetActive(false);
-
-        if (speakerPortrait != null)
-            speakerPortrait.enabled = true;
-
-        if (startDialogueButton != null)
-        {
-            startDialogueButton.onClick.AddListener(() =>
-            {
-                startDialogueButton.gameObject.SetActive(false);
-                StartDialogue(startNodeForButton);
-            });
-        }
-    }
-
     void Update()
     {
-        if (!isInDialogue || isShowingChoices) return;
+        if (State != DialogueState.Typing && State != DialogueState.WaitingInput)
+            return;
 
-        if (Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0) || Input.touchCount > 0)
+        if (Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0))
         {
-            if (typewriter != null && skipTypewriterOnClick && typewriter.IsTyping)
+            if (State == DialogueState.Typing && typewriter != null && typewriter.IsTyping)
             {
-                typewriter.Complete(dialogueText, ParseLineSafe());
+                typewriter.Complete(dialogueText);
+                State = DialogueState.WaitingInput;
+
+                if (continueButton != null)
+                    continueButton.SetActive(true);
             }
-            else if (typewriter == null || !typewriter.IsTyping)
+            else if (State == DialogueState.WaitingInput)
             {
                 NextLine();
             }
         }
     }
 
-    public void StartDialogue_Button()
+    public void StartDialogue(DialogueNode startNode, Action callback = null)
     {
-        if (startNodeForButton == null)
-        {
-            Debug.LogWarning("DialogueManager: startNodeForButton null — assign a DialogueNode in the Inspector.");
+        if (startNode == null || State != DialogueState.Idle)
             return;
-        }
 
-        StartDialogue(startNodeForButton);
-    }
-
-    public void StartDialogue(DialogueNode startNode, System.Action callback = null)
-    {
-        if (startNode == null)
+        if (typewriter != null)
         {
-            Debug.LogWarning("DialogueManager: StartDialogue called with null node.");
-            return;
+            typewriter.OnTypingComplete += OnTypingFinished;
         }
 
         StopAllCoroutines();
-        if (isInDialogue) return;
         currentNode = startNode;
         currentLineIndex = 0;
-        isShowingChoices = false;
-        isInDialogue = true;
         onDialogueEnd = callback;
-        OpenPanel();
+        dialoguePanel.SetActive(true);
 
         if (dialoguePanelAnimator != null)
             dialoguePanelAnimator.SetTrigger(openTrigger);
 
         PlaySound(dialogueOpenSound);
-        if (currentNode != null && currentNode.onEnter != null)
-            currentNode.onEnter.Invoke();
-        if (OnDialogueStart != null)
-            OnDialogueStart.Invoke(currentNode);
+        currentNode.onEnter?.Invoke();
+        OnDialogueStart?.Invoke(currentNode);
         SetupVisuals();
         ClearChoices();
         ShowLine();
     }
 
-    string ParseLineSafe()
+    void OnTypingFinished()
     {
-        if (currentNode == null || currentNode.lines == null || currentLineIndex >= currentNode.lines.Length)
-            return "";
+        if (State != DialogueState.Typing)
+            return;
 
-        string line = currentNode.lines[currentLineIndex];
-
-        if (ProfileManager.Instance != null)
-            line = line.Replace("{playerName}", ProfileManager.Instance.profile.playerName);
-
-        return line;
-    }
-
-    void SetupVisuals()
-    {
-        if (speakerNameText != null)
-        {
-            speakerNameText.text = currentNode != null ? currentNode.speakerName : "";
-            speakerNameText.color = currentNode != null ? currentNode.speakerNameColor : Color.white;
-        }
-
-        if (speakerPortrait != null)
-        {
-            speakerPortrait.sprite = currentNode != null ? currentNode.speakerPortrait : null;
-            speakerPortrait.enabled = currentNode != null && currentNode.speakerPortrait != null;
-        }
-
-        if (backgroundImage != null)
-        {
-            backgroundImage.sprite = currentNode != null ? currentNode.backgroundImage : null;
-            backgroundImage.enabled = currentNode != null && currentNode.backgroundImage != null;
-        }
+        State = DialogueState.WaitingInput;
 
         if (continueButton != null)
-            continueButton.SetActive(false);
+            continueButton.SetActive(true);
     }
 
     void ShowLine()
     {
-        if (currentNode == null || currentNode.lines == null || currentLineIndex >= currentNode.lines.Length)
+        if (currentNode == null) return;
+
+        if (currentLineIndex >= currentNode.lines.Length)
         {
             ShowChoicesOrEnd();
             return;
         }
+
+        State = DialogueState.Typing;
+
+        if (continueButton != null)
+            continueButton.SetActive(false);
 
         string line = ParseLineSafe();
 
         if (typewriter != null)
         {
             typewriter.StartTyping(dialogueText, line);
-
-            if (currentNode.autoAdvance)
-            {
-                autoAdvanceWait = new WaitForSeconds(currentNode.autoAdvanceDelay);
-                StartCoroutine(AutoAdvanceLine());
-            }
-            else if (continueButton != null)
-            {
-                StartCoroutine(ShowContinueButtonAfterTyping());
-            }
         }
         else
         {
             dialogueText.text = line;
+            State = DialogueState.WaitingInput;
 
             if (continueButton != null)
                 continueButton.SetActive(true);
         }
     }
 
-    IEnumerator ShowContinueButtonAfterTyping()
-    {
-        yield return new WaitUntil(() => typewriter == null || !typewriter.IsTyping);
-
-        if (continueButton != null)
-            continueButton.SetActive(true);
-    }
-
-    IEnumerator AutoAdvanceLine()
-    {
-        yield return new WaitUntil(() => typewriter == null || !typewriter.IsTyping);
-        if (autoAdvanceWait != null) yield return autoAdvanceWait;
-        NextLine();
-    }
-
     void NextLine()
     {
-        if (typewriter != null && typewriter.IsTyping) return;
-
-        if (continueButton != null)
-            continueButton.SetActive(false);
+        if (State != DialogueState.WaitingInput)
+            return;
 
         currentLineIndex++;
 
-        if (currentNode != null && currentNode.lines != null && currentLineIndex < currentNode.lines.Length)
-        {
-            ShowLine();
-        }
-        else
+        if (currentNode != null && currentLineIndex >= currentNode.lines.Length)
         {
             ShowChoicesOrEnd();
+            return;
         }
+
+        ShowLine();
     }
 
     void ShowChoicesOrEnd()
     {
         ClearChoices();
 
-        if (currentNode == null || currentNode.choices == null || currentNode.choices.Length == 0)
+        if (currentNode.choices == null || currentNode.choices.Length == 0)
         {
             EndDialogue();
             return;
         }
 
-        isShowingChoices = true;
+        State = DialogueState.Choices;
+        float panelHeight = currentNode.choices.Length * 100f;
+        RectTransform panelRect = choicesPanel.GetComponent<RectTransform>();
+        panelRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, panelHeight);
+        RectTransform containerRect = choicesContainer.GetComponent<RectTransform>();
+        containerRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, panelHeight);
 
         foreach (var choice in currentNode.choices)
         {
-            if (!CanShowChoice(choice)) continue;
-            Button btn = Instantiate(choiceButtonPrefab, choicesParent);
-            TextMeshProUGUI btnText = btn.GetComponentInChildren<TextMeshProUGUI>();
-
-            if (btnText != null)
-            {
-                btnText.text = choice.choiceText;
-                btnText.color = choice.choiceColor;
-            }
-
-            btn.interactable = CanSelectChoice(choice);
-            DialogueChoice localChoice = choice;
-            btn.onClick.AddListener(() => SelectChoice(localChoice));
+            Button btn = Instantiate(choiceButtonPrefab, choicesContainer.transform);
+            btn.GetComponentInChildren<TextMeshProUGUI>().text = choice.choiceText;
+            btn.onClick.AddListener(() => SelectChoice(choice));
         }
 
-        choicesParent.gameObject.SetActive(true);
-    }
-
-    bool CanShowChoice(DialogueChoice choice)
-    {
-        return choice != null && (!choice.requiresFlag || StoryFlags.Has(choice.requiredFlag));
-    }
-
-    bool CanSelectChoice(DialogueChoice choice)
-    {
-        if (choice == null) return false;
-        if (choice.isDisabledChoice) return false;
-
-        if (choice.requiresItem && InventoryManager.Instance != null && InventoryManager.Instance.GetQuantity(choice.requiredItem) <= 0)
-            return false;
-
-        if (choice.requiresStat && PlayerStats.Instance != null && PlayerStats.Instance.Get(choice.requiredStat) < choice.requiredStatValue)
-            return false;
-
-        if (choice.requiresCurrency && CurrencyManager.Instance != null && !CurrencyManager.Instance.Has(choice.requiredCurrency, choice.requiredCurrencyAmount))
-            return false;
-
-        return true;
+        choicesPanel.SetActive(true);
     }
 
     void SelectChoice(DialogueChoice choice)
     {
-        if (choice == null) return;
+        if (State != DialogueState.Choices)
+            return;
+
+        choicesPanel.SetActive(false);
+        ClearChoices();
         PlaySound(choiceSelectSound);
         OnChoiceSelected?.Invoke(choice);
+        currentNode.onExit?.Invoke();
 
-        // Item tüket
-        if (choice.consumeItem && choice.requiredItem != null && InventoryManager.Instance != null)
-            InventoryManager.Instance.RemoveItem(choice.requiredItem, 1);
-
-        // Flag ayarla
-        if (choice.setFlag && !string.IsNullOrEmpty(choice.flagToSet))
-            StoryFlags.Add(choice.flagToSet);
-
-        // Ödüller
-        if (choice.giveReward)
-            GiveRewards(choice);
-
-        // Sonraki node varsa devam et
         if (choice.nextNode != null)
         {
-            // Mevcut node çıkış callback
-            if (currentNode != null && currentNode.onExit != null)
-                currentNode.onExit.Invoke();
-
-            // Yeni node
             currentNode = choice.nextNode;
             currentLineIndex = 0;
-            isShowingChoices = false;
-            ClearChoices();
-
-            // Yeni node giriş callback
-            if (currentNode != null && currentNode.onEnter != null)
-                currentNode.onEnter.Invoke();
-
+            currentNode.onEnter?.Invoke();
             SetupVisuals();
             ShowLine();
         }
         else
         {
-            // Yoksa diyaloğu bitir
             EndDialogue();
         }
     }
 
-    void GiveRewards(DialogueChoice choice)
+    void EndDialogue()
     {
-        if (choice.currencyRewards != null)
-            foreach (var reward in choice.currencyRewards) reward.Grant();
+        if (State == DialogueState.Closing)
+            return;
 
-        if (choice.itemRewards != null && InventoryManager.Instance != null)
-            foreach (var item in choice.itemRewards) InventoryManager.Instance.AddItem(item, 1);
+        if (typewriter != null)
+        {
+            typewriter.OnTypingComplete -= OnTypingFinished;
+        }
 
-        if (choice.experienceReward > 0 && ProfileManager.Instance != null)
-            ProfileManager.Instance.AddExperience(choice.experienceReward);
+        State = DialogueState.Closing;
+        DialogueNode endedNode = currentNode;
+
+        if (currentNode != null)
+            currentNode.onExit?.Invoke();
+
+        currentNode = null;
+        dialogueText.text = "";
+        ClearChoices();
+        PlaySound(dialogueCloseSound);
+
+        if (dialoguePanelAnimator != null)
+            dialoguePanelAnimator.SetTrigger(closeTrigger);
+
+        StartCoroutine(FinishDialogue(endedNode));
+    }
+
+    IEnumerator FinishDialogue(DialogueNode endedNode)
+    {
+        yield return WAIT_CLOSE;
+        dialoguePanel.SetActive(false);
+        State = DialogueState.Idle;
+        OnDialogueEnd?.Invoke(endedNode);
+        onDialogueEnd?.Invoke();
+    }
+
+    void SetupVisuals()
+    {
+        if (currentNode == null)
+        {
+            Debug.LogError("SetupVisuals failed: currentNode is NULL");
+            return;
+        }
+
+        if (speakerNameText != null)
+        {
+            speakerNameText.text = currentNode.speakerName ?? "";
+            speakerNameText.color = Color.wheat;
+        }
+
+        if (speakerPortrait != null)
+        {
+            speakerPortrait.sprite = currentNode.speakerPortrait;
+            speakerPortrait.enabled = currentNode.speakerPortrait != null;
+        }
+
+        if (backgroundImage != null)
+        {
+            backgroundImage.sprite = currentNode.backgroundImage;
+            backgroundImage.enabled = currentNode.backgroundImage != null;
+        }
     }
 
     void ClearChoices()
     {
-        if (choicesParent == null) return;
-        foreach (Transform child in choicesParent) Destroy(child.gameObject);
-        choicesParent.gameObject.SetActive(false);
+        foreach (Transform c in choicesContainer)
+            Destroy(c.gameObject);
     }
 
-    void EndDialogue()
+    string ParseLineSafe()
     {
-        if (!isInDialogue || isClosing) return;
-        isClosing = true;
+        string line = currentNode.lines[currentLineIndex];
 
-        if (currentNode != null && currentNode.onExit != null)
-            currentNode.onExit.Invoke();
+        if (ProfileManager.Instance != null)
+            line = line.Replace("{playerName}",
+                ProfileManager.Instance.profile.playerName);
 
-        if (dialoguePanelAnimator != null)
-        {
-            dialoguePanelAnimator.ResetTrigger(openTrigger);
-            dialoguePanelAnimator.SetTrigger(closeTrigger);
-            StartCoroutine(WaitForCloseAnimation());
-        }
-        else
-        {
-            if (dialoguePanel != null)
-                dialoguePanel.SetActive(false);
-
-            isClosing = false;
-        }
-
-        PlaySound(dialogueCloseSound);
-        isInDialogue = false;
-        isShowingChoices = false;
-        currentNode = null;
-        dialogueText.text = "";
-        ClearChoices();
-        OnDialogueEnd?.Invoke();
-        onDialogueEnd?.Invoke();
-    }
-
-    void OpenPanel()
-    {
-        if (dialoguePanel != null)
-            dialoguePanel.SetActive(true);
-
-        if (dialoguePanelAnimator != null)
-        {
-            dialoguePanelAnimator.ResetTrigger(closeTrigger);
-            dialoguePanelAnimator.SetTrigger(openTrigger);
-        }
-    }
-
-    IEnumerator WaitForCloseAnimation()
-    {
-        if (dialoguePanelAnimator == null)
-        {
-            if (dialoguePanel != null)
-                dialoguePanel.SetActive(false);
-
-            isClosing = false;
-            yield break;
-        }
-
-        float duration = 0f;
-        AnimatorClipInfo[] clips = dialoguePanelAnimator.GetCurrentAnimatorClipInfo(0);
-
-        if (clips.Length > 0)
-            duration = clips[0].clip.length;
-
-        yield return new WaitForSeconds(duration);
-
-        if (dialoguePanel != null)
-            dialoguePanel.SetActive(false);
-        
-        isClosing = false;
-        yield return null;
-
-        if (dialoguePanel != null)
-            dialoguePanel.SetActive(false);
-
-        isClosing = false;
+        return line;
     }
 
     void PlaySound(AudioClip clip)
     {
         if (clip != null && Camera.main != null)
-            AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, 0.5f);
+            AudioSource.PlayClipAtPoint(clip,
+                Camera.main.transform.position, 0.5f);
     }
 
-    public bool IsInDialogue() => isInDialogue;
+    public bool IsInDialogue()
+    {
+        return State != DialogueState.Idle;
+    }
 }

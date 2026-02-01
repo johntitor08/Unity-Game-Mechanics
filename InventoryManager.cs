@@ -1,61 +1,49 @@
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
-using System;
 
 public class InventoryManager : MonoBehaviour
 {
     public static InventoryManager Instance;
     private readonly Dictionary<string, int> items = new();
-    private readonly Dictionary<string, ItemData> database = new();
-    public event Action OnChanged;
+    public event Action OnInventoryChanged;
     public static event Action OnReady;
 
     void Awake()
     {
-        if (Instance == null)
+        if (Instance != null)
         {
-            Instance = this;
-            OnReady?.Invoke();
+            Destroy(gameObject);
+            return;
         }
-        else Destroy(gameObject);
+
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+        OnReady?.Invoke();
     }
 
     public void AddItem(ItemData item, int amount = 1)
     {
         if (item == null || amount <= 0) return;
-        database[item.itemID] = item;
 
         if (items.ContainsKey(item.itemID))
             items[item.itemID] += amount;
         else
             items[item.itemID] = amount;
 
-        OnChanged?.Invoke();
+        OnInventoryChanged?.Invoke();
     }
 
-    public void RemoveItem(ItemData item, int amount = 1)
+    public bool RemoveItem(ItemData item, int amount = 1)
     {
-        if (item == null || !items.ContainsKey(item.itemID)) return;
+        if (item == null || !items.ContainsKey(item.itemID)) return false;
         items[item.itemID] -= amount;
 
         if (items[item.itemID] <= 0)
             items.Remove(item.itemID);
 
-        OnChanged?.Invoke();
-    }
-
-    public Dictionary<string, int> GetItems()
-    {
-        return new Dictionary<string, int>(items);
-    }
-
-    public ItemData GetItem(string id)
-    {
-        if (database.TryGetValue(id, out var item))
-            return item;
-
-        Debug.LogWarning($"Item not found in database: {id}");
-        return null;
+        OnInventoryChanged?.Invoke();
+        return true;
     }
 
     public int GetQuantity(ItemData item)
@@ -64,9 +52,17 @@ public class InventoryManager : MonoBehaviour
         return items.TryGetValue(item.itemID, out int qty) ? qty : 0;
     }
 
+    public IReadOnlyDictionary<string, int> GetItems() => items;
+
+    public ItemData GetItem(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        return ItemDatabase.Instance.GetByID(id);
+    }
+
     public void Clear()
     {
         items.Clear();
-        OnChanged?.Invoke();
+        OnInventoryChanged?.Invoke();
     }
 }

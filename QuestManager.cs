@@ -46,7 +46,7 @@ public class QuestManager : MonoBehaviour
 
         if (InventoryManager.Instance != null)
         {
-            InventoryManager.Instance.OnChanged += CheckCollectObjectives;
+            InventoryManager.Instance.OnInventoryChanged += CheckCollectObjectives;
         }
 
         if (CurrencyManager.Instance != null)

@@ -15,25 +15,46 @@ public class PlayerProfile
 public class ProfileManager : MonoBehaviour
 {
     public static ProfileManager Instance;
-    public PlayerProfile profile = new();
-    public event Action OnProfileChanged;
-    public event Action OnLevelUp;
-    public event Action OnCurrencyChanged;
-    public static event Action OnReady;
+    public PlayerProfile profile;
+    public event Action<PlayerProfile> OnProfileChanged;
+    public event Action<PlayerProfile> OnLevelUp;
+    public event Action<PlayerProfile> OnCurrencyChanged;
 
     void Awake()
     {
-        if (Instance == null)
+        if (Instance != null && Instance != this)
         {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-            OnReady?.Invoke();
+            Destroy(gameObject);
+            return;
         }
-        else Destroy(gameObject);
+
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+        profile ??= new PlayerProfile();
+    }
+
+    public void CreateNewProfile(string playerName = "Player")
+    {
+        profile = new PlayerProfile
+        {
+            playerName = playerName
+        };
+
+        OnProfileChanged?.Invoke(profile);
+        SaveSystem.SaveGame();
+    }
+
+    public void SetPlayerName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return;
+        profile.playerName = name;
+        OnProfileChanged?.Invoke(profile);
+        SaveSystem.SaveGame();
     }
 
     public void AddExperience(int amount)
     {
+        if (amount <= 0) return;
         profile.experience += amount;
         bool leveledUp = false;
 
@@ -43,7 +64,7 @@ public class ProfileManager : MonoBehaviour
             leveledUp = true;
         }
 
-        OnProfileChanged?.Invoke();
+        OnProfileChanged?.Invoke(profile);
 
         if (amount > 0 || leveledUp)
             SaveSystem.SaveGame();
@@ -63,31 +84,37 @@ public class ProfileManager : MonoBehaviour
             PlayerStats.Instance.Modify(StatType.Intelligence, 2);
         }
 
-        OnLevelUp?.Invoke();
+        OnLevelUp?.Invoke(profile);
+    }
+
+    public void AddCurrency(int amount)
+    {
+        profile.currency += amount;
+        OnCurrencyChanged?.Invoke(profile);
+        OnProfileChanged?.Invoke(profile);
+        SaveSystem.SaveGame();
     }
 
     public bool SpendCurrency(int amount)
     {
         if (profile.currency < amount) return false;
         profile.currency -= amount;
-        OnCurrencyChanged?.Invoke();
-        OnProfileChanged?.Invoke();
+        OnCurrencyChanged?.Invoke(profile);
+        OnProfileChanged?.Invoke(profile);
         SaveSystem.SaveGame();
         return true;
     }
 
-    public void AddCurrency(int amount)
+    public void ApplyLoadedProfile(PlayerProfile saved)
     {
-        profile.currency += amount;
-        OnCurrencyChanged?.Invoke();
-        OnProfileChanged?.Invoke();
-        SaveSystem.SaveGame();
-    }
-
-    public void SetPlayerName(string name)
-    {
-        profile.playerName = name;
-        OnProfileChanged?.Invoke();
-        SaveSystem.SaveGame();
+        if (saved == null) return;
+        profile.playerName = saved.playerName;
+        profile.level = saved.level;
+        profile.experience = saved.experience;
+        profile.experienceToNextLevel = saved.experienceToNextLevel;
+        profile.currency = saved.currency;
+        profile.profileIconID = saved.profileIconID;
+        OnCurrencyChanged?.Invoke(profile);
+        OnProfileChanged?.Invoke(profile);
     }
 }

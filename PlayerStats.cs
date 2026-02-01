@@ -12,6 +12,7 @@ public class PlayerStats : StatsBase
     private float energyRemainder;
     private float lastHealthDamageTime;
     private float lastEnergyUseTime;
+    private float lastAttackTime;
 
     [Header("Regeneration")]
     public bool enableHealthRegen = true;
@@ -24,7 +25,6 @@ public class PlayerStats : StatsBase
     [Header("Combat")]
     public int baseDamage = 10;
     public float attackCooldown = 1f;
-    private float lastAttackTime;
 
     protected override void Awake()
     {
@@ -57,8 +57,8 @@ public class PlayerStats : StatsBase
         }
 
         base.Awake();
-        Set(StatType.Health, Get(StatType.MaxHealth), false);
-        Set(StatType.Energy, Get(StatType.MaxEnergy), false);
+        Set(StatType.Health, Get(StatType.MaxHealth), true);
+        Set(StatType.Energy, Get(StatType.MaxEnergy), true);
         OnReady?.Invoke();
     }
 
@@ -74,14 +74,13 @@ public class PlayerStats : StatsBase
             int hp = Get(StatType.Health);
             int maxHp = Get(StatType.MaxHealth);
 
-            if (hp > 0 && hp < maxHp)
+            if (hp < maxHp)
             {
                 healthRemainder += healthRegenRate * Time.deltaTime;
-
                 if (healthRemainder >= 1f)
                 {
                     int regen = Mathf.FloorToInt(healthRemainder);
-                    Modify(StatType.Health, regen, false);
+                    Modify(StatType.Health, regen, true);
                     healthRemainder -= regen;
                 }
             }
@@ -95,11 +94,10 @@ public class PlayerStats : StatsBase
             if (energy < maxEnergy)
             {
                 energyRemainder += energyRegenRate * Time.deltaTime;
-
                 if (energyRemainder >= 1f)
                 {
                     int regen = Mathf.FloorToInt(energyRemainder);
-                    Modify(StatType.Energy, regen, false);
+                    Modify(StatType.Energy, regen, true);
                     energyRemainder -= regen;
                 }
             }
@@ -124,11 +122,6 @@ public class PlayerStats : StatsBase
             OnEnergyChanged?.Invoke();
     }
 
-    protected override void OnDie()
-    {
-        Debug.Log("Player died!");
-    }
-
     public void Attack(EnemyStats target)
     {
         if (target == null) return;
@@ -138,18 +131,10 @@ public class PlayerStats : StatsBase
         lastAttackTime = Time.time;
     }
 
-    public bool HasEnoughEnergy(int amount)
-    {
-        return Get(StatType.Energy) >= amount;
-    }
-
     public void FullRestore()
     {
-        Set(StatType.Health, Get(StatType.MaxHealth), false);
-        Set(StatType.Energy, Get(StatType.MaxEnergy), false);
-        OnHealthChanged?.Invoke();
-        OnEnergyChanged?.Invoke();
-        SaveStats();
+        Set(StatType.Health, Get(StatType.MaxHealth), true);
+        Set(StatType.Energy, Get(StatType.MaxEnergy), true);
     }
 
     public void ModifyMax(StatType type, int amount)
@@ -161,10 +146,18 @@ public class PlayerStats : StatsBase
             _ => type
         };
 
-        Modify(maxType, amount);
+        Modify(maxType, amount, true);
     }
 
-    public bool IsAlive() => Get(StatType.Health) > 0;
+    public bool HasEnoughEnergy(int amount)
+    {
+        return Get(StatType.Energy) >= amount;
+    }
+
+    public bool IsAlive()
+    {
+        return Get(StatType.Health) > 0;
+    }
 
     public float GetHealthPercentage() =>
         Get(StatType.MaxHealth) <= 0 ? 0f :
@@ -177,5 +170,10 @@ public class PlayerStats : StatsBase
     protected override void SaveStats()
     {
         SaveSystem.SaveGame();
+    }
+
+    protected override void OnDie()
+    {
+        Debug.Log("Player died!");
     }
 }

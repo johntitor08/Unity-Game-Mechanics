@@ -9,6 +9,8 @@ public class GameStartNameInput : MonoBehaviour
     private static readonly WaitForSeconds _waitForSeconds1_5 = new(1.5f);
     private static readonly WaitForSeconds _waitForSeconds0_5 = new(0.5f);
     public static GameStartNameInput Instance;
+    private bool typewriterFinished = false;
+    private bool hasStarted = false;
 
     [Header("Panels")]
     public GameObject nameInputPanel;
@@ -34,24 +36,102 @@ public class GameStartNameInput : MonoBehaviour
     public bool allowNumbers = false;
     public bool allowSpecialCharacters = false;
 
+    [Header("Start Dialogue")]
+    public DialogueNode startDialogueNode;
+
     [Header("Random Names")]
     public string[] randomNames = new string[]
     {
-        "Kahraman",
-        "Yiðit",
-        "Aslan",
-        "Ejder",
-        "Þövalye",
-        "Cesur",
-        "Güçlü",
-        "Hýzlý",
-        "Akýllý",
-        "Bilge",
-        "Savaþçý",
-        "Koruyucu",
-        "Özgür",
-        "Zafer",
-        "Umut"
+        "Raven",
+        "Blaze",
+        "Shadow",
+        "Storm",
+        "Ash",
+        "Viper",
+        "Fang",
+        "Drake",
+        "Phoenix",
+        "Ghost",
+        "Onyx",
+        "Nova",
+        "Reaper",
+        "Wolf",
+        "Hawk",
+        "Valor",
+        "Iron",
+        "Steel",
+        "Crusader",
+        "Knightfall",
+        "Bulwark",
+        "Sentinel",
+        "Warden",
+        "Paladin",
+        "Vanguard",
+        "Shade",
+        "Night",
+        "Blade",
+        "Silent",
+        "Rift",
+        "Specter",
+        "Venom",
+        "Whisper",
+        "Obsidian",
+        "Hex",
+        "Void",
+        "Arcane",
+        "Eclipse",
+        "Runeblade",
+        "Frost",
+        "Inferno",
+        "Aether",
+        "Oracle",
+        "Zephyr",
+        "Tempest",
+        "Titan",
+        "Colossus",
+        "Juggernaut",
+        "Phantom",
+        "Mirage",
+        "Cipher",
+        "NovaStrike",
+        "ShadowFang",
+        "CrimsonWolf",
+        "SilverHawk",
+        "GoldenDragon",
+        "DarkPhoenix",
+        "StormRider",
+        "LunarKnight",
+        "SolarFlare",
+        "ThunderClaw",
+        "BlazingArrow",
+        "FrostBite",
+        "VenomousViper",
+        "SilentShadow",
+        "ObsidianBlade",
+        "ArcaneMage",
+        "VoidWalker",
+        "NightStalker",
+        "RiftRunner",
+        "SpectralWraith",
+        "CelestialGuardian",
+        "GalacticRanger",
+        "CosmicSorcerer",
+        "StellarWarrior",
+        "QuantumAssassin",
+        "NeonNinja",
+        "CyberSamurai",
+        "TechnoMage",
+        "DigitalDruid",
+        "PixelPaladin",
+        "VirtualValkyrie",
+        "MatrixMonk",
+        "DataDemon",
+        "CodeCrusader",
+        "ScriptSage",
+        "BinaryBerserker",
+        "AlgorithmArcher",
+        "LogicLancer",
+        "SyntaxSwordsman"
     };
 
     [Header("Audio")]
@@ -63,8 +143,6 @@ public class GameStartNameInput : MonoBehaviour
     public Animator panelAnimator;
     public bool useTypewriterEffect = true;
     public float typewriterSpeed = 0.05f;
-
-    private bool hasStarted = false;
 
     void Awake()
     {
@@ -87,14 +165,17 @@ public class GameStartNameInput : MonoBehaviour
 
     void SetupUI()
     {
-        // Setup button listeners
+        typewriterFinished = !useTypewriterEffect;
+
         if (confirmButton != null)
-            confirmButton.onClick.AddListener(OnConfirmClicked);
+        {
+            confirmButton.onClick.AddListener(TryConfirm);
+            confirmButton.interactable = false;
+        }
 
         if (randomNameButton != null)
             randomNameButton.onClick.AddListener(OnRandomNameClicked);
 
-        // Setup input field
         if (nameInputField != null)
         {
             nameInputField.characterLimit = maxNameLength;
@@ -102,14 +183,9 @@ public class GameStartNameInput : MonoBehaviour
             nameInputField.onSubmit.AddListener(OnSubmit);
         }
 
-        // Initial UI state
         if (errorMessageText != null)
             errorMessageText.gameObject.SetActive(false);
 
-        if (confirmButton != null)
-            confirmButton.interactable = false;
-
-        // Show welcome message with typewriter effect
         if (useTypewriterEffect && welcomeText != null)
         {
             string originalText = welcomeText.text;
@@ -120,29 +196,20 @@ public class GameStartNameInput : MonoBehaviour
 
     void CheckExistingProfile()
     {
-        // Check if player already has a name
-        if (ProfileManager.Instance != null)
+        if (SaveSystem.HasSaveFile())
         {
-            string existingName = ProfileManager.Instance.profile.playerName;
+            if (nameInputPanel != null)
+                nameInputPanel.SetActive(false);
 
-            if (!string.IsNullOrEmpty(existingName) && existingName != "Player")
-            {
-                // Player already has a name, skip name input
-                StartGame(existingName);
-                return;
-            }
+            return;
         }
 
-        // Show name input panel
         if (nameInputPanel != null)
         {
             nameInputPanel.SetActive(true);
 
-            // Focus on input field
             if (nameInputField != null)
-            {
                 StartCoroutine(FocusInputField());
-            }
         }
     }
 
@@ -184,7 +251,7 @@ public class GameStartNameInput : MonoBehaviour
         // Update confirm button
         if (confirmButton != null)
         {
-            confirmButton.interactable = isValid;
+            confirmButton.interactable = isValid && typewriterFinished;
         }
 
         // Play typing sound
@@ -285,13 +352,31 @@ public class GameStartNameInput : MonoBehaviour
         return false;
     }
 
-    void OnSubmit(string name)
+    void OnSubmit(string value)
     {
-        // Enter key pressed
-        if (ValidateName(name, out _))
+        if (!typewriterFinished)
+            return;
+
+        TryConfirm();
+    }
+
+    void TryConfirm()
+    {
+        if (!typewriterFinished)
+            return;
+
+        if (nameInputField == null)
+            return;
+
+        string playerName = nameInputField.text.Trim();
+
+        if (!ValidateName(playerName, out string error))
         {
-            OnConfirmClicked();
+            ShowError(error);
+            return;
         }
+
+        OnConfirmClicked();
     }
 
     void OnConfirmClicked()
@@ -307,8 +392,6 @@ public class GameStartNameInput : MonoBehaviour
 
         confirmButton.gameObject.SetActive(false);
         randomNameButton.gameObject.SetActive(false);
-
-        // Save name and start game
         StartGame(playerName);
         PlaySound(confirmSound);
     }
@@ -330,21 +413,22 @@ public class GameStartNameInput : MonoBehaviour
         if (hasStarted) return;
         hasStarted = true;
 
-        // Save player name
         if (ProfileManager.Instance != null)
         {
             ProfileManager.Instance.SetPlayerName(playerName);
         }
 
-        // Show welcome message
+        if (ProfileUI.Instance != null)
+        {
+            ProfileUI.Instance.RefreshAll();
+        }
+
         if (welcomeText != null)
-        {
             StartCoroutine(ShowWelcomeMessage(playerName));
-        }
         else
-        {
             CompleteStart();
-        }
+
+        PlaySound(confirmSound);
     }
 
     IEnumerator ShowWelcomeMessage(string playerName)
@@ -405,9 +489,9 @@ public class GameStartNameInput : MonoBehaviour
             // Already has starting currency from profile
         }
 
-        if (DialogueManager.Instance != null)
+        if (DialogueManager.Instance != null && startDialogueNode != null)
         {
-            DialogueManager.Instance.StartDialogue(DialogueManager.Instance.startNodeForButton);
+            DialogueManager.Instance.StartDialogue(startDialogueNode);
         }
     }
 
@@ -439,14 +523,22 @@ public class GameStartNameInput : MonoBehaviour
         target.transform.localPosition = originalPos;
     }
 
-    IEnumerator TypewriterEffect(TextMeshProUGUI textComponent, string fullText, float delay)
+    IEnumerator TypewriterEffect(TextMeshProUGUI text, string fullText, float speed)
     {
-        textComponent.text = "";
-
         foreach (char c in fullText)
         {
-            textComponent.text += c;
-            yield return new WaitForSeconds(delay);
+            text.text += c;
+            yield return new WaitForSeconds(speed);
+        }
+
+        typewriterFinished = true;
+
+        if (confirmButton != null && nameInputField != null)
+        {
+            if (ValidateName(nameInputField.text, out _))
+            {
+                confirmButton.interactable = true;
+            }
         }
     }
 

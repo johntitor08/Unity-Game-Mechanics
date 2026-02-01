@@ -8,6 +8,8 @@ public class ShopSlot : MonoBehaviour
 {
     private static readonly WaitForSeconds waitForSeconds0_1 = new(0.1f);
     private static readonly WaitForSeconds waitForSeconds0_5 = new(0.5f);
+    private ShopItemData currentItem;
+    private bool isPurchasing;
 
     [Header("Visual Elements")]
     public Image itemIcon;
@@ -46,40 +48,65 @@ public class ShopSlot : MonoBehaviour
     public Color epicColor = new(0.6f, 0.2f, 1f);
     public Color legendaryColor = new(1f, 0.6f, 0f);
 
-    private ShopItemData currentItem;
-
     void Awake()
     {
         if (buyButton != null)
             buyButton.onClick.AddListener(OnBuyClicked);
     }
 
+    void OnEnable()
+    {
+        if (ProfileManager.Instance != null)
+            ProfileManager.Instance.OnCurrencyChanged += RefreshVisuals;
+    }
+
+    void OnDisable()
+    {
+        if (ProfileManager.Instance != null)
+            ProfileManager.Instance.OnCurrencyChanged -= RefreshVisuals;
+    }
+
     public void Setup(ShopItemData shopItem)
     {
+        if (shopItem == null || ShopManager.Instance == null) return;
         currentItem = shopItem;
-        itemIcon.sprite = shopItem.item.icon;
-        itemNameText.text = shopItem.item.itemName;
-        itemDescriptionText.text = shopItem.item.description;
-        priceText.text = $"{shopItem.price}";
-        int stockAmount = ShopManager.Instance.GetStock(shopItem.item.itemID);
-        stockText.text = stockAmount == -1 ? "∞" : $"Stock: {stockAmount}";
+        isPurchasing = false;
+        if (itemIcon != null) itemIcon.sprite = shopItem.item.icon;
+        if (itemNameText != null) itemNameText.text = shopItem.item.itemName;
+        if (itemDescriptionText != null) itemDescriptionText.text = shopItem.item.description;
+        if (priceText != null) priceText.text = $"{shopItem.price}";
+        UpdateStockDisplay();
         SetupRarity(shopItem.item);
         SetupRequirements(shopItem);
         SetupStats(shopItem.item);
         SetupProperties(shopItem.item);
-        bool canBuy = ShopManager.Instance.CanBuy(shopItem);
-        UpdateVisuals(shopItem, canBuy);
-        LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
+        RefreshVisuals(ProfileManager.Instance != null ? ProfileManager.Instance.profile : null);
+        UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
+    }
+
+    void UpdateStockDisplay()
+    {
+        if (currentItem == null || stockText == null || ShopManager.Instance == null) return;
+        int stockAmount = ShopManager.Instance.GetStock(currentItem.item.itemID);
+        stockText.text = stockAmount == -1 ? "∞" : $"Stock: {stockAmount}";
+    }
+
+    void RefreshVisuals(PlayerProfile profile)
+    {
+        if (currentItem == null || ShopManager.Instance == null || profile == null) return;
+        bool canBuy = ShopManager.Instance.CanBuy(currentItem);
+        UpdateVisuals(currentItem, canBuy);
     }
 
     void SetupRarity(ItemData item)
     {
+        if (item == null) return;
         Rarity rarityEnum = item.rarity;
         Color color;
 
         if (item is EquipmentData equip)
         {
-            rarityEnum = (Rarity)equip.rarity; // cast for UI
+            rarityEnum = equip.rarity;
             color = equip.GetRarityColor();
         }
         else
@@ -94,32 +121,31 @@ public class ShopSlot : MonoBehaviour
             };
         }
 
-        rarityText.text = rarityEnum.ToString();
-        rarityBadge.color = color;
+        if (rarityText != null) rarityText.text = rarityEnum.ToString();
+        if (rarityBadge != null) rarityBadge.color = color;
     }
 
     void SetupStats(ItemData item)
     {
-        if (statsContainer == null) return;
+        if (statsContainer == null || statTexts == null) return;
 
         if (item is EquipmentData equip)
         {
             statsContainer.SetActive(true);
             int shown = 0;
 
-            if (equip.damageBonus > 0 && shown < statTexts.Length) statTexts[shown++].text = $"Damage: +{equip.damageBonus}";
-            else if (shown < statTexts.Length) statTexts[shown++].text = "";
+            if (equip.damageBonus > 0 && shown < statTexts.Length)
+                statTexts[shown++].text = $"Damage: +{equip.damageBonus}";
 
-            if (equip.defenseBonus > 0 && shown < statTexts.Length) statTexts[shown++].text = $"Defense: +{equip.defenseBonus}";
-            else if (shown < statTexts.Length) statTexts[shown++].text = "";
+            if (equip.defenseBonus > 0 && shown < statTexts.Length)
+                statTexts[shown++].text = $"Defense: +{equip.defenseBonus}";
 
-            if (equip.primaryStatBonus > 0 && shown < statTexts.Length) statTexts[shown++].text = $"{equip.primaryStat}: +{equip.primaryStatBonus}";
-            else if (shown < statTexts.Length) statTexts[shown++].text = "";
+            if (equip.primaryStatBonus > 0 && shown < statTexts.Length)
+                statTexts[shown++].text = $"{equip.primaryStat}: +{equip.primaryStatBonus}";
 
-            if (equip.secondaryStatBonus > 0 && shown < statTexts.Length) statTexts[shown++].text = $"{equip.secondaryStat}: +{equip.secondaryStatBonus}";
-            else if (shown < statTexts.Length) statTexts[shown++].text = "";
+            if (equip.secondaryStatBonus > 0 && shown < statTexts.Length)
+                statTexts[shown++].text = $"{equip.secondaryStat}: +{equip.secondaryStatBonus}";
 
-            // Hide unused stat texts
             for (int i = shown; i < statTexts.Length; i++)
                 statTexts[i].text = "";
         }
@@ -136,7 +162,7 @@ public class ShopSlot : MonoBehaviour
         if (item is EquipmentData equip)
         {
             string props = $"Slot: {equip.slot}";
-
+            
             if (!string.IsNullOrEmpty(equip.setName))
                 props += $"\nSet: {equip.setName}";
 
@@ -151,6 +177,7 @@ public class ShopSlot : MonoBehaviour
 
     void SetupRequirements(ShopItemData shopItem)
     {
+        if (requirementText == null || ProfileManager.Instance == null || ShopManager.Instance == null) return;
         List<string> unmet = new();
         var profile = ProfileManager.Instance.profile;
 
@@ -178,10 +205,9 @@ public class ShopSlot : MonoBehaviour
 
     void UpdateVisuals(ShopItemData shopItem, bool canBuy)
     {
-        buyButton.interactable = canBuy;
-
-        if (buyButtonText != null)
-            buyButtonText.text = canBuy ? "BUY" : "LOCKED";
+        if (buyButton == null || buyButtonText == null || background == null || ProfileManager.Instance == null) return;
+        buyButton.interactable = canBuy && !isPurchasing;
+        buyButtonText.text = canBuy ? "BUY" : "LOCKED";
 
         if (!canBuy)
             background.color = lockedColor;
@@ -196,29 +222,47 @@ public class ShopSlot : MonoBehaviour
 
     void OnBuyClicked()
     {
+        if (isPurchasing || ShopManager.Instance == null || currentItem == null) return;
+        isPurchasing = true;
+
         if (ShopManager.Instance.BuyItem(currentItem))
         {
             StartCoroutine(PurchaseFeedback());
-            ShopUI.Instance.RefreshShop();
         }
         else
         {
+            isPurchasing = false;
             StartCoroutine(FailureFeedback());
         }
     }
 
     IEnumerator PurchaseFeedback()
     {
+        if (buyButtonText == null)
+        {
+            isPurchasing = false;
+            yield break;
+        }
+
         string originalText = buyButtonText.text;
+        Color originalColor = buyButtonText.color;
         buyButtonText.text = "PURCHASED!";
         buyButtonText.color = Color.green;
+        buyButton.interactable = false;
         yield return waitForSeconds0_5;
         buyButtonText.text = originalText;
-        buyButtonText.color = Color.white;
+        buyButtonText.color = originalColor;
+        UpdateStockDisplay();
+        RefreshVisuals(ProfileManager.Instance != null ? ProfileManager.Instance.profile : null);
+        isPurchasing = false;
+
+        if (ShopUI.Instance != null)
+            ShopUI.Instance.RefreshShop();
     }
 
     IEnumerator FailureFeedback()
     {
+        if (background == null) yield break;
         Color original = background.color;
 
         for (int i = 0; i < 3; i++)

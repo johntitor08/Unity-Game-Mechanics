@@ -55,6 +55,12 @@ public abstract class StatsBase : MonoBehaviour, IStatOwner
 
     public int Get(StatType type)
     {
+        if (!statDict.ContainsKey(type))
+        {
+            Debug.LogWarning($"Stat type {type} not found!");
+            return 0;
+        }
+
         int baseValue = statDict[type].currentValue;
         return ApplyEffectModifiers(type, baseValue);
     }

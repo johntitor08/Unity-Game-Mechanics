@@ -42,55 +42,98 @@ public class ShopUI : MonoBehaviour
 
     void Start()
     {
-        ProfileManager.Instance.OnCurrencyChanged += UpdateCurrency;
-        if (closeButton != null) closeButton.onClick.AddListener(CloseShop);
-        if (refreshButton != null) refreshButton.onClick.AddListener(RefreshShop);
-        shopPanel.SetActive(false);
-        RefreshShop();
-        UpdateCurrency();
+        if (ProfileManager.Instance != null)
+        {
+            ProfileManager.Instance.OnCurrencyChanged += UpdateCurrency;
+            ProfileManager.Instance.OnProfileChanged += UpdateCurrency;
+        }
+
+        if (closeButton != null)
+            closeButton.onClick.AddListener(CloseShop);
+
+        if (refreshButton != null)
+            refreshButton.onClick.AddListener(RefreshShop);
+
+        if (shopPanel != null)
+            shopPanel.SetActive(false);
+
+        if (sellPanel != null)
+            sellPanel.SetActive(false);
+
+        OpenShop();
+        UpdateCurrency(ProfileManager.Instance != null ? ProfileManager.Instance.profile : null);
         UpdateMarketStatus();
+    }
+
+    void OnDestroy()
+    {
+        if (ProfileManager.Instance != null)
+        {
+            ProfileManager.Instance.OnCurrencyChanged -= UpdateCurrency;
+            ProfileManager.Instance.OnProfileChanged -= UpdateCurrency;
+        }
     }
 
     public void OpenShop()
     {
-        if (!MarketController.Instance.IsOpen())
+        if (MarketController.Instance != null && !MarketController.Instance.IsOpen())
         {
-            marketClosedPanel.SetActive(true);
+            if (marketClosedPanel != null)
+                marketClosedPanel.SetActive(true);
+
             return;
         }
 
-        shopPanel.SetActive(true);
-        RefreshShop();
-        UpdateCurrency();
+        if (sellPanel != null)
+            sellPanel.SetActive(false);
+
+        if (shopPanel != null)
+        {
+            shopPanel.SetActive(true);
+            RefreshShop();
+        }
     }
 
     public void CloseShop()
     {
-        shopPanel.SetActive(false);
-        marketClosedPanel.SetActive(false);
+        if (shopPanel != null)
+            shopPanel.SetActive(false);
+
+        if (marketClosedPanel != null)
+            marketClosedPanel.SetActive(false);
     }
 
     public void OpenSell()
     {
-        shopPanel.SetActive(false);
-        sellPanel.SetActive(true);
-        RefreshSellPanel();
+        if (shopPanel != null)
+            shopPanel.SetActive(false);
+
+        if (sellPanel != null)
+        {
+            sellPanel.SetActive(true);
+            RefreshSellPanel();
+        }
     }
 
     public void RefreshShop()
     {
         if (ShopManager.Instance == null) return;
-        int index = 0;
 
         foreach (ShopSlot slot in slots)
         {
-            slot.gameObject.SetActive(false);
+            if (slot != null)
+                slot.gameObject.SetActive(false);
         }
+
+        int index = 0;
 
         foreach (var shopItem in ShopManager.Instance.shopItems)
         {
             if (index >= slots.Count)
-                slots.Add(Instantiate(shopSlotPrefab, shopContent));
+            {
+                ShopSlot newSlot = Instantiate(shopSlotPrefab, shopContent);
+                slots.Add(newSlot);
+            }
 
             slots[index].Setup(shopItem);
             slots[index].gameObject.SetActive(true);
@@ -98,43 +141,72 @@ public class ShopUI : MonoBehaviour
         }
 
         for (int i = index; i < slots.Count; i++)
-            slots[i].gameObject.SetActive(false);
+        {
+            if (slots[i] != null)
+                slots[i].gameObject.SetActive(false);
+        }
 
-        scrollRect.verticalNormalizedPosition = 1f;
+        if (scrollRect != null)
+        {
+            Canvas.ForceUpdateCanvases();
+            scrollRect.verticalNormalizedPosition = 1f;
+        }
+
+        UpdateCurrency(ProfileManager.Instance != null ? ProfileManager.Instance.profile : null);
     }
 
     public void RefreshSellPanel()
     {
+        if (InventoryManager.Instance == null || sellPanel == null) return;
         int index = 0;
 
         foreach (var pair in InventoryManager.Instance.GetItems())
         {
             if (index >= sellSlots.Count)
-                sellSlots.Add(Instantiate(sellSlotPrefab, sellContent));
+            {
+                SellSlot newSlot = Instantiate(sellSlotPrefab, sellContent);
+                sellSlots.Add(newSlot);
+            }
 
             ItemData item = ItemDatabase.Instance.GetByID(pair.Key);
-            int qty = pair.Value;
 
-            sellSlots[index].Setup(item, qty, 0.5f);
-            sellSlots[index].gameObject.SetActive(true);
-            index++;
+            if (item != null)
+            {
+                int qty = pair.Value;
+                sellSlots[index].Setup(item, qty, 0.5f);
+                sellSlots[index].gameObject.SetActive(true);
+                index++;
+            }
         }
 
         for (int i = index; i < sellSlots.Count; i++)
-            sellSlots[i].gameObject.SetActive(false);
+        {
+            if (sellSlots[i] != null)
+                sellSlots[i].gameObject.SetActive(false);
+        }
+
+        if (scrollRect != null)
+        {
+            Canvas.ForceUpdateCanvases();
+            scrollRect.verticalNormalizedPosition = 1f;
+        }
     }
 
-    void UpdateCurrency()
+    void UpdateCurrency(PlayerProfile profile)
     {
-        currencyText.text = $"{ProfileManager.Instance.profile.currency} Gold";
+        if (profile == null || currencyText == null) return;
+        currencyText.text = $"{profile.currency} Gold";
     }
 
     public void UpdateMarketStatus()
     {
+        if (marketStatusText == null) return;
         bool isOpen = true;
-        
+
         if (MarketController.Instance != null)
+        {
             isOpen = MarketController.Instance.IsOpen();
+        }
 
         marketStatusText.text = isOpen ? "Market Open" : "Market Closed";
         marketStatusText.color = isOpen ? Color.green : Color.red;

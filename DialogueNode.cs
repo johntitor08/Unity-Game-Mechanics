@@ -31,6 +31,8 @@ public class DialogueNode : ScriptableObject
     [Header("Background")]
     public Sprite backgroundImage;
     public bool fadeToBlack = false;
+
+    public bool isFinalNode;
 }
 
 [System.Serializable]

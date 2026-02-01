@@ -31,6 +31,19 @@ public class EquipmentData : ItemData
     [Header("Set Data")]
     public EquipmentSetData setData;
 
+    // Constructor to ensure itemType is always Equipment
+    void OnEnable()
+    {
+        itemType = ItemType.Equipment;
+        stackable = false; // Equipment should not stack
+        maxStack = 1;
+    }
+
+    public override bool IsEquipment()
+    {
+        return true;
+    }
+
     public string GetStatsDescription()
     {
         string desc = "";

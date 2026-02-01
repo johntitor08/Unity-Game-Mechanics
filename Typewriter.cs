@@ -1,3 +1,4 @@
+﻿using System;
 using System.Collections;
 using TMPro;
 using UnityEngine;
@@ -16,53 +17,56 @@ public class Typewriter : MonoBehaviour
 
     private Coroutine routine;
     private bool isTyping;
+    private string cachedText;
+    private TextMeshProUGUI cachedTextUI;
+    public event Action OnTypingComplete;
+    public bool IsTyping => isTyping;
 
     public void StartTyping(TextMeshProUGUI textUI, string text)
     {
         if (routine != null)
             StopCoroutine(routine);
 
-        routine = StartCoroutine(Type(textUI, text));
+        cachedText = text;
+        cachedTextUI = textUI;
+        routine = StartCoroutine(Type());
     }
 
-    IEnumerator Type(TextMeshProUGUI textUI, string text)
+    IEnumerator Type()
     {
         isTyping = true;
-        textUI.text = "";
+        cachedTextUI.text = "";
 
-        foreach (char c in text)
+        foreach (char c in cachedText)
         {
-            textUI.text += c;
+            cachedTextUI.text += c;
 
-            // Play sound
             if (playSoundPerCharacter && typeSound != null && !char.IsWhiteSpace(c))
-            {
                 PlayTypeSound();
-            }
 
-            // Delay for punctuation
             if (skipPunctuation && IsPunctuation(c))
-            {
                 yield return new WaitForSeconds(punctuationDelay);
-            }
             else
-            {
                 yield return new WaitForSeconds(speed);
-            }
         }
 
         isTyping = false;
         routine = null;
+        OnTypingComplete?.Invoke();
     }
 
-    public void Complete(TextMeshProUGUI textUI, string fullText)
+    public void Complete(TextMeshProUGUI textUI)
     {
+        if (!isTyping)
+            return;
+
         if (routine != null)
             StopCoroutine(routine);
 
-        textUI.text = fullText;
+        textUI.text = cachedText;
         isTyping = false;
         routine = null;
+        OnTypingComplete?.Invoke();
     }
 
     bool IsPunctuation(char c)
@@ -72,11 +76,11 @@ public class Typewriter : MonoBehaviour
 
     void PlayTypeSound()
     {
-        if (typeSound != null && Camera.main != null)
-        {
-            AudioSource.PlayClipAtPoint(typeSound, Camera.main.transform.position, typeSoundVolume);
-        }
+        if (Camera.main != null)
+            AudioSource.PlayClipAtPoint(
+                typeSound,
+                Camera.main.transform.position,
+                typeSoundVolume
+            );
     }
-
-    public bool IsTyping => isTyping;
 }

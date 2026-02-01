@@ -7,6 +7,7 @@ public enum StatType
     Charisma,
     Strength,
     Intelligence,
+    Damage,
     Defense,
     Speed,
     Luck

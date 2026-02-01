@@ -5,15 +5,14 @@ using System;
 public class EquipmentManager : MonoBehaviour
 {
     public static EquipmentManager Instance;
-
-    [Header("Equipment Sets")]
-    public EquipmentSetBonus[] equipmentSets;
-
     private readonly Dictionary<EquipmentSlot, EquipmentData> equippedItems = new();
     private readonly Dictionary<int, int> activeSetPieces = new();
     public event Action OnEquipmentChanged;
     public event Action<EquipmentData> OnEquipmentEquipped;
     public event Action<EquipmentData> OnEquipmentUnequipped;
+
+    [Header("Equipment Sets")]
+    public EquipmentSetBonus[] equipmentSets;
 
     void Awake()
     {
@@ -84,10 +83,16 @@ public class EquipmentManager : MonoBehaviour
         if (PlayerStats.Instance == null) return;
         int mult = apply ? 1 : -1;
 
-        if (equipment.primaryStatBonus > 0)
+        if (equipment.damageBonus != 0)
+            PlayerStats.Instance.Modify(StatType.Damage, equipment.damageBonus * mult, false);
+
+        if (equipment.defenseBonus != 0)
+            PlayerStats.Instance.Modify(StatType.Defense, equipment.defenseBonus * mult, false);
+
+        if (equipment.primaryStatBonus != 0)
             PlayerStats.Instance.Modify(equipment.primaryStat, equipment.primaryStatBonus * mult, false);
 
-        if (equipment.secondaryStatBonus > 0)
+        if (equipment.secondaryStatBonus != 0)
             PlayerStats.Instance.Modify(equipment.secondaryStat, equipment.secondaryStatBonus * mult, false);
     }
 

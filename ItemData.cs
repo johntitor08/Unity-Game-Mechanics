@@ -8,9 +8,11 @@ public class ItemData : ScriptableObject
     public string itemID;
     public string itemName;
     public Sprite icon;
-
     [TextArea]
     public string description;
+
+    [Header("Type")]
+    public ItemType itemType = ItemType.Consumable;
 
     [Header("Stacking")]
     public bool stackable = true;
@@ -27,6 +29,12 @@ public class ItemData : ScriptableObject
 
     [Header("Rarity")]
     public Rarity rarity = Rarity.Common;
+
+    // Check if this item is equipment
+    public virtual bool IsEquipment()
+    {
+        return itemType == ItemType.Equipment || this is EquipmentData;
+    }
 
     public Color GetRarityColor()
     {
