@@ -12,7 +12,6 @@ public class CircleOutlineOnHit : MonoBehaviour
     {
         Vector3 mouseWorld = cam.ScreenToWorldPoint(Input.mousePosition);
         mouseWorld.z = 0;
-
         RaycastHit2D hit = Physics2D.Raycast(mouseWorld, Vector2.zero, Mathf.Infinity, hitLayers);
 
         if (hit.collider != null)
@@ -30,7 +29,6 @@ public class CircleOutlineOnHit : MonoBehaviour
     void DrawCircle(Vector3 center)
     {
         circleRenderer.positionCount = segments;
-
         float angleStep = 360f / segments;
 
         for (int i = 0; i < segments; i++)
@@ -42,3 +40,4 @@ public class CircleOutlineOnHit : MonoBehaviour
         }
     }
 }
+
