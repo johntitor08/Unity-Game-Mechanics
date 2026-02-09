@@ -10,7 +10,6 @@ public class RegionHighlighter : MonoBehaviour
     {
         Vector3 mousePos = cam.ScreenToWorldPoint(Input.mousePosition);
         mousePos.z = 0;
-
         RaycastHit2D hit = Physics2D.Raycast(mousePos, Vector2.zero, Mathf.Infinity, mask);
 
         if (hit.collider != null)
@@ -24,3 +23,4 @@ public class RegionHighlighter : MonoBehaviour
         }
     }
 }
+
