@@ -17,7 +17,6 @@ public class CircleOutlineOnHit : MonoBehaviour
         if (hit.collider != null)
         {
             circleRenderer.gameObject.SetActive(true);
-
             DrawCircle(hit.point);
         }
         else
@@ -40,4 +39,5 @@ public class CircleOutlineOnHit : MonoBehaviour
         }
     }
 }
+
 
