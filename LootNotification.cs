@@ -39,7 +39,6 @@ public class LootNotification : MonoBehaviour
     {
         elapsed += Time.deltaTime;
 
-        // Fade out son 1 saniye
         if (elapsed > duration - 1f && canvasGroup != null)
         {
             canvasGroup.alpha = 1f - ((elapsed - (duration - 1f)) / 1f);

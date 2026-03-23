@@ -14,32 +14,39 @@ public class EquipmentSlotUI : MonoBehaviour
 
     [Header("Visual Feedback")]
     public Color emptyColor = new(0.3f, 0.3f, 0.3f, 0.5f);
-    public Color filledColor = new(1f, 1f, 1f, 0.8f);
-    public Sprite emptySlotIcon;
 
+    private Sprite emptySprite;
+    private Sprite commonSprite;
+    private Sprite rareSprite;
+    private Sprite epicSprite;
+    private Sprite legendarySprite;
+    private Sprite godlySprite;
     private EquipmentSlot slotType;
     private EquipmentData currentEquipment;
+    private Button iconButton;
     public event Action<EquipmentData> OnItemClicked;
     public event Action<EquipmentData> OnDetailClicked;
 
+    void Awake()
+    {
+        if (slotButton != null)
+            slotButton.onClick.AddListener(ShowDetailPanel);
+
+        if (iconImage != null && iconImage.TryGetComponent<Button>(out var ib))
+        {
+            iconButton = ib;
+            iconButton.onClick.AddListener(ShowEquipmentPanel);
+        }
+    }
+
     private void OnEnable()
     {
-        slotButton.onClick.AddListener(ShowDetailPanel);
-
-        if (iconImage.TryGetComponent<Button>(out var iconButton))
-            iconButton.onClick.AddListener(ShowEquipmentPanel);
-
         if (EquipmentManager.Instance != null)
             EquipmentManager.Instance.OnEquipmentChanged += Refresh;
     }
 
     private void OnDisable()
     {
-        slotButton.onClick.RemoveListener(ShowDetailPanel);
-        
-        if (iconImage.TryGetComponent<Button>(out var iconButton))
-            iconButton.onClick.RemoveListener(ShowEquipmentPanel);
-
         if (EquipmentManager.Instance != null)
             EquipmentManager.Instance.OnEquipmentChanged -= Refresh;
     }
@@ -54,19 +61,27 @@ public class EquipmentSlotUI : MonoBehaviour
         Refresh();
     }
 
+    public void SetRaritySprites(Sprite empty, Sprite common, Sprite rare, Sprite epic, Sprite legendary, Sprite godly)
+    {
+        emptySprite = empty;
+        commonSprite = common;
+        rareSprite = rare;
+        epicSprite = epic;
+        legendarySprite = legendary;
+        godlySprite = godly;
+    }
+
     public void Refresh()
     {
-        if (EquipmentManager.Instance == null) return;
+        if (EquipmentManager.Instance == null)
+            return;
+
         currentEquipment = EquipmentManager.Instance.GetEquipped(slotType);
 
         if (currentEquipment != null)
-        {
             ShowEquipped(currentEquipment);
-        }
         else
-        {
             ShowEmpty();
-        }
     }
 
     private void ShowEquipped(EquipmentData equipment)
@@ -80,80 +95,109 @@ public class EquipmentSlotUI : MonoBehaviour
 
         if (backgroundImage != null)
         {
-            Color rarityColor = equipment.GetRarityColor();
-            rarityColor.a = 0.7f;
-            backgroundImage.color = rarityColor;
+            Sprite s = GetRaritySprite(equipment.equipmentRarity);
+
+            if (s != null)
+            {
+                backgroundImage.sprite = s;
+                backgroundImage.color = Color.white;
+            }
+            else
+            {
+                backgroundImage.sprite = null;
+                Color c = equipment.GetRarityColor();
+                c.a = 0.7f;
+                backgroundImage.color = c;
+            }
         }
 
         if (emptyIndicator != null)
             emptyIndicator.SetActive(false);
+
+        if (slotButton != null)
+            slotButton.interactable = true;
+
+        if (iconButton != null)
+            iconButton.interactable = true;
     }
 
     private void ShowEmpty()
     {
         if (iconImage != null)
         {
-            if (emptySlotIcon != null)
-            {
-                iconImage.sprite = emptySlotIcon;
-                iconImage.color = emptyColor;
-                iconImage.enabled = true;
-            }
-            else
-            {
-                iconImage.sprite = null;
-                iconImage.enabled = false;
-            }
+            iconImage.sprite = null;
+            iconImage.color = emptyColor;
+            iconImage.enabled = false;
         }
 
         if (backgroundImage != null)
         {
-            backgroundImage.color = emptyColor;
+            if (emptySprite != null)
+            {
+                backgroundImage.sprite = emptySprite;
+                backgroundImage.color = Color.white;
+            }
+            else
+            {
+                backgroundImage.sprite = null;
+                backgroundImage.color = emptyColor;
+            }
         }
 
         if (emptyIndicator != null)
             emptyIndicator.SetActive(true);
+
+        if (slotButton != null)
+            slotButton.interactable = false;
+
+        if (iconButton != null)
+            iconButton.interactable = false;
     }
+
+    private Sprite GetRaritySprite(EquipmentRarity rarity) => rarity switch
+    {
+        EquipmentRarity.Common => commonSprite,
+        EquipmentRarity.Rare => rareSprite,
+        EquipmentRarity.Epic => epicSprite,
+        EquipmentRarity.Legendary => legendarySprite,
+        EquipmentRarity.Godly => godlySprite,
+        _ => null
+    };
 
     public void ShowEquipmentPanel()
     {
-        if (currentEquipment == null || EquipmentUI.Instance == null)
+        if (currentEquipment == null)
             return;
 
-        EquipmentUI.Instance.OpenItemPanel(currentEquipment);
+        if (EquipmentUI.Instance != null)
+            EquipmentUI.Instance.OpenItemPanel(currentEquipment);
+
         OnItemClicked?.Invoke(currentEquipment);
     }
 
     public void ShowDetailPanel()
     {
-        if (currentEquipment == null || EquipmentUI.Instance == null)
+        if (currentEquipment == null)
             return;
 
-        EquipmentUI.Instance.OpenDetailPanel(currentEquipment);
+        if (EquipmentUI.Instance != null)
+            EquipmentUI.Instance.OpenDetailPanel(currentEquipment);
+
         OnDetailClicked?.Invoke(currentEquipment);
     }
 
-    private string GetSlotDisplayName(EquipmentSlot slot)
+    private static string GetSlotDisplayName(EquipmentSlot slot) => slot switch
     {
-        return slot switch
-        {
-            EquipmentSlot.Weapon => "Weapon",
-            EquipmentSlot.Armor => "Armor",
-            EquipmentSlot.Helmet => "Helmet",
-            EquipmentSlot.Accessory => "Accessory",
-            EquipmentSlot.Shield => "Shield",
-            EquipmentSlot.Boots => "Boots",
-            _ => "Unknown"
-        };
-    }
+        EquipmentSlot.Weapon => "Weapon",
+        EquipmentSlot.Armor => "Armor",
+        EquipmentSlot.Helmet => "Helmet",
+        EquipmentSlot.Accessory => "Accessory",
+        EquipmentSlot.Shield => "Shield",
+        EquipmentSlot.Boots => "Boots",
+        _ => "Unknown"
+    };
 
-    public EquipmentData GetEquippedItem()
-    {
-        return currentEquipment;
-    }
+    public EquipmentData GetEquippedItem() => currentEquipment;
 
-    public EquipmentSlot GetSlotType()
-    {
-        return slotType;
-    }
+    public EquipmentSlot GetSlotType() => slotType;
 }

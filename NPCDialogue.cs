@@ -3,10 +3,10 @@ using UnityEngine;
 public class NPCDialogue : MonoBehaviour
 {
     public DialogueNode startNode;
-    public DialogueManager dialogueManager;
 
     void OnMouseDown()
     {
-        dialogueManager.StartDialogue(startNode);
+        if (DialogueManager.Instance != null)
+            DialogueManager.Instance.StartDialogue(startNode);
     }
 }

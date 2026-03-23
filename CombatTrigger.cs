@@ -27,6 +27,7 @@ public class CombatTrigger : MonoBehaviour, IPointerClickHandler
         if (other.CompareTag("Player"))
         {
             playerInRange = true;
+
             if (interactionPrompt != null)
                 interactionPrompt.SetActive(true);
         }
@@ -37,6 +38,7 @@ public class CombatTrigger : MonoBehaviour, IPointerClickHandler
         if (other.CompareTag("Player"))
         {
             playerInRange = false;
+
             if (interactionPrompt != null)
                 interactionPrompt.SetActive(false);
         }
@@ -47,7 +49,6 @@ public class CombatTrigger : MonoBehaviour, IPointerClickHandler
         if (hasTriggered)
             return;
 
-        // Ýstersen sadece yakýndayken týklanabilsin
         if (requirePlayerInRange && !playerInRange)
             return;
 

@@ -42,7 +42,7 @@ public class ConfirmationDialog : MonoBehaviour
             cancelButton.onClick.AddListener(OnCancelClicked);
     }
 
-    public void Show(string title, string message, Action confirmAction, Action cancelAction = null)
+    public void Show(string title, string message, Action confirmAction, Action cancelAction = null, string confirmLabel = "Yes", string cancelLabel = "No")
     {
         if (titleText != null)
             titleText.text = title;
@@ -52,6 +52,7 @@ public class ConfirmationDialog : MonoBehaviour
 
         onConfirm = confirmAction;
         onCancel = cancelAction;
+        SetButtonText(confirmLabel, cancelLabel);
 
         if (confirmationPanel != null)
             confirmationPanel.SetActive(true);

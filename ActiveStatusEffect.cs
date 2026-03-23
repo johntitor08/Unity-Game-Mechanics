@@ -8,6 +8,7 @@ public class ActiveStatusEffect
     public float nextTickTime;
     public int currentStacks;
     public GameObject particleInstance;
+    public int remainingRounds;
 
     public ActiveStatusEffect(StatusEffectData effectData)
     {
@@ -15,6 +16,7 @@ public class ActiveStatusEffect
         remainingDuration = effectData.duration;
         nextTickTime = 0f;
         currentStacks = 1;
+        remainingRounds = effectData.durationRounds;
     }
 
     public bool IsExpired()

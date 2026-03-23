@@ -9,7 +9,7 @@ public class InventoryManager : MonoBehaviour
     public event Action OnInventoryChanged;
     public static event Action OnReady;
 
-    void Awake()
+    private void Awake()
     {
         if (Instance != null)
         {
@@ -24,7 +24,8 @@ public class InventoryManager : MonoBehaviour
 
     public void AddItem(ItemData item, int amount = 1)
     {
-        if (item == null || amount <= 0) return;
+        if (item == null || amount <= 0)
+            return;
 
         if (items.ContainsKey(item.itemID))
             items[item.itemID] += amount;
@@ -36,7 +37,9 @@ public class InventoryManager : MonoBehaviour
 
     public bool RemoveItem(ItemData item, int amount = 1)
     {
-        if (item == null || !items.ContainsKey(item.itemID)) return false;
+        if (item == null || !items.ContainsKey(item.itemID))
+            return false;
+
         items[item.itemID] -= amount;
 
         if (items[item.itemID] <= 0)
@@ -48,7 +51,9 @@ public class InventoryManager : MonoBehaviour
 
     public int GetQuantity(ItemData item)
     {
-        if (item == null) return 0;
+        if (item == null)
+            return 0;
+
         return items.TryGetValue(item.itemID, out int qty) ? qty : 0;
     }
 
@@ -56,7 +61,9 @@ public class InventoryManager : MonoBehaviour
 
     public ItemData GetItem(string id)
     {
-        if (string.IsNullOrEmpty(id)) return null;
+        if (string.IsNullOrEmpty(id))
+            return null;
+
         return ItemDatabase.Instance.GetByID(id);
     }
 

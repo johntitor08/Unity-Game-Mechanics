@@ -20,30 +20,30 @@ public class CurrencyShop : MonoBehaviour
 
     public bool PurchaseItem(CurrencyShopItem item)
     {
-        if (CurrencyManager.Instance == null) return false;
+        if (CurrencyManager.Instance == null)
+            return false;
 
-        // Multi-currency cost dictionary
-        var costDict = new System.Collections.Generic.Dictionary<CurrencyType, int>
+        var costDict = new System.Collections.Generic.Dictionary<CurrencyType, int>();
+
+        if (item.costs != null && item.costs.Length > 0)
         {
-            { item.costType, item.cost }
-        };
-
-        // Multi-currency reward dictionary
-        var rewardDict = new System.Collections.Generic.Dictionary<CurrencyType, int>
+            foreach (var cost in item.costs)
+                costDict[cost.type] = cost.amount;
+        }
+        else
         {
-            { item.rewardType, item.rewardAmount }
-        };
+            costDict[item.costType] = item.cost;
+        }
 
-        // Try to spend all costs at once
+        var rewardDict = new System.Collections.Generic.Dictionary<CurrencyType, int>{ { item.rewardType, item.rewardAmount } };
+
         if (CurrencyManager.Instance.SpendMultiple(costDict))
         {
-            // Add rewards
             CurrencyManager.Instance.AddMultiple(rewardDict);
             Debug.Log($"Purchased: {item.itemName}");
             return true;
         }
 
-        // Not enough currency
         Debug.Log($"Cannot purchase {item.itemName}: insufficient funds.");
         return false;
     }

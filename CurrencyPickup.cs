@@ -22,9 +22,7 @@ public class CurrencyPickup : MonoBehaviour
     public GameObject pickupEffect;
     public AudioClip pickupSound;
 
-    [Header("Optional Event")]
-    public System.Action<Dictionary<CurrencyType, int>> OnPickedUp;
-
+    public event System.Action<Dictionary<CurrencyType, int>> OnPickedUp;
     private bool isPickedUp = false;
     private Transform playerTransform;
 
@@ -38,7 +36,8 @@ public class CurrencyPickup : MonoBehaviour
 
     void OnTriggerEnter2D(Collider2D other)
     {
-        if (isPickedUp) return;
+        if (isPickedUp)
+            return;
 
         if (other.CompareTag("Player") && autoPickup)
         {
@@ -61,7 +60,9 @@ public class CurrencyPickup : MonoBehaviour
 
     void Pickup()
     {
-        if (isPickedUp) return;
+        if (isPickedUp)
+            return;
+
         isPickedUp = true;
         var amounts = new Dictionary<CurrencyType, int>();
 

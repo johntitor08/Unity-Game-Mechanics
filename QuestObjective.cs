@@ -3,38 +3,26 @@ using UnityEngine;
 [System.Serializable]
 public class QuestObjective
 {
+    public ItemData targetItem;
+    public int itemCount = 1;
+    public bool consumeItems = true;
+    public string npcTag;
+    public string locationTag;
+    public float locationRadius = 2f;
+    public string interactObjectTag;
+    public ItemData craftTarget;
+    public int craftCount = 1;
+    public CurrencyType currencyType;
+    public int currencyAmount = 100;
+
     [Header("Objective Info")]
     public string objectiveID;
     public string description;
     public QuestObjectiveType type;
 
     [Header("Target")]
-    // Kill enemies
     public EnemyData targetEnemy;
     public int targetCount = 1;
-
-    // Collect items
-    public ItemData targetItem;
-    public int itemCount = 1;
-    public bool consumeItems = true;
-
-    // Talk to NPC
-    public string npcTag;
-
-    // Go to location
-    public string locationTag;
-    public float locationRadius = 2f;
-
-    // Interact with object
-    public string interactObjectTag;
-
-    // Craft items
-    public ItemData craftTarget;
-    public int craftCount = 1;
-
-    // Spend currency
-    public CurrencyType currencyType;
-    public int currencyAmount = 100;
 
     [Header("Progress")]
     public int currentProgress = 0;
@@ -65,7 +53,10 @@ public class QuestObjective
     public float GetProgressPercentage()
     {
         int required = GetRequiredCount();
-        if (required == 0) return 1f;
+
+        if (required == 0)
+            return 1f;
+
         return Mathf.Clamp01((float)currentProgress / required);
     }
 }

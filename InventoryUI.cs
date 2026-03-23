@@ -38,7 +38,9 @@ public class InventoryUI : MonoBehaviour
 
     void TrySubscribe()
     {
-        if (InventoryManager.Instance == null) return;
+        if (InventoryManager.Instance == null)
+            return;
+
         InventoryManager.Instance.OnInventoryChanged -= Refresh;
         InventoryManager.Instance.OnInventoryChanged += Refresh;
         Refresh();

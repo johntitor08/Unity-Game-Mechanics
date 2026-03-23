@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-[RequireComponent(typeof(Collider2D))]
 public class WorldItem : MonoBehaviour, IPointerClickHandler
 {
     public ItemData data;

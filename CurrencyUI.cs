@@ -6,6 +6,9 @@ using System.Collections.Generic;
 public class CurrencyUI : MonoBehaviour
 {
     public static CurrencyUI Instance;
+    private readonly Dictionary<CurrencyType, Coroutine> animationCoroutines = new();
+    private readonly Dictionary<CurrencyType, CurrencyDisplay> displayDict = new();
+    private bool _subscribed;
 
     [Header("Currency Displays")]
     public List<CurrencyDisplay> currencyDisplays = new();
@@ -20,50 +23,79 @@ public class CurrencyUI : MonoBehaviour
         public bool animateOnChange = true;
     }
 
-    private readonly Dictionary<CurrencyType, CurrencyDisplay> displayDict = new();
-
     void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         Instance = this;
+
+        foreach (var display in currencyDisplays)
+            displayDict[display.type] = display;
     }
 
     void Start()
     {
-        foreach (var display in currencyDisplays)
-            displayDict[display.type] = display;
+        Subscribe();
+    }
 
-        if (CurrencyManager.Instance != null)
-            CurrencyManager.Instance.OnCurrencyChanged += OnCurrencyChanged;
+    void OnEnable()
+    {
+        if (_subscribed)
+            Subscribe();
+    }
 
+    void OnDisable()
+    {
+        Unsubscribe();
+    }
+
+    private void Subscribe()
+    {
+        if (CurrencyManager.Instance == null)
+            return;
+
+        CurrencyManager.Instance.OnCurrencyChanged += OnCurrencyChanged;
+        _subscribed = true;
         RefreshAll();
     }
 
-    void OnDestroy()
+    private void Unsubscribe()
     {
-        if (CurrencyManager.Instance != null)
-            CurrencyManager.Instance.OnCurrencyChanged -= OnCurrencyChanged;
+        if (CurrencyManager.Instance == null)
+            return;
+
+        CurrencyManager.Instance.OnCurrencyChanged -= OnCurrencyChanged;
     }
 
     void OnCurrencyChanged(CurrencyType type, int oldAmount, int newAmount)
     {
         UpdateDisplay(type, newAmount);
 
-        if (displayDict.ContainsKey(type) && displayDict[type].animateOnChange)
-            StartCoroutine(AnimateCountUp(displayDict[type].amountText, oldAmount, newAmount, 0.5f));
+        if (displayDict.TryGetValue(type, out var display) && display.animateOnChange)
+        {
+            if (animationCoroutines.TryGetValue(type, out var existing) && existing != null)
+                StopCoroutine(existing);
+
+            animationCoroutines[type] = StartCoroutine(
+                AnimateCountUp(display.amountText, oldAmount, newAmount, 0.5f)
+            );
+        }
     }
 
     public void UpdateMultiple(Dictionary<CurrencyType, int> newAmounts)
     {
         foreach (var kvp in newAmounts)
-        {
             UpdateDisplay(kvp.Key, kvp.Value);
-        }
     }
 
     void UpdateDisplay(CurrencyType type, int amount)
     {
-        if (!displayDict.ContainsKey(type)) return;
-        var display = displayDict[type];
+        if (!displayDict.TryGetValue(type, out var display))
+            return;
 
         if (display.amountText != null)
             display.amountText.text = FormatCurrency(amount);
@@ -71,6 +103,7 @@ public class CurrencyUI : MonoBehaviour
         if (display.icon != null)
         {
             var currencyInfo = CurrencyManager.Instance.GetCurrencyInfo(type);
+
             if (currencyInfo != null && currencyInfo.icon != null)
                 display.icon.sprite = currencyInfo.icon;
         }
@@ -78,14 +111,16 @@ public class CurrencyUI : MonoBehaviour
 
     System.Collections.IEnumerator AnimateCountUp(TextMeshProUGUI text, int start, int end, float duration)
     {
+        if (start == end)
+            yield break;
+
         float elapsed = 0f;
 
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            float t = elapsed / duration;
-            int current = Mathf.RoundToInt(Mathf.Lerp(start, end, t));
-            text.text = FormatCurrency(current);
+            float t = Mathf.Clamp01(elapsed / duration);
+            text.text = FormatCurrency(Mathf.RoundToInt(Mathf.Lerp(start, end, t)));
             yield return null;
         }
 
@@ -94,17 +129,17 @@ public class CurrencyUI : MonoBehaviour
 
     string FormatCurrency(int amount)
     {
-        if (amount >= 1000000)
-            return $"{amount / 1000000f:F1}M";
-        else if (amount >= 1000)
-            return $"{amount / 1000f:F1}K";
+        if (amount >= 1_000_000)
+            return $"{amount / 1_000_000f:F1}M";
+        else if (amount >= 1_000)
+            return $"{amount / 1_000f:F1}K";
         else
             return amount.ToString();
     }
 
     void RefreshAll()
     {
-        foreach (CurrencyType type in System.Enum.GetValues(typeof(CurrencyType)))
+        foreach (var type in displayDict.Keys)
         {
             int amount = CurrencyManager.Instance.Get(type);
             UpdateDisplay(type, amount);

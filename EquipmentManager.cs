@@ -10,6 +10,7 @@ public class EquipmentManager : MonoBehaviour
     public event Action OnEquipmentChanged;
     public event Action<EquipmentData> OnEquipmentEquipped;
     public event Action<EquipmentData> OnEquipmentUnequipped;
+    public static event Action OnReady;
 
     [Header("Equipment Sets")]
     public EquipmentSetBonus[] equipmentSets;
@@ -22,12 +23,19 @@ public class EquipmentManager : MonoBehaviour
             DontDestroyOnLoad(gameObject);
             activeSetPieces.Clear();
         }
-        else Destroy(gameObject);
+        else
+            Destroy(gameObject);
+    }
+
+    void Start()
+    {
+        OnReady?.Invoke();
     }
 
     public bool CanEquip(EquipmentData equipment)
     {
-        if (equipment == null) return false;
+        if (equipment == null || IsEquipped(equipment))
+            return false;
 
         if (ProfileManager.Instance != null && ProfileManager.Instance.profile.level < equipment.requiredLevel)
         {
@@ -46,12 +54,27 @@ public class EquipmentManager : MonoBehaviour
             }
         }
 
-        return true;
+        return GetEquipped(equipment.slot) == null;
+    }
+
+    public bool IsEquipped(EquipmentData equipment)
+    {
+        if (equipment == null)
+            return false;
+
+        foreach (var kvp in equippedItems)
+        {
+            if (kvp.Value != null && kvp.Value.itemID == equipment.itemID)
+                return true;
+        }
+
+        return false;
     }
 
     public bool Equip(EquipmentData equipment)
     {
-        if (!CanEquip(equipment)) return false;
+        if (!CanEquip(equipment))
+            return false;
 
         if (equippedItems.ContainsKey(equipment.slot))
             Unequip(equipment.slot, false);
@@ -67,20 +90,27 @@ public class EquipmentManager : MonoBehaviour
 
     public bool Unequip(EquipmentSlot slot, bool save = true)
     {
-        if (!equippedItems.ContainsKey(slot)) return false;
+        if (!equippedItems.ContainsKey(slot))
+            return false;
+
         EquipmentData equipment = equippedItems[slot];
         ApplyEquipmentStats(equipment, false);
         equippedItems.Remove(slot);
         UpdateSetBonuses();
         OnEquipmentUnequipped?.Invoke(equipment);
         OnEquipmentChanged?.Invoke();
-        if (save) SaveSystem.SaveGame();
+
+        if (save)
+            SaveSystem.SaveGame();
+
         return true;
     }
 
     void ApplyEquipmentStats(EquipmentData equipment, bool apply)
     {
-        if (PlayerStats.Instance == null) return;
+        if (PlayerStats.Instance == null)
+            return;
+
         int mult = apply ? 1 : -1;
 
         if (equipment.damageBonus != 0)
@@ -99,18 +129,9 @@ public class EquipmentManager : MonoBehaviour
     public int GetTotalDamageBonus()
     {
         int total = 0;
-        foreach (var eq in equippedItems.Values) total += eq.damageBonus;
 
-        foreach (var set in equipmentSets)
-        {
-            int pieces = GetEquippedSetPieces(set.data.setID);
-        
-            foreach (var bonus in set.data.bonuses)
-            {
-                if (bonus.stat == StatType.Strength && pieces >= bonus.requiredPieces)
-                    total += bonus.value;
-            }
-        }
+        foreach (var eq in equippedItems.Values)
+            total += eq.damageBonus;
 
         return total;
     }
@@ -118,18 +139,9 @@ public class EquipmentManager : MonoBehaviour
     public int GetTotalDefenseBonus()
     {
         int total = 0;
-        foreach (var eq in equippedItems.Values) total += eq.defenseBonus;
 
-        foreach (var set in equipmentSets)
-        {
-            int pieces = GetEquippedSetPieces(set.data.setID);
-            
-            foreach (var bonus in set.data.bonuses)
-            {
-                if (bonus.stat == StatType.Defense && pieces >= bonus.requiredPieces)
-                    total += bonus.value;
-            }
-        }
+        foreach (var eq in equippedItems.Values)
+            total += eq.defenseBonus;
 
         return total;
     }
@@ -156,19 +168,24 @@ public class EquipmentManager : MonoBehaviour
 
     void UpdateSetBonuses()
     {
-        if (equipmentSets == null || PlayerStats.Instance == null) return;
+        if (equipmentSets == null || PlayerStats.Instance == null)
+            return;
 
         foreach (var set in equipmentSets)
         {
             int previousPieces = activeSetPieces.TryGetValue(set.data.setID, out int prev) ? prev : 0;
             int currentPieces = GetEquippedSetPieces(set.data.setID);
-            if (previousPieces == currentPieces) continue;
 
-            if (previousPieces > 0)
-                set.Apply(previousPieces, false);
+            if (previousPieces == currentPieces)
+                continue;
 
-            if (currentPieces > 0)
-                set.Apply(currentPieces, true);
+            foreach (var bonus in set.data.bonuses)
+                if (previousPieces >= bonus.requiredPieces)
+                    PlayerStats.Instance.Modify(bonus.stat, -bonus.value, false);
+
+            foreach (var bonus in set.data.bonuses)
+                if (currentPieces >= bonus.requiredPieces)
+                    PlayerStats.Instance.Modify(bonus.stat, bonus.value, false);
 
             activeSetPieces[set.data.setID] = currentPieces;
         }
@@ -177,18 +194,19 @@ public class EquipmentManager : MonoBehaviour
     public List<string> GetActiveSetBonusDescriptions()
     {
         List<string> descriptions = new();
-        if (equipmentSets == null) return descriptions;
+
+        if (equipmentSets == null)
+            return descriptions;
 
         foreach (var set in equipmentSets)
         {
             int pieces = GetEquippedSetPieces(set.data.setID);
-            if (pieces == 0) continue;
 
-            if (pieces > 0)
-            {
-                descriptions.Add($"{set.data.setName} ({pieces}/{set.data.totalPieces})");
-                descriptions.Add(set.GetDescription(pieces));
-            }
+            if (pieces == 0)
+                continue;
+
+            descriptions.Add($"{set.data.setName} ({pieces}/{set.data.totalPieces})");
+            descriptions.Add(set.GetDescription(pieces));
         }
 
         return descriptions;

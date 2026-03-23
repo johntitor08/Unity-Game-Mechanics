@@ -77,6 +77,7 @@ public class QuestManager : MonoBehaviour
         foreach (var questID in expiredQuests)
         {
             var quest = GetActiveQuest(questID);
+
             if (quest != null)
             {
                 FailQuest(quest);
@@ -169,12 +170,6 @@ public class QuestManager : MonoBehaviour
 
         quest.onQuestStart?.Invoke();
         OnQuestStarted?.Invoke(quest);
-
-        if (quest.startDialogue != null && DialogueManager.Instance != null)
-        {
-            DialogueManager.Instance.StartDialogue(quest.startDialogue);
-        }
-
         Debug.Log($"Quest started: {quest.questName}");
         SaveSystem.SaveGame();
         return true;
@@ -183,9 +178,15 @@ public class QuestManager : MonoBehaviour
     public void UpdateObjectiveProgress(string questID, string objectiveID, int amount = 1)
     {
         var quest = GetActiveQuest(questID);
-        if (quest == null) return;
+
+        if (quest == null)
+            return;
+
         var objective = GetObjective(quest, objectiveID);
-        if (objective == null || objective.isCompleted) return;
+
+        if (objective == null || objective.isCompleted)
+            return;
+
         objective.currentProgress += amount;
 
         if (objective.currentProgress >= objective.GetRequiredCount())
@@ -225,7 +226,9 @@ public class QuestManager : MonoBehaviour
 
     public void CompleteQuest(QuestData quest)
     {
-        if (!IsQuestActive(quest.questID)) return;
+        if (!IsQuestActive(quest.questID))
+            return;
+
         activeQuests.Remove(quest);
 
         if (quest.questType != QuestType.Repeatable && quest.questType != QuestType.Daily)
@@ -277,10 +280,10 @@ public class QuestManager : MonoBehaviour
 
         if (quest.itemRewards != null && InventoryManager.Instance != null)
         {
-            foreach (var item in quest.itemRewards)
+            for (int i = 0; i < quest.itemRewards.Length; i++)
             {
-                int quantity = quest.itemRewardQuantities > 0 ? quest.itemRewardQuantities : 1;
-                InventoryManager.Instance.AddItem(item, quantity);
+                int qty = (quest.itemRewardQuantities != null && i < quest.itemRewardQuantities.Length) ? quest.itemRewardQuantities[i] : 1;
+                InventoryManager.Instance.AddItem(quest.itemRewards[i], qty);
             }
         }
 
@@ -292,7 +295,9 @@ public class QuestManager : MonoBehaviour
 
     public void FailQuest(QuestData quest)
     {
-        if (!IsQuestActive(quest.questID)) return;
+        if (!IsQuestActive(quest.questID))
+            return;
+
         activeQuests.Remove(quest);
 
         if (questTimers.ContainsKey(quest.questID))
@@ -308,7 +313,9 @@ public class QuestManager : MonoBehaviour
 
     public void AbandonQuest(QuestData quest)
     {
-        if (!IsQuestActive(quest.questID)) return;
+        if (!IsQuestActive(quest.questID))
+            return;
+
         activeQuests.Remove(quest);
 
         if (questTimers.ContainsKey(quest.questID))
@@ -327,13 +334,11 @@ public class QuestManager : MonoBehaviour
 
         var killedEnemy = CombatManager.Instance.currentEnemy;
 
-        foreach (var quest in activeQuests)
+        foreach (var quest in activeQuests.ToList())
         {
             foreach (var objective in quest.objectives)
             {
-                if (objective.type == QuestObjectiveType.KillEnemies &&
-                    !objective.isCompleted &&
-                    objective.targetEnemy == killedEnemy)
+                if (objective.type == QuestObjectiveType.KillEnemies && !objective.isCompleted && objective.targetEnemy == killedEnemy)
                 {
                     UpdateObjectiveProgress(quest.questID, objective.objectiveID, 1);
                 }
@@ -343,7 +348,7 @@ public class QuestManager : MonoBehaviour
 
     void CheckCollectObjectives()
     {
-        foreach (var quest in activeQuests)
+        foreach (var quest in activeQuests.ToList())
         {
             foreach (var objective in quest.objectives)
             {
@@ -372,9 +377,7 @@ public class QuestManager : MonoBehaviour
         {
             foreach (var objective in quest.objectives)
             {
-                if (objective.type == QuestObjectiveType.SpendCurrency &&
-                    !objective.isCompleted &&
-                    objective.currencyType == type)
+                if (objective.type == QuestObjectiveType.SpendCurrency && !objective.isCompleted && objective.currencyType == type)
                 {
                     UpdateObjectiveProgress(quest.questID, objective.objectiveID, amount);
                 }

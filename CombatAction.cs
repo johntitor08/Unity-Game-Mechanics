@@ -18,7 +18,9 @@ public class CombatAction
 
     [Header("Defensive")]
     public bool isDefensive = false;
-    public int defenseBonus = 10;
+    public int defenseBonus = 30;
+    [Tooltip("Defense stat'ının kaçta biri bonus defense'e eklenir (0.5 = %50)")]
+    public float defenseStatScaling = 0.5f;
     public int healAmount = 0;
 
     [Header("Special Effects")]
@@ -42,5 +44,18 @@ public class CombatAction
             damage += EquipmentManager.Instance.GetTotalDamageBonus();
 
         return Mathf.Max(1, damage);
+    }
+
+    public int CalculateDefenseBonus()
+    {
+        int bonus = defenseBonus;
+
+        if (PlayerStats.Instance != null)
+            bonus += Mathf.RoundToInt(PlayerStats.Instance.Get(StatType.Defense) * defenseStatScaling);
+
+        if (EquipmentManager.Instance != null)
+            bonus += Mathf.RoundToInt(EquipmentManager.Instance.GetTotalDefenseBonus() * defenseStatScaling);
+
+        return bonus;
     }
 }

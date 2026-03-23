@@ -6,7 +6,20 @@ using UnityEngine.UI;
 public class DamageFlash : MonoBehaviour
 {
     [Header("Target Stats")]
-    public StatsBase statsTarget;
+    [SerializeField] private StatsBase _statsTarget;
+    public StatsBase StatsTarget
+    {
+        get => _statsTarget;
+        set
+        {
+            if (_statsTarget != null)
+                _statsTarget.OnStatChanged -= HandleStatChanged;
+
+            _statsTarget = value;
+            isSubscribed = false;
+            TrySubscribe();
+        }
+    }
 
     [Header("Flash Settings")]
     public Image flashImage;
@@ -26,11 +39,15 @@ public class DamageFlash : MonoBehaviour
     private Coroutine flashRoutine;
     private Vector2 originalPosition;
     private bool isSubscribed = false;
+    private StatsBase subscribedTarget;
 
     void Awake()
     {
-        if (statsTarget == null)
-            statsTarget = FindAnyObjectByType<CombatManager>().GetComponent<PlayerStats>();
+        if (_statsTarget == null)
+        {
+            StatsBase localStats = GetComponentInParent<StatsBase>();
+            _statsTarget = localStats != null ? localStats : PlayerStats.Instance;
+        }
 
         if (flashImage != null)
             flashImage.color = new Color(0f, 0f, 0f, 0f);
@@ -49,24 +66,42 @@ public class DamageFlash : MonoBehaviour
 
     void OnDisable()
     {
-        if (isSubscribed && statsTarget != null)
+        if (isSubscribed && subscribedTarget != null)
         {
-            statsTarget.OnStatChanged -= HandleStatChanged;
+            subscribedTarget.OnStatChanged -= HandleStatChanged;
             isSubscribed = false;
+            subscribedTarget = null;
         }
+
+        if (flashRoutine != null)
+        {
+            StopCoroutine(flashRoutine);
+            flashRoutine = null;
+        }
+
+        if (flashImage != null)
+            flashImage.color = new Color(0f, 0f, 0f, 0f);
     }
 
     void TrySubscribe()
     {
-        if (statsTarget != null && !isSubscribed)
+        if (subscribedTarget != null && subscribedTarget != _statsTarget)
         {
-            statsTarget.OnStatChanged += HandleStatChanged;
+            subscribedTarget.OnStatChanged -= HandleStatChanged;
+            isSubscribed = false;
+            subscribedTarget = null;
+        }
+
+        if (_statsTarget != null && !isSubscribed)
+        {
+            _statsTarget.OnStatChanged += HandleStatChanged;
             isSubscribed = true;
+            subscribedTarget = _statsTarget;
 
             if (healthBarFill != null)
             {
-                int health = statsTarget.Get(StatType.Health);
-                int maxHealth = statsTarget.Get(StatType.MaxHealth);
+                int health = _statsTarget.Get(StatType.Health);
+                int maxHealth = _statsTarget.Get(StatType.MaxHealth);
                 healthBarFill.fillAmount = Mathf.Clamp01((float)health / maxHealth);
             }
         }
@@ -74,29 +109,36 @@ public class DamageFlash : MonoBehaviour
 
     private void HandleStatChanged(StatType type, int oldValue, int newValue)
     {
-        if (type != StatType.Health) return;
+        if (type != StatType.Health)
+            return;
+
         int delta = newValue - oldValue;
-        if (delta == 0) return;
+
+        if (delta == 0)
+            return;
+
         Color color = delta < 0 ? damageColor : healColor;
-        
-        if (flashRoutine != null) StopCoroutine(flashRoutine);
+
+        if (flashRoutine != null)
+            StopCoroutine(flashRoutine);
+
         flashRoutine = StartCoroutine(Flash(color));
 
-        // Shake
         if (enableShake && delta < 0)
             StartCoroutine(Shake());
 
-        // Health bar
         if (healthBarFill != null)
         {
-            int maxHealth = statsTarget.Get(StatType.MaxHealth);
+            int maxHealth = _statsTarget.Get(StatType.MaxHealth);
             healthBarFill.fillAmount = Mathf.Clamp01((float)newValue / maxHealth);
         }
     }
 
     IEnumerator Flash(Color color)
     {
-        if (flashImage == null) yield break;
+        if (flashImage == null)
+            yield break;
+
         float t = 0f;
         Color start = color;
         Color end = color;
@@ -114,7 +156,9 @@ public class DamageFlash : MonoBehaviour
 
     IEnumerator Shake()
     {
-        if (shakeTarget == null) yield break;
+        if (shakeTarget == null)
+            yield break;
+
         float elapsed = 0f;
         Vector2 startPos = originalPosition;
 
@@ -122,20 +166,21 @@ public class DamageFlash : MonoBehaviour
         {
             elapsed += Time.deltaTime;
             float progress = elapsed / shakeDuration;
-            float damper = 1f - progress; // linear damping (can also use Mathf.Pow(progress, 2) for stronger easing)
+            float damper = 1f - progress;
             float x = Mathf.Sin(elapsed * 40f) * shakeMagnitude * damper * Random.Range(0.8f, 1.2f);
             float y = Mathf.Sin(elapsed * 50f) * shakeMagnitude * damper * Random.Range(0.8f, 1.2f);
             shakeTarget.anchoredPosition = startPos + new Vector2(x, y);
             yield return null;
         }
 
-        // Restore original position
         shakeTarget.anchoredPosition = startPos;
     }
 
     public void TriggerFlash(Color color)
     {
-        if (flashRoutine != null) StopCoroutine(flashRoutine);
+        if (flashRoutine != null)
+            StopCoroutine(flashRoutine);
+
         flashRoutine = StartCoroutine(Flash(color));
     }
 }

@@ -42,9 +42,15 @@ public class QuestUI : MonoBehaviour
         questLogPanel.SetActive(false);
         questDetailsPanel.SetActive(false);
 
-        if (acceptButton != null && abandonButton != null)
+        if (acceptButton != null)
         {
+            acceptButton.onClick.AddListener(OnAcceptClicked);
             acceptButton.gameObject.SetActive(false);
+        }
+
+        if (abandonButton != null)
+        {
+            abandonButton.onClick.AddListener(OnAbandonClicked);
             abandonButton.gameObject.SetActive(false);
         }
 
@@ -95,7 +101,10 @@ public class QuestUI : MonoBehaviour
 
     void RefreshQuestLog()
     {
-        foreach (var slot in questSlots) if (slot != null) Destroy(slot.gameObject);
+        foreach (var slot in questSlots)
+            if (slot != null)
+                Destroy(slot.gameObject);
+
         questSlots.Clear();
 
         foreach (var quest in QuestManager.Instance.GetActiveQuests())
@@ -127,9 +136,12 @@ public class QuestUI : MonoBehaviour
         questTitleText.text = quest.questName;
         questDescriptionText.text = quest.description;
         questTypeText.text = $"{quest.questType} - {quest.difficulty}";
-        if (questIcon != null) questIcon.sprite = quest.icon;
 
-        foreach (Transform child in objectivesParent) Destroy(child.gameObject);
+        if (questIcon != null)
+            questIcon.sprite = quest.icon;
+
+        foreach (Transform child in objectivesParent)
+            Destroy(child.gameObject);
 
         foreach (var objective in quest.objectives)
             Instantiate(objectivePrefab, objectivesParent).Setup(objective);
@@ -146,7 +158,9 @@ public class QuestUI : MonoBehaviour
 
     void OnAcceptClicked()
     {
-        if (selectedQuest == null) return;
+        if (selectedQuest == null)
+            return;
+
         QuestManager.Instance.StartQuest(selectedQuest);
         RefreshQuestLog();
         questDetailsPanel.SetActive(false);
@@ -154,7 +168,9 @@ public class QuestUI : MonoBehaviour
 
     void OnAbandonClicked()
     {
-        if (selectedQuest == null) return;
+        if (selectedQuest == null)
+            return;
+
         QuestManager.Instance.AbandonQuest(selectedQuest);
         RefreshQuestLog();
         questDetailsPanel.SetActive(false);

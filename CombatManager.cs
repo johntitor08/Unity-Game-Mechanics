@@ -11,6 +11,9 @@ public class CombatManager : MonoBehaviour
     public event Action OnCombatEnded;
     public event Action OnCombatStateChanged;
     public event Action<bool> OnTurnChanged;
+    private PlayerBuffManager PlayerBuffs => PlayerBuffManager.Instance;
+    private PlayerStats PlayerStats => PlayerStats.Instance;
+    private EquipmentManager Equipment => EquipmentManager.Instance;
 
     [Header("Combat State")]
     public bool inCombat;
@@ -42,12 +45,17 @@ public class CombatManager : MonoBehaviour
     public int maxDefenseBonus = 50;
     [Tooltip("Defense decay per turn")]
     public int defenseDecayPerTurn = 2;
+    [Tooltip("Defense mitigation softcap divisor — higher = weaker defense")]
+    public float defenseSoftcap = 100f;
+    [Tooltip("Maximum damage reduction from defense (0–1)")]
+    [Range(0f, 1f)]
+    public float maxDamageReduction = 0.75f;
 
     [Header("Status Effects")]
-    public StatusEffectData burnEffect;
+    public StatusEffectData stunEffect;
     public StatusEffectData poisonEffect;
     [Range(0f, 1f)]
-    public float burnApplyChance = 0.2f;
+    public float stunApplyChance = 0.2f;
     [Range(0f, 1f)]
     public float poisonApplyChance = 0.3f;
 
@@ -65,10 +73,6 @@ public class CombatManager : MonoBehaviour
         [HideInInspector] public float endTime;
         [HideInInspector] public BuffUI ui;
     }
-
-    private PlayerBuffManager PlayerBuffs => PlayerBuffManager.Instance;
-    private PlayerStats PlayerStats => PlayerStats.Instance;
-    private EquipmentManager Equipment => EquipmentManager.Instance;
 
     void Awake()
     {
@@ -108,27 +112,20 @@ public class CombatManager : MonoBehaviour
     private void SubscribeToPlayerEvents()
     {
         if (PlayerStats != null)
-        {
             PlayerStats.OnHealthChanged += OnPlayerHealthChanged;
-        }
     }
 
     private void UnsubscribeFromEvents()
     {
         if (PlayerStats != null)
-        {
             PlayerStats.OnHealthChanged -= OnPlayerHealthChanged;
-        }
-
-        if (enemyStats != null)
-        {
-            enemyStats.OnStatChanged -= OnEnemyStatChanged;
-        }
     }
 
     void Update()
     {
-        if (!inCombat) return;
+        if (!inCombat)
+            return;
+
         UpdateBuffTimers();
     }
 
@@ -140,23 +137,17 @@ public class CombatManager : MonoBehaviour
             float timeLeft = buff.endTime - Time.time;
 
             if (buff.ui != null)
-            {
                 buff.ui.UpdateTimer(timeLeft);
-            }
 
             if (timeLeft <= 0f)
-            {
                 RemoveBuff(i);
-            }
         }
     }
 
     private void RemoveBuff(int index)
     {
         if (activeCombatBuffs[index].ui != null)
-        {
             Destroy(activeCombatBuffs[index].ui.gameObject);
-        }
 
         activeCombatBuffs.RemoveAt(index);
     }
@@ -179,11 +170,7 @@ public class CombatManager : MonoBehaviour
     private void InitializeEnemyStats()
     {
         if (enemyStats != null)
-        {
             enemyStats.InitializeFromData(currentEnemy);
-            enemyStats.OnStatChanged -= OnEnemyStatChanged;
-            enemyStats.OnStatChanged += OnEnemyStatChanged;
-        }
     }
 
     private void ResetCombatState()
@@ -197,6 +184,8 @@ public class CombatManager : MonoBehaviour
 
     private void NotifyCombatStarted()
     {
+        PlayerStats.enableHealthRegen = false;
+        PlayerStats.enableEnergyRegen = true;
         OnCombatStarted?.Invoke();
         OnTurnChanged?.Invoke(true);
         OnCombatStateChanged?.Invoke();
@@ -204,18 +193,16 @@ public class CombatManager : MonoBehaviour
 
     public void ExecutePlayerAction(CombatAction action)
     {
-        if (!CanExecutePlayerAction(action)) return;
+        if (!CanExecutePlayerAction(action))
+            return;
+
         ConsumePlayerEnergy(action.energyCost);
         waitingForInput = false;
 
         if (action.isDefensive)
-        {
             HandleDefensiveAction(action);
-        }
         else
-        {
             HandleOffensiveAction(action);
-        }
 
         OnCombatStateChanged?.Invoke();
         Invoke(nameof(StartEnemyTurn), turnDelay);
@@ -224,9 +211,7 @@ public class CombatManager : MonoBehaviour
     private bool CanExecutePlayerAction(CombatAction action)
     {
         if (!inCombat || !IsPlayerTurn())
-        {
             return false;
-        }
 
         if (!PlayerStats.HasEnoughEnergy(action.energyCost))
         {
@@ -244,7 +229,9 @@ public class CombatManager : MonoBehaviour
 
     void StartEnemyTurn()
     {
-        if (!inCombat) return;
+        if (!inCombat)
+            return;
+
         isPlayerTurn = false;
         OnTurnChanged?.Invoke(false);
         Invoke(nameof(ExecuteEnemyAction), enemyActionDelay);
@@ -259,37 +246,31 @@ public class CombatManager : MonoBehaviour
 
     private void HandleDefensiveAction(CombatAction action)
     {
-        ApplyDefenseBonus(action.defenseBonus);
+        ApplyDefenseBonus(action.CalculateDefenseBonus());
         ApplyHealing(action.healAmount);
     }
 
     private void ApplyDefenseBonus(int bonus)
     {
-        playerDefenseBonus = Mathf.Clamp(
-            playerDefenseBonus + bonus,
-            0,
-            maxDefenseBonus
-        );
+        playerDefenseBonus = Mathf.Clamp(playerDefenseBonus + bonus, 0, maxDefenseBonus);
     }
 
     private void ApplyHealing(int amount)
     {
         if (amount > 0)
-        {
             PlayerStats.Modify(StatType.Health, amount);
-        }
     }
 
     private void HandleOffensiveAction(CombatAction action)
     {
-        if (enemyStats == null) return;
+        if (enemyStats == null)
+            return;
+
         int damage = CalculatePlayerDamage(action);
-        ApplyDamageToEnemy(damage, action);
+        ApplyDamageToEnemy(damage);
 
         if (IsEnemyDefeated())
-        {
             StartCoroutine(HandleVictoryAfterDelay(turnDelay));
-        }
     }
 
     private int CalculatePlayerDamage(CombatAction action)
@@ -318,14 +299,7 @@ public class CombatManager : MonoBehaviour
         if (PlayerBuffs != null)
             damageMultiplier = PlayerBuffs.GetDamageMultiplier();
 
-        damage = CalculateFinalDamage(
-            damage,
-            GetEnemyTotalDefense(),
-            action.ignoreDefense,
-            action.armorPenetration,
-            damageMultiplier
-        );
-
+        damage = CalculateFinalDamage(damage, GetEnemyTotalDefense(), action.ignoreDefense, action.armorPenetration, damageMultiplier);
         damage = ApplyEnemyDamageReduction(damage);
         return damage;
     }
@@ -341,7 +315,7 @@ public class CombatManager : MonoBehaviour
         return damage;
     }
 
-    private void ApplyDamageToEnemy(int damage, CombatAction action)
+    private void ApplyDamageToEnemy(int damage)
     {
         enemyStats.Modify(StatType.Health, -damage);
         TryApplyOnHitEffects(enemyStats);
@@ -356,25 +330,21 @@ public class CombatManager : MonoBehaviour
     private void TryApplyOnHitEffects(EnemyStats target)
     {
         if (!target.TryGetComponent<StatusEffectManager>(out var effects))
-        {
             return;
-        }
 
         float roll = UnityEngine.Random.value;
 
-        if (burnEffect != null && roll < burnApplyChance)
-        {
-            effects.ApplyEffect(burnEffect);
-        }
+        if (stunEffect != null && roll < stunApplyChance)
+            effects.ApplyEffect(stunEffect);
         else if (poisonEffect != null && roll < poisonApplyChance)
-        {
             effects.ApplyEffect(poisonEffect);
-        }
     }
 
     private bool CheckCriticalHit(CombatAction action)
     {
-        if (action.guaranteedCrit) return true;
+        if (action.guaranteedCrit)
+            return true;
+
         float critChance = CalculateCritChance(action);
         return UnityEngine.Random.value <= critChance;
     }
@@ -393,7 +363,23 @@ public class CombatManager : MonoBehaviour
 
     void ExecuteEnemyAction()
     {
-        if (!CanExecuteEnemyAction()) return;
+        if (!CanExecuteEnemyAction())
+            return;
+
+        if (enemyStats.TryGetComponent<StatusEffectManager>(out var effects))
+        {
+            effects.OnEnemyTurnStart();
+
+            if (!effects.CanAct())
+            {
+                Log($"{currentEnemy.enemyName} is stunned and cannot act!");
+                DecayDefenseBonuses();
+                OnCombatStateChanged?.Invoke();
+                Invoke(nameof(StartPlayerTurn), turnDelay);
+                return;
+            }
+        }
+
         float enemyHpPercent = GetEnemyHealthPercent();
         float playerHpPercent = GetPlayerHealthPercent();
         ExecuteAIPattern(enemyHpPercent, playerHpPercent);
@@ -402,7 +388,9 @@ public class CombatManager : MonoBehaviour
 
         if (!PlayerStats.IsAlive())
         {
-            StartCoroutine(HandleDefeatAfterDelay(turnDelay));
+            if (!combatResolved)
+                StartCoroutine(HandleDefeatAfterDelay(turnDelay));
+
             return;
         }
 
@@ -416,20 +404,17 @@ public class CombatManager : MonoBehaviour
 
     private int GetEnemyTotalDefense()
     {
-        int baseDefense = enemyStats.Get(StatType.Defense);
-        return baseDefense + enemyDefenseBonus;
+        return enemyStats.Get(StatType.Defense) + enemyDefenseBonus;
     }
 
     private float GetEnemyHealthPercent()
     {
-        return (float)enemyStats.Get(StatType.Health) /
-               enemyStats.Get(StatType.MaxHealth);
+        return (float)enemyStats.Get(StatType.Health) / enemyStats.Get(StatType.MaxHealth);
     }
 
     private float GetPlayerHealthPercent()
     {
-        return (float)PlayerStats.Get(StatType.Health) /
-               PlayerStats.Get(StatType.MaxHealth);
+        return (float)PlayerStats.Get(StatType.Health) / PlayerStats.Get(StatType.MaxHealth);
     }
 
     private void ExecuteAIPattern(float enemyHp, float playerHp)
@@ -447,8 +432,8 @@ public class CombatManager : MonoBehaviour
             case EnemyAIPattern.Finisher:
                 FinisherDecision(playerHp);
                 break;
-
             default:
+
                 RandomDecision();
                 break;
         }
@@ -465,65 +450,43 @@ public class CombatManager : MonoBehaviour
         float roll = UnityEngine.Random.value;
 
         if (roll < currentEnemy.defendChance)
-        {
             Defend();
-        }
         else if (roll < currentEnemy.defendChance + currentEnemy.specialAttackChance)
-        {
             SpecialAttack();
-        }
         else
-        {
             Attack();
-        }
     }
 
     private void AggressiveDecision(float enemyHp)
     {
         if (enemyHp < currentEnemy.lowHealthThreshold)
-        {
             Defend();
-        }
         else
-        {
             SpecialAttackOrAttack();
-        }
     }
 
     private void DefensiveDecision(float enemyHp)
     {
         if (enemyHp < 0.5f)
-        {
             Defend();
-        }
         else
-        {
             Attack();
-        }
     }
 
     private void FinisherDecision(float playerHp)
     {
         if (playerHp < currentEnemy.finisherThreshold)
-        {
             SpecialAttack();
-        }
         else
-        {
             Attack();
-        }
     }
 
     private void SpecialAttackOrAttack()
     {
         if (UnityEngine.Random.value < currentEnemy.specialAttackChance)
-        {
             SpecialAttack();
-        }
         else
-        {
             Attack();
-        }
     }
 
     private void Attack()
@@ -534,12 +497,7 @@ public class CombatManager : MonoBehaviour
     private void Defend()
     {
         int defenseBonus = Mathf.RoundToInt(currentEnemy.defense * 0.5f);
-        enemyDefenseBonus = Mathf.Clamp(
-            enemyDefenseBonus + defenseBonus,
-            0,
-            maxDefenseBonus
-        );
-
+        enemyDefenseBonus = Mathf.Clamp(enemyDefenseBonus + defenseBonus, 0, maxDefenseBonus);
         Log($"{currentEnemy.enemyName} defends! (Total Defense: {GetEnemyTotalDefense()})");
     }
 
@@ -563,85 +521,66 @@ public class CombatManager : MonoBehaviour
         int defense = playerDefenseBonus + PlayerStats.Get(StatType.Defense);
 
         if (Equipment != null)
-        {
             defense += Equipment.GetTotalDefenseBonus();
-        }
 
         return defense;
     }
 
     private int CalculateEnemyDamageToPlayer(int baseDamage, int defense)
     {
-        float damageMultiplier = PlayerBuffs?.GetDamageMultiplier() ?? 1f;
-        float damageReduction = PlayerBuffs?.GetDamageReduction() ?? 0f;
+        float damageReduction = 0f;
 
-        int damage = CalculateFinalDamage(
-            baseDamage,
-            defense,
-            false,
-            0f,
-            damageMultiplier
-        );
+        if (PlayerBuffs != null)
+            damageReduction = PlayerBuffs.GetDamageReduction();
 
+        int damage = CalculateFinalDamage(baseDamage, defense, false, 0f, 1f);
         damage = Mathf.RoundToInt(damage * (1f - damageReduction));
         return damage;
     }
 
-    private int CalculateFinalDamage(
-        int baseDamage,
-        int defense,
-        bool ignoreDefense = false,
-        float armorPenetration = 0f,
-        float damageMultiplier = 1f)
+    private int CalculateFinalDamage(int baseDamage, int defense, bool ignoreDefense = false, float armorPenetration = 0f, float damageMultiplier = 1f)
     {
-        int effectiveDefense = ignoreDefense
-            ? 0
-            : Mathf.RoundToInt(defense * (1f - armorPenetration));
+        if (ignoreDefense)
+            return Mathf.Max(1, Mathf.RoundToInt(baseDamage * damageMultiplier));
 
-        int finalDamage = Mathf.RoundToInt(
-            (baseDamage - effectiveDefense) * damageMultiplier
-        );
-
+        float effectiveDefense = defense * (1f - armorPenetration);
+        float reduction = effectiveDefense / (effectiveDefense + defenseSoftcap);
+        reduction = Mathf.Clamp(reduction, 0f, maxDamageReduction);
+        int finalDamage = Mathf.RoundToInt(baseDamage * (1f - reduction) * damageMultiplier);
         return Mathf.Max(1, finalDamage);
     }
 
     private void OnPlayerHealthChanged()
     {
-        if (!inCombat) return;
+        if (!inCombat || combatResolved)
+            return;
 
         if (!PlayerStats.IsAlive())
-        {
             StartCoroutine(HandleDefeatAfterDelay(turnDelay));
-        }
-    }
-
-    private void OnEnemyStatChanged(StatType type, int oldValue, int newValue)
-    {
-        if (type == StatType.Health && newValue <= 0)
-        {
-            StartCoroutine(HandleVictoryAfterDelay(turnDelay));
-        }
     }
 
     IEnumerator HandleVictoryAfterDelay(float delay)
     {
+        Log($"Defeated {currentEnemy.enemyName}!");
         yield return new WaitForSeconds(delay);
         Victory();
     }
 
     IEnumerator HandleDefeatAfterDelay(float delay)
     {
+        Log("You have been defeated and lost some currency.");
         yield return new WaitForSeconds(delay);
         Defeat();
     }
 
     private void Victory()
     {
-        if (combatResolved) return;
+        if (combatResolved)
+            return;
+
         combatResolved = true;
         GrantVictoryRewards();
         DropEnemyLoot();
-        Log($"Defeated {currentEnemy.enemyName}!");
         EndCombat();
     }
 
@@ -657,19 +596,26 @@ public class CombatManager : MonoBehaviour
 
     private void DropEnemyLoot()
     {
-        if (enemyStats != null && enemyStats.TryGetComponent<EnemyLoot>(out var loot))
-        {
-            loot.DropLoot();
-        }
+        if (enemyStats == null)
+            return;
+
+        if (!enemyStats.TryGetComponent<EnemyLoot>(out var loot))
+            loot = enemyStats.GetComponentInChildren<EnemyLoot>();
+
+        if (loot != null)
+            loot.DropLoot(currentEnemy);
+        else
+            Debug.LogWarning("No EnemyLoot component found on enemy!");
     }
 
     private void Defeat()
     {
-        if (combatResolved) return;
+        if (combatResolved)
+            return;
+
         combatResolved = true;
         ApplyDefeatPenalties();
         EndCombat();
-        Log("You have been defeated and lost some currency.");
     }
 
     private void ApplyDefeatPenalties()
@@ -677,14 +623,11 @@ public class CombatManager : MonoBehaviour
         int healAmount = PlayerStats.Get(StatType.MaxHealth) / 3;
         PlayerStats.Set(StatType.Health, healAmount);
 
-        if (ProfileManager.Instance != null)
+        if (CurrencyManager.Instance != null)
         {
-            int currencyLoss = Mathf.Min(
-                ProfileManager.Instance.profile.currency / 4,
-                50
-            );
-
-            ProfileManager.Instance.SpendCurrency(currencyLoss);
+            int currentGold = CurrencyManager.Instance.Get(CurrencyType.Gold);
+            int currencyLoss = Mathf.Min(currentGold / 4, 50);
+            CurrencyManager.Instance.Spend(CurrencyType.Gold, currencyLoss);
         }
     }
 
@@ -692,8 +635,11 @@ public class CombatManager : MonoBehaviour
     {
         inCombat = false;
         ClearAllBuffs();
+        ClearEnemyStatusEffects();
         ResetCombatVariables();
         RestorePlayerEnergy();
+        PlayerStats.enableHealthRegen = true;
+        PlayerStats.enableEnergyRegen = true;
         OnCombatEnded?.Invoke();
         OnCombatStateChanged?.Invoke();
 
@@ -703,14 +649,18 @@ public class CombatManager : MonoBehaviour
         SaveSystem.SaveGame();
     }
 
+    private void ClearEnemyStatusEffects()
+    {
+        if (enemyStats != null && enemyStats.TryGetComponent<StatusEffectManager>(out var effects))
+            effects.RemoveAllEffects();
+    }
+
     private void ClearAllBuffs()
     {
         foreach (var buff in activeCombatBuffs)
         {
             if (buff.ui != null)
-            {
                 Destroy(buff.ui.gameObject);
-            }
         }
 
         activeCombatBuffs.Clear();
@@ -727,12 +677,16 @@ public class CombatManager : MonoBehaviour
 
     private void RestorePlayerEnergy()
     {
-        PlayerStats.Modify(StatType.Energy, 50);
+        int maxEnergy = PlayerStats.Get(StatType.MaxEnergy);
+        int currentEnergy = PlayerStats.Get(StatType.Energy);
+        PlayerStats.Modify(StatType.Energy, maxEnergy - currentEnergy);
     }
 
     public void AddCombatBuff(string name, Sprite icon, float duration)
     {
-        if (!CanAddBuff()) return;
+        if (!CanAddBuff())
+            return;
+
         CombatBuff buff = CreateBuff(name, icon, duration);
         BuffUI buffUI = CreateBuffUI(buff);
         buff.ui = buffUI;
@@ -777,9 +731,7 @@ public class CombatManager : MonoBehaviour
         }
 
         if (!unlockedActions.Contains(action))
-        {
             unlockedActions.Add(action);
-        }
     }
 
     public bool IsPlayerTurn()

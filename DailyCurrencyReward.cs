@@ -1,7 +1,6 @@
 using UnityEngine;
 using System;
 
-[System.Serializable]
 public class DailyCurrencyReward : MonoBehaviour
 {
     [Header("Daily Reward")]

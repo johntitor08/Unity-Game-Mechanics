@@ -5,6 +5,8 @@ using System.Collections.Generic;
 public class CurrencyNotificationUI : MonoBehaviour
 {
     public static CurrencyNotificationUI Instance;
+    private readonly Queue<GameObject> notificationPool = new();
+    private readonly List<GameObject> activeNotifications = new();
 
     [Header("Notification Settings")]
     public GameObject notificationPrefab;
@@ -13,22 +15,22 @@ public class CurrencyNotificationUI : MonoBehaviour
     public float moveSpeed = 50f;
     public float popScaleMultiplier = 1.2f;
 
-    private readonly Queue<GameObject> notificationPool = new();
-    private readonly List<GameObject> activeNotifications = new();
-
     void Awake()
     {
         Instance = this;
     }
 
-    // Show multiple currency changes sequentially
     public void Show(Dictionary<CurrencyType, int> changes, float delayBetween = 0.1f)
     {
-        if (changes == null || changes.Count == 0) return;
+        if (changes == null || changes.Count == 0)
+            return;
+
+        int index = 0;
 
         foreach (var kvp in changes)
         {
-            StartCoroutine(ShowWithDelay(kvp.Key, kvp.Value, delayBetween));
+            StartCoroutine(ShowWithDelay(kvp.Key, kvp.Value, delayBetween * index));
+            index++;
         }
     }
 
@@ -60,7 +62,11 @@ public class CurrencyNotificationUI : MonoBehaviour
     private GameObject GetNotification()
     {
         if (notificationPool.Count > 0)
-            return notificationPool.Dequeue();
+        {
+            var pooled = notificationPool.Dequeue();
+            pooled.transform.position = notificationParent.position;
+            return pooled;
+        }
 
         return Instantiate(notificationPrefab, notificationParent);
     }
@@ -78,7 +84,6 @@ public class CurrencyNotificationUI : MonoBehaviour
             float t = elapsed / notificationDuration;
             notification.transform.position = startPos + Vector3.up * (moveSpeed * t);
 
-            // Fade out
             if (text != null)
             {
                 Color color = startColor;
@@ -86,13 +91,11 @@ public class CurrencyNotificationUI : MonoBehaviour
                 text.color = color;
             }
 
-            // Pop scale animation (in then out)
             float scale = Mathf.Sin(t * Mathf.PI) * popScaleMultiplier;
             notification.transform.localScale = Vector3.one * scale;
             yield return null;
         }
 
-        // Return to pool
         notification.SetActive(false);
         activeNotifications.Remove(notification);
         notificationPool.Enqueue(notification);

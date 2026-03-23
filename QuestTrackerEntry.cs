@@ -13,14 +13,13 @@ public class QuestTrackerEntry : MonoBehaviour
         if (questNameText != null)
             questNameText.text = quest.questName;
 
-        // Clear objectives
         foreach (Transform child in objectivesParent)
             Destroy(child.gameObject);
 
-        // Add objectives
         foreach (var objective in quest.objectives)
         {
-            if (objective.isCompleted) continue;
+            if (objective.isCompleted)
+                continue;
 
             var objText = Instantiate(objectiveTextPrefab, objectivesParent);
             objText.text = $"• {objective.description} ({objective.currentProgress}/{objective.GetRequiredCount()})";

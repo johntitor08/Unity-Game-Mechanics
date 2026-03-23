@@ -21,28 +21,20 @@ public class EquipmentData : ItemData
     public StatType requiredStat;
     public int requiredStatValue = 0;
 
-    [Header("Equipment Rarity Mapping")]
+    [Header("Rarity")]
     public EquipmentRarity equipmentRarity = EquipmentRarity.Common;
-
-    [Header("Set Bonus")]
-    public string setName = "";
-    public int setID = 0;
 
     [Header("Set Data")]
     public EquipmentSetData setData;
 
-    // Constructor to ensure itemType is always Equipment
     void OnEnable()
     {
         itemType = ItemType.Equipment;
-        stackable = false; // Equipment should not stack
+        stackable = false;
         maxStack = 1;
     }
 
-    public override bool IsEquipment()
-    {
-        return true;
-    }
+    public override bool IsEquipment() => true;
 
     public string GetStatsDescription()
     {
@@ -67,8 +59,8 @@ public class EquipmentData : ItemData
 public enum EquipmentRarity
 {
     Common,
-    Uncommon,
     Rare,
     Epic,
-    Legendary
+    Legendary,
+    Godly
 }

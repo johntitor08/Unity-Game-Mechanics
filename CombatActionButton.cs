@@ -10,8 +10,7 @@ public class CombatActionButton : MonoBehaviour
     public TextMeshProUGUI energyCostText;
     public Image iconImage;
     public GameObject notEnoughEnergyIndicator;
-
-    private CombatAction action;
+    public CombatAction action;
 
     public void Setup(CombatAction combatAction)
     {
@@ -27,26 +26,34 @@ public class CombatActionButton : MonoBehaviour
             iconImage.sprite = action.icon;
 
         if (button != null)
+        {
+            button.onClick.RemoveAllListeners();
             button.onClick.AddListener(OnClick);
+        }
 
         UpdateInteractable(true);
     }
 
     void OnClick()
     {
-        if (CombatManager.Instance != null)
-        {
-            CombatManager.Instance.ExecutePlayerAction(action);
-        }
+        if (CombatManager.Instance == null)
+            return;
+
+        if (button != null)
+            button.interactable = false;
+
+        if (CombatUI.Instance != null)
+            CombatUI.Instance.DisableAllActionButtons();
+
+        CombatManager.Instance.ExecutePlayerAction(action);
     }
 
     public void UpdateInteractable(bool canUse)
     {
-        bool hasEnoughEnergy = PlayerStats.Instance.HasEnoughEnergy(action.energyCost);
-        bool interactable = canUse && hasEnoughEnergy;
+        bool hasEnoughEnergy = PlayerStats.Instance != null && PlayerStats.Instance.HasEnoughEnergy(action.energyCost);
 
         if (button != null)
-            button.interactable = interactable;
+            button.interactable = canUse && hasEnoughEnergy;
 
         if (notEnoughEnergyIndicator != null)
             notEnoughEnergyIndicator.SetActive(!hasEnoughEnergy);

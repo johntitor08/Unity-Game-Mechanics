@@ -20,8 +20,6 @@ public class ItemData : ScriptableObject
 
     [Header("Usage")]
     public bool useable;
-    public StatType affectedStat;
-    public int statAmount;
     public UnityEvent onUse;
 
     [Header("Economy")]
@@ -30,7 +28,6 @@ public class ItemData : ScriptableObject
     [Header("Rarity")]
     public Rarity rarity = Rarity.Common;
 
-    // Check if this item is equipment
     public virtual bool IsEquipment()
     {
         return itemType == ItemType.Equipment || this is EquipmentData;

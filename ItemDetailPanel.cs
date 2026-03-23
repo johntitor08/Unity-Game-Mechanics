@@ -118,24 +118,27 @@ public class ItemDetailPanel : MonoBehaviour
 
         currentItem.onUse?.Invoke();
 
-        // Apply stat effect if configured
-        if (currentItem.statAmount > 0 && PlayerStats.Instance != null)
-        {
-            PlayerStats.Instance.Modify(currentItem.affectedStat, currentItem.statAmount);
-        }
-
         if (currentItem.IsEquipment())
         {
-            EquipEquipment(currentItem as EquipmentData);
+            if (currentItem is EquipmentData eq)
+                EquipEquipment(eq);
+            else
+                Debug.LogError($"{currentItem.itemID} is flagged as Equipment but is not EquipmentData");
+
+            isProcessingUse = false;
             RefreshQuantity();
             return;
         }
+
+        if (currentItem is StatModifierItem statMod)
+            statMod.Use();
 
         bool removed = InventoryManager.Instance.RemoveItem(currentItem, 1);
 
         if (!removed)
         {
             isProcessingUse = false;
+
             if (useButton != null)
                 useButton.interactable = true;
         }
@@ -143,11 +146,15 @@ public class ItemDetailPanel : MonoBehaviour
 
     void RefreshQuantity()
     {
-        if (currentItem == null || InventoryManager.Instance == null) return;
+        if (currentItem == null || InventoryManager.Instance == null)
+            return;
+
         int qty = InventoryManager.Instance.GetQuantity(currentItem);
 
         if (quantityText != null)
             quantityText.text = $"Sahip olunan: {qty}";
+
+        isProcessingUse = false;
 
         if (qty <= 0)
         {
@@ -155,8 +162,6 @@ public class ItemDetailPanel : MonoBehaviour
         }
         else
         {
-            isProcessingUse = false;
-
             if (useButton != null && currentItem.useable)
                 useButton.interactable = true;
         }

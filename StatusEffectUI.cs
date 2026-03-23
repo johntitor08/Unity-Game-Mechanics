@@ -39,12 +39,16 @@ public class StatusEffectUI : MonoBehaviour
 
     void Update()
     {
-        if (effectManager == null) return;
+        if (effectManager == null)
+            return;
 
         for (int i = activeIcons.Count - 1; i >= 0; i--)
         {
             var icon = activeIcons[i];
-            if (icon == null) continue;
+
+            if (icon == null)
+                continue;
+
             ActiveStatusEffect effect = effectManager.GetActiveEffect(icon.effectType);
 
             if (effect != null)

@@ -14,7 +14,6 @@ public class EnemyLoot : MonoBehaviour
     [Header("Currency")]
     public int minGold = 10;
     public int maxGold = 50;
-    public int experienceReward = 50;
 
     [Header("Luck Modifiers")]
     [Tooltip("How much each point of luck increases drop chance (0.005 = 0.5% per luck point)")]
@@ -23,70 +22,84 @@ public class EnemyLoot : MonoBehaviour
     [Header("Debug")]
     public bool showDropLog = true;
 
-    // Cache for color strings to avoid repeated switch statements
     private static readonly Dictionary<EquipmentRarity, string> RarityColors = new()
     {
-        { EquipmentRarity.Common, "#CCCCCC" },
-        { EquipmentRarity.Uncommon, "#33FF33" },
-        { EquipmentRarity.Rare, "#3399FF" },
-        { EquipmentRarity.Epic, "#CC33FF" },
-        { EquipmentRarity.Legendary, "#FF9933" }
+        {
+            EquipmentRarity.Common, "#CCCCCC"
+        },
+        {
+            EquipmentRarity.Rare, "#3399FF"
+        },
+        {
+            EquipmentRarity.Epic, "#CC33FF"
+        },
+        {
+            EquipmentRarity.Legendary, "#FF9933"
+        },
+        {
+            EquipmentRarity.Godly, "#CC2200"
+        }
     };
 
     private void OnValidate()
     {
-        // Ensure arrays match in length
         if (possibleLoot != null && lootChances != null && possibleLoot.Length != lootChances.Length)
         {
             Debug.LogWarning($"[{gameObject.name}] Loot arrays length mismatch! possibleLoot: {possibleLoot.Length}, lootChances: {lootChances.Length}");
         }
 
-        // Validate gold range
         if (minGold > maxGold)
         {
             Debug.LogWarning($"[{gameObject.name}] minGold ({minGold}) is greater than maxGold ({maxGold})");
         }
     }
 
-    public void DropLoot()
+    public void DropLoot(EnemyData data = null)
     {
+        ItemData[] loot = data != null ? data.possibleLoot : possibleLoot;
+        float[] chances = data != null ? data.lootChances : lootChances;
+        EquipmentLootTable table = data != null ? data.equipmentLootTable : equipmentLootTable;
         int playerLuck = GetPlayerLuck();
-        DropEquipment(playerLuck);
-        DropRegularLoot(playerLuck);
-        DropCurrencyAndExp();
+        DropEquipment(table, playerLuck);
+        DropRegularLoot(loot, chances, playerLuck);
+        DropCurrency();
     }
 
-    private int GetPlayerLuck()
+    private void DropEquipment(EquipmentLootTable table, int playerLuck)
     {
-        return PlayerStats.Instance != null
-            ? PlayerStats.Instance.Get(StatType.Luck)
-            : 0;
-    }
+        if (table == null)
+            return;
 
-    private void DropEquipment(int playerLuck)
-    {
-        if (equipmentLootTable == null) return;
-        List<EquipmentData> droppedEquipment = equipmentLootTable.RollLoot(playerLuck);
-        if (droppedEquipment == null || droppedEquipment.Count == 0) return;
+        List<EquipmentData> droppedEquipment = table.RollLoot(playerLuck);
+
+        if (droppedEquipment == null || droppedEquipment.Count == 0)
+            return;
 
         foreach (var equipment in droppedEquipment)
         {
-            if (equipment == null) continue;
+            if (equipment == null)
+                continue;
+
             AddItemToInventory(equipment, 1);
             string rarityColor = GetRarityColorHex(equipment.equipmentRarity);
             LogDrop($"<color={rarityColor}>{equipment.itemName}</color> (Equipment)");
         }
     }
 
-    private void DropRegularLoot(int playerLuck)
+    private void DropRegularLoot(ItemData[] possibleLoot, float[] lootChances, int playerLuck)
     {
-        if (possibleLoot == null || lootChances == null) return;
+        if (possibleLoot == null || lootChances == null)
+            return;
+
         int itemCount = Mathf.Min(possibleLoot.Length, lootChances.Length);
 
         for (int i = 0; i < itemCount; i++)
         {
             ItemData item = possibleLoot[i];
-            if (item == null) continue;
+
+            if (item == null)
+                continue;
+
             float dropChance = CalculateDropChance(lootChances[i], playerLuck);
 
             if (Random.value <= dropChance)
@@ -97,21 +110,28 @@ public class EnemyLoot : MonoBehaviour
         }
     }
 
+    private int GetPlayerLuck()
+    {
+        return PlayerStats.Instance != null ? PlayerStats.Instance.Get(StatType.Luck) : 0;
+    }
+
     private float CalculateDropChance(float baseChance, int playerLuck)
     {
-        if (baseChance <= 0f) return 0f;
+        if (baseChance <= 0f)
+            return 0f;
+
         float luckBonus = playerLuck * luckDropChanceBonus;
         return Mathf.Clamp01(baseChance + luckBonus);
     }
 
-    private void DropCurrencyAndExp()
+    private void DropCurrency()
     {
-        if (ProfileManager.Instance == null) return;
+        if (ProfileManager.Instance == null)
+            return;
+
         int gold = Random.Range(minGold, maxGold + 1);
         ProfileManager.Instance.AddCurrency(gold);
-        ProfileManager.Instance.AddExperience(experienceReward);
         LogDrop($"<color=#FFD700>{gold} Gold</color>");
-        LogDrop($"<color=#00FF00>{experienceReward} EXP</color>");
     }
 
     private void AddItemToInventory(ItemData item, int quantity)
@@ -128,7 +148,8 @@ public class EnemyLoot : MonoBehaviour
 
     private void LogDrop(string message)
     {
-        if (!showDropLog) return;
+        if (!showDropLog)
+            return;
 
         if (CombatUI.Instance != null)
         {
@@ -142,12 +163,9 @@ public class EnemyLoot : MonoBehaviour
 
     private string GetRarityColorHex(EquipmentRarity rarity)
     {
-        return RarityColors.TryGetValue(rarity, out string color)
-            ? color
-            : "#FFFFFF";
+        return RarityColors.TryGetValue(rarity, out string color) ? color : "#FFFFFF";
     }
 
-    // Optional: Method to preview total drop chances with current luck
     [ContextMenu("Preview Drop Chances")]
     private void PreviewDropChances()
     {

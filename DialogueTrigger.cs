@@ -15,7 +15,7 @@ public class DialogueTrigger : MonoBehaviour
     public GameObject interactionPrompt;
     public Sprite npcPortrait;
 
-    private bool hasTriggered = false;
+    private bool isExhausted = false;
     private bool playerInRange = false;
 
     void Start()
@@ -26,7 +26,7 @@ public class DialogueTrigger : MonoBehaviour
 
     void Update()
     {
-        if (requireInteraction && playerInRange && !hasTriggered)
+        if (requireInteraction && playerInRange && !isExhausted)
         {
             if (Input.GetKeyDown(interactionKey))
             {
@@ -45,7 +45,7 @@ public class DialogueTrigger : MonoBehaviour
             {
                 interactionPrompt.SetActive(true);
             }
-            else if (!requireInteraction && !hasTriggered)
+            else if (!requireInteraction && !isExhausted)
             {
                 TriggerDialogue();
             }
@@ -74,7 +74,7 @@ public class DialogueTrigger : MonoBehaviour
 
         if (triggerOnce)
         {
-            hasTriggered = true;
+            isExhausted = true;
 
             if (interactionPrompt != null)
             {

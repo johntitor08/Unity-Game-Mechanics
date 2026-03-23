@@ -1,9 +1,9 @@
-﻿using UnityEngine;
-using UnityEngine.UI;
-using UnityEngine.SceneManagement;
-using System.Collections.Generic;
-using System;
+﻿using System;
 using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class MenuManager : MonoBehaviour
 {
@@ -76,8 +76,10 @@ public class MenuManager : MonoBehaviour
         if (Input.GetKeyDown(pauseKey) &&
             SceneManager.GetActiveScene().name != mainMenuSceneName)
         {
-            if (isPaused) ResumeGame();
-            else PauseGame();
+            if (isPaused)
+                ResumeGame();
+            else
+                PauseGame();
         }
     }
 
@@ -118,12 +120,15 @@ public class MenuManager : MonoBehaviour
                         buttonPanel.SetActive(true);
                 });
         }
-        else StartNewGame();
+        else
+            StartNewGame();
     }
 
     void StartNewGame()
     {
-        buttonPanel.SetActive(false);
+        if (buttonPanel != null)
+            buttonPanel.SetActive(false);
+
         SaveSystem.DeleteSave();
         ResetGameManagers();
         Time.timeScale = 1f;
@@ -154,19 +159,41 @@ public class MenuManager : MonoBehaviour
     public void OnQuitClicked()
     {
         PlayButtonSound();
-        if (ConfirmationDialog.Instance == null) return;
 
-        ConfirmationDialog.Instance.Show(
-            "Quit Game",
-            "Are you sure?",
-            QuitGame,
-            null
-        );
+        if (ConfirmationDialog.Instance != null)
+            ConfirmationDialog.Instance.Show("Quit Game", "Are you sure?", QuitGame, null);
+        else
+            QuitGame();
+    }
+
+    public void ReturnToMainMenu()
+    {
+        PlayButtonSound();
+
+        void doReturn()
+        {
+            Time.timeScale = 1f; StartCoroutine(LoadSceneAsync(mainMenuSceneName));
+        }
+
+        if (ConfirmationDialog.Instance != null)
+            ConfirmationDialog.Instance.Show("Main Menu", "Unsaved progress will be lost.", doReturn, null);
+        else
+            doReturn();
+    }
+
+    public void GoBack()
+    {
+        if (isPaused)
+            ResumeGame();
+
+        HideMenu(settingsMenu);
     }
 
     public void PauseGame()
     {
-        if (isPaused) return;
+        if (isPaused)
+            return;
+
         isPaused = true;
         Time.timeScale = 0f;
         ShowMenu(pauseMenu, "Pause");
@@ -175,33 +202,19 @@ public class MenuManager : MonoBehaviour
 
     public void ResumeGame()
     {
-        if (!isPaused) return;
+        if (!isPaused)
+            return;
+
         isPaused = false;
         Time.timeScale = 1f;
         HideMenu(pauseMenu);
         OnGameResumed?.Invoke();
     }
 
-    public void ReturnToMainMenu()
-    {
-        PlayButtonSound();
-        if (ConfirmationDialog.Instance == null) return;
-
-        ConfirmationDialog.Instance.Show(
-            "Main Menu",
-            "Unsaved progress will be lost.",
-            () =>
-            {
-                Time.timeScale = 1f;
-                StartCoroutine(LoadSceneAsync(mainMenuSceneName));
-            },
-            null
-        );
-    }
-
     void ShowMenu(GameObject menu, string name)
     {
-        if (menu == null) return;
+        if (menu == null)
+            return;
 
         if (currentMenu != null)
         {
@@ -217,16 +230,17 @@ public class MenuManager : MonoBehaviour
 
     void HideMenu(GameObject menu)
     {
-        if (menu == null) return;
-        menu.SetActive(false);
+        if (menu == null)
+            return;
 
-        currentMenu =
-            menuStack.Count > 0 ? menuStack.Pop() : null;
+        menu.SetActive(false);
+        currentMenu = menuStack.Count > 0 ? menuStack.Pop() : null;
 
         if (currentMenu != null)
             currentMenu.SetActive(true);
 
         PlaySound(menuCloseSound);
+        OnMenuClosed?.Invoke(menu.name);
     }
 
     void HideAllMenus()
@@ -251,14 +265,15 @@ public class MenuManager : MonoBehaviour
 
         HideAllMenus();
 
-        AsyncOperation op =
-            SceneManager.LoadSceneAsync(sceneName);
+        AsyncOperation op = SceneManager.LoadSceneAsync(sceneName);
         op.allowSceneActivation = false;
 
         while (op.progress < 0.9f)
         {
             float p = Mathf.Clamp01(op.progress / 0.9f);
-            if (loadingBar) loadingBar.value = p;
+
+            if (loadingBar)
+                loadingBar.value = p;
 
             if (loadingText)
                 loadingText.text = $"Loading {Mathf.RoundToInt(p * 100)}%";
@@ -268,7 +283,9 @@ public class MenuManager : MonoBehaviour
 
         yield return _waitForSeconds0_5;
         op.allowSceneActivation = true;
-        while (!op.isDone) yield return null;
+
+        while (!op.isDone)
+            yield return null;
         
         if (loadingScreen != null)
             loadingScreen.SetActive(false);
@@ -277,19 +294,17 @@ public class MenuManager : MonoBehaviour
     void UpdateContinueButton()
     {
         if (continueButton != null)
-            continueButton.interactable =
-                SaveSystem.HasSaveFile();
+            continueButton.interactable = SaveSystem.HasSaveFile();
     }
 
     void ResetGameManagers()
     {
-        if (PlayerStats.Instance == null ||
-            InventoryManager.Instance == null)
+        if (PlayerStats.Instance == null || InventoryManager.Instance == null)
             return;
 
         PlayerStats.Instance.ResetAllToBase();
         InventoryManager.Instance.Clear();
-        StoryFlags.flags.Clear();
+        StoryFlags.Reset();
     }
 
     void QuitGame()
@@ -302,11 +317,7 @@ public class MenuManager : MonoBehaviour
     void PlaySound(AudioClip clip)
     {
         if (clip && Camera.main)
-            AudioSource.PlayClipAtPoint(
-                clip,
-                Camera.main.transform.position,
-                0.5f
-            );
+            AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, 0.5f);
     }
 
     public bool IsPaused() => isPaused;

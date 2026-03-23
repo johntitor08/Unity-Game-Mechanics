@@ -30,7 +30,7 @@ public class QuestData : ScriptableObject
     public int experienceReward = 100;
     public CurrencyReward[] currencyRewards;
     public ItemData[] itemRewards;
-    public int itemRewardQuantities;
+    public int[] itemRewardQuantities;
 
     [Header("Optional Rewards (Choose One)")]
     public ItemData[] optionalRewards;

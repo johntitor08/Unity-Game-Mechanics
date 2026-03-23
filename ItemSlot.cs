@@ -3,9 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using UnityEngine.EventSystems;
 
-public class ItemSlot : MonoBehaviour,
-    IPointerEnterHandler,
-    IPointerExitHandler
+public class ItemSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
     [Header("UI")]
     public Image icon;
@@ -67,7 +65,9 @@ public class ItemSlot : MonoBehaviour,
 
     public void OnClick()
     {
-        if (item == null) return;
+        if (item == null)
+            return;
+
         ItemDetailPanel.Instance.ShowItemDetail(item, quantity);
     }
 

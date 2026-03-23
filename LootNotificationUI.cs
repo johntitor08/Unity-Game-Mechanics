@@ -1,18 +1,15 @@
 using System.Collections.Generic;
-using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 public class LootNotificationUI : MonoBehaviour
 {
     public static LootNotificationUI Instance;
+    private static readonly Queue<GameObject> notificationPool = new();
 
     [Header("Notification")]
     public GameObject notificationPrefab;
     public Transform notificationParent;
     public float notificationDuration = 3f;
-
-    private static readonly Queue<GameObject> notificationPool = new();
 
     void Awake()
     {
@@ -20,6 +17,11 @@ public class LootNotificationUI : MonoBehaviour
             Instance = this;
         else
             Destroy(gameObject);
+    }
+
+    private void OnDestroy()
+    {
+        notificationPool.Clear();
     }
 
     public void ShowLoot(EquipmentData equipment)

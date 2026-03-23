@@ -34,15 +34,16 @@ public class StatusEffectManager : MonoBehaviour
 
     private void UpdateEffects()
     {
-        if (activeEffects.Count == 0) return;
+        if (activeEffects.Count == 0)
+            return;
+
         float dt = Time.deltaTime;
 
         for (int i = activeEffects.Count - 1; i >= 0; i--)
         {
             var effect = activeEffects[i];
 
-            // Handle duration
-            if (!effect.data.isPermanent)
+            if (!effect.data.isPermanent && !effect.data.isRoundBased)
             {
                 effect.remainingDuration -= dt;
 
@@ -53,7 +54,6 @@ public class StatusEffectManager : MonoBehaviour
                 }
             }
 
-            // Handle ticks
             if (effect.data.hasTicks && effect.data.tickInterval > 0f)
             {
                 effect.nextTickTime -= dt;
@@ -67,14 +67,32 @@ public class StatusEffectManager : MonoBehaviour
         }
     }
 
+    public void OnEnemyTurnStart()
+    {
+        for (int i = activeEffects.Count - 1; i >= 0; i--)
+        {
+            var effect = activeEffects[i];
+
+            if (!effect.data.isRoundBased)
+                continue;
+
+            ProcessTick(effect);
+            effect.remainingRounds--;
+
+            if (effect.remainingRounds <= 0)
+                RemoveEffect(effect);
+        }
+    }
+
     public void ApplyEffect(StatusEffectData effectData)
     {
-        if (effectData == null || statOwner == null) return;
+        if (effectData == null || statOwner == null)
+            return;
+
         ActiveStatusEffect existing = GetActiveEffect(effectData.effectType);
 
         if (existing != null)
         {
-            // Handle stacking
             if (effectData.canStack)
             {
                 ApplyStatModifiers(existing, false);
@@ -82,22 +100,19 @@ public class StatusEffectManager : MonoBehaviour
                 ApplyStatModifiers(existing, true);
             }
 
-            // Refresh duration if needed
             if (effectData.refreshOnReapply)
             {
                 existing.RefreshDuration();
-                OnEffectApplied?.Invoke(existing.data); // Notify UI
+                OnEffectApplied?.Invoke(existing.data);
             }
 
             return;
         }
 
-        // New effect
         ActiveStatusEffect newEffect = new(effectData);
         activeEffects.Add(newEffect);
         ApplyStatModifiers(newEffect, true);
 
-        // Spawn particle
         if (effectData.particleEffectPrefab != null && particleParent != null)
         {
             newEffect.particleInstance = Instantiate(effectData.particleEffectPrefab, particleParent);
@@ -110,7 +125,9 @@ public class StatusEffectManager : MonoBehaviour
 
     private void RemoveEffect(ActiveStatusEffect effect)
     {
-        if (effect == null || statOwner == null) return;
+        if (effect == null || statOwner == null)
+            return;
+
         ApplyStatModifiers(effect, false);
 
         if (effect.particleInstance != null)
@@ -123,7 +140,9 @@ public class StatusEffectManager : MonoBehaviour
 
     private void ProcessTick(ActiveStatusEffect effect)
     {
-        if (effect == null || statOwner == null) return;
+        if (effect == null || statOwner == null)
+            return;
+
         int totalDamage = effect.data.tickDamage * effect.currentStacks;
 
         if (totalDamage != 0)
@@ -137,7 +156,9 @@ public class StatusEffectManager : MonoBehaviour
     public void RemoveEffect(StatusEffectType type)
     {
         ActiveStatusEffect effect = GetActiveEffect(type);
-        if (effect != null) RemoveEffect(effect);
+
+        if (effect != null)
+            RemoveEffect(effect);
     }
 
     public void RemoveAllEffects()
@@ -157,8 +178,7 @@ public class StatusEffectManager : MonoBehaviour
 
     public bool HasEffect(StatusEffectType type) => GetActiveEffect(type) != null;
 
-    public ActiveStatusEffect GetActiveEffect(StatusEffectType type) =>
-        activeEffects.FirstOrDefault(e => e.data.effectType == type);
+    public ActiveStatusEffect GetActiveEffect(StatusEffectType type) => activeEffects.FirstOrDefault(e => e.data.effectType == type);
 
     public bool CanAct() => !activeEffects.Any(e => e.data.preventActions);
 
@@ -184,19 +204,23 @@ public class StatusEffectManager : MonoBehaviour
         return Mathf.Clamp01(reduction);
     }
 
-    // Apply or remove stat modifiers
     private void ApplyStatModifiers(ActiveStatusEffect effect, bool apply)
     {
-        if (effect.data.statModifiers == null || statOwner == null) return;
+        if (effect.data.statModifiers == null || statOwner == null)
+            return;
 
         foreach (var mod in effect.data.statModifiers)
         {
-            int amount = mod.amount * effect.currentStacks;
+            int amount;
 
             if (mod.isPercentage)
-                amount = Mathf.RoundToInt(statOwner.Get(mod.statType) * mod.amount / 100f);
+                amount = Mathf.RoundToInt(statOwner.Get(mod.statType) * (mod.amount * effect.currentStacks) / 100f);
+            else
+                amount = mod.amount * effect.currentStacks;
 
-            if (amount == 0) amount = apply ? 0 : 0;
+            if (amount == 0)
+                continue;
+
             statOwner.Modify(mod.statType, apply ? amount : -amount);
         }
     }

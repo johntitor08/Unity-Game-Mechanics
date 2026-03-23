@@ -16,7 +16,6 @@ public class QuestMarker : MonoBehaviour
     void Start()
     {
         startPos = transform.position;
-        UpdateVisibility();
     }
 
     void Update()
@@ -27,7 +26,8 @@ public class QuestMarker : MonoBehaviour
 
     void UpdateVisibility()
     {
-        if (QuestManager.Instance == null) return;
+        if (QuestManager.Instance == null)
+            return;
 
         var quest = QuestManager.Instance.GetActiveQuest(questID);
         bool shouldShow = false;
@@ -44,7 +44,8 @@ public class QuestMarker : MonoBehaviour
 
     void AnimateMarker()
     {
-        if (markerVisual == null || !markerVisual.activeSelf) return;
+        if (markerVisual == null || !markerVisual.activeSelf)
+            return;
 
         float newY = startPos.y + Mathf.Sin(Time.time * floatSpeed) * floatHeight;
         transform.position = new Vector3(startPos.x, newY, startPos.z);

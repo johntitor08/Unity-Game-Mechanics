@@ -51,7 +51,6 @@ public class SettingsManager : MonoBehaviour
 
     void SetupSettings()
     {
-        // Audio sliders
         if (masterVolumeSlider != null)
             masterVolumeSlider.onValueChanged.AddListener(OnMasterVolumeChanged);
 
@@ -61,7 +60,6 @@ public class SettingsManager : MonoBehaviour
         if (sfxVolumeSlider != null)
             sfxVolumeSlider.onValueChanged.AddListener(OnSFXVolumeChanged);
 
-        // Graphics
         if (qualityDropdown != null)
         {
             qualityDropdown.ClearOptions();
@@ -74,7 +72,6 @@ public class SettingsManager : MonoBehaviour
         {
             resolutions = Screen.resolutions;
             resolutionDropdown.ClearOptions();
-
             var options = new System.Collections.Generic.List<string>();
             int currentResolutionIndex = 0;
 
@@ -98,7 +95,6 @@ public class SettingsManager : MonoBehaviour
         if (vsyncToggle != null)
             vsyncToggle.isOn = QualitySettings.vSyncCount > 0;
 
-        // Buttons
         if (applyButton != null)
             applyButton.onClick.AddListener(ApplySettings);
 
@@ -106,26 +102,25 @@ public class SettingsManager : MonoBehaviour
             resetButton.onClick.AddListener(ResetSettings);
 
         if (backButton != null)
-            backButton.onClick.AddListener(() => MenuManager.Instance.ResumeGame());
+            backButton.onClick.AddListener(() => MenuManager.Instance.GoBack());
     }
 
     void OnMasterVolumeChanged(float value)
     {
         AudioListener.volume = value;
+
         if (masterVolumeText != null)
             masterVolumeText.text = Mathf.Round(value * 100) + "%";
     }
 
     void OnMusicVolumeChanged(float value)
     {
-        // Set music volume (requires AudioMixer or audio manager)
         if (musicVolumeText != null)
             musicVolumeText.text = Mathf.Round(value * 100) + "%";
     }
 
     void OnSFXVolumeChanged(float value)
     {
-        // Set SFX volume
         if (sfxVolumeText != null)
             sfxVolumeText.text = Mathf.Round(value * 100) + "%";
     }
@@ -137,18 +132,15 @@ public class SettingsManager : MonoBehaviour
 
     void ApplySettings()
     {
-        // Resolution
         if (resolutionDropdown != null)
         {
             Resolution resolution = resolutions[resolutionDropdown.value];
             Screen.SetResolution(resolution.width, resolution.height, Screen.fullScreen);
         }
 
-        // Fullscreen
         if (fullscreenToggle != null)
             Screen.fullScreen = fullscreenToggle.isOn;
 
-        // VSync
         if (vsyncToggle != null)
             QualitySettings.vSyncCount = vsyncToggle.isOn ? 1 : 0;
 
@@ -158,13 +150,24 @@ public class SettingsManager : MonoBehaviour
 
     void ResetSettings()
     {
-        // Reset to defaults
-        if (masterVolumeSlider != null) masterVolumeSlider.value = 1f;
-        if (musicVolumeSlider != null) musicVolumeSlider.value = 0.8f;
-        if (sfxVolumeSlider != null) sfxVolumeSlider.value = 1f;
-        if (qualityDropdown != null) qualityDropdown.value = QualitySettings.GetQualityLevel();
-        if (fullscreenToggle != null) fullscreenToggle.isOn = true;
-        if (vsyncToggle != null) vsyncToggle.isOn = true;
+        if (masterVolumeSlider != null)
+            masterVolumeSlider.value = 1f;
+
+        if (musicVolumeSlider != null)
+            musicVolumeSlider.value = 0.8f;
+
+        if (sfxVolumeSlider != null)
+            sfxVolumeSlider.value = 1f;
+
+        if (qualityDropdown != null)
+            qualityDropdown.value = QualitySettings.GetQualityLevel();
+
+        if (fullscreenToggle != null)
+            fullscreenToggle.isOn = true;
+
+        if (vsyncToggle != null)
+            vsyncToggle.isOn = true;
+
         ApplySettings();
     }
 
@@ -185,10 +188,24 @@ public class SettingsManager : MonoBehaviour
         float musicVolume = PlayerPrefs.GetFloat("MusicVolume", 0.8f);
         float sfxVolume = PlayerPrefs.GetFloat("SFXVolume", 1f);
 
-        if (masterVolumeSlider != null) masterVolumeSlider.value = masterVolume;
-        if (musicVolumeSlider != null) musicVolumeSlider.value = musicVolume;
-        if (sfxVolumeSlider != null) sfxVolumeSlider.value = sfxVolume;
+        if (masterVolumeSlider != null)
+            masterVolumeSlider.value = masterVolume;
+
+        if (musicVolumeSlider != null)
+            musicVolumeSlider.value = musicVolume;
+
+        if (sfxVolumeSlider != null)
+            sfxVolumeSlider.value = sfxVolume;
 
         AudioListener.volume = masterVolume;
+
+        if (qualityDropdown != null)
+            qualityDropdown.value = PlayerPrefs.GetInt("QualityLevel", QualitySettings.GetQualityLevel());
+
+        if (fullscreenToggle != null)
+            fullscreenToggle.isOn = PlayerPrefs.GetInt("Fullscreen", 1) == 1;
+
+        if (vsyncToggle != null)
+            vsyncToggle.isOn = PlayerPrefs.GetInt("VSync", 1) > 0;
     }
 }

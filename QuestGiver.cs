@@ -7,9 +7,9 @@ public class QuestGiver : MonoBehaviour
     public List<QuestData> availableQuests;
 
     [Header("Interaction")]
-    public GameObject exclamationMark; // New quest available
-    public GameObject questionMark;    // Quest in progress
-    public GameObject goldExclamation; // Quest complete
+    public GameObject exclamationMark;
+    public GameObject questionMark;
+    public GameObject goldExclamation;
     public float interactionRange = 2f;
     public KeyCode interactionKey = KeyCode.E;
 
@@ -22,15 +22,18 @@ public class QuestGiver : MonoBehaviour
     void Start()
     {
         UpdateQuestIndicators();
+        if (interactionPrompt != null) interactionPrompt.SetActive(false);
 
-        if (interactionPrompt != null)
-            interactionPrompt.SetActive(false);
+        if (QuestManager.Instance != null)
+        {
+            QuestManager.Instance.OnQuestStarted += _ => UpdateQuestIndicators();
+            QuestManager.Instance.OnQuestCompleted += _ => UpdateQuestIndicators();
+            QuestManager.Instance.OnObjectiveCompleted += (_, __) => UpdateQuestIndicators();
+        }
     }
 
     void Update()
     {
-        UpdateQuestIndicators();
-
         if (playerInRange && Input.GetKeyDown(interactionKey))
         {
             Interact();
@@ -42,6 +45,7 @@ public class QuestGiver : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerInRange = true;
+
             if (interactionPrompt != null)
                 interactionPrompt.SetActive(true);
         }
@@ -52,6 +56,7 @@ public class QuestGiver : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerInRange = false;
+
             if (interactionPrompt != null)
                 interactionPrompt.SetActive(false);
         }
@@ -72,9 +77,8 @@ public class QuestGiver : MonoBehaviour
             else if (QuestManager.Instance.IsQuestActive(quest.questID))
             {
                 activePlayerQuest = quest;
-
-                // Check if quest is completable
                 bool allComplete = true;
+
                 foreach (var obj in quest.objectives)
                 {
                     if (!obj.isOptional && !obj.isCompleted)
@@ -103,10 +107,10 @@ public class QuestGiver : MonoBehaviour
 
     void Interact()
     {
-        // Check for completable quests
         if (activePlayerQuest != null)
         {
             bool canComplete = true;
+
             foreach (var obj in activePlayerQuest.objectives)
             {
                 if (!obj.isOptional && !obj.isCompleted)
@@ -129,20 +133,19 @@ public class QuestGiver : MonoBehaviour
             }
         }
 
-        // Offer new quests
         foreach (var quest in availableQuests)
         {
             if (QuestManager.Instance.CanStartQuest(quest))
             {
                 if (quest.startDialogue != null)
                 {
-                    DialogueManager.Instance.StartDialogue(quest.startDialogue,
-                        () => QuestManager.Instance.StartQuest(quest));
+                    DialogueManager.Instance.StartDialogue(quest.startDialogue, () => QuestManager.Instance.StartQuest(quest));
                 }
                 else
                 {
                     QuestManager.Instance.StartQuest(quest);
                 }
+
                 return;
             }
         }

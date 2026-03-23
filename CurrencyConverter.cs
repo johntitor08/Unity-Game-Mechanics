@@ -18,7 +18,6 @@ public class CurrencyConverter : MonoBehaviour
 
     void Awake()
     {
-        // Build lookup dictionary for fast conversion
         rateDict = new Dictionary<(CurrencyType, CurrencyType), float>();
 
         foreach (var rate in conversionRates)
@@ -29,7 +28,8 @@ public class CurrencyConverter : MonoBehaviour
 
     public bool Convert(CurrencyType from, CurrencyType to, int fromAmount)
     {
-        if (CurrencyManager.Instance == null || fromAmount <= 0) return false;
+        if (CurrencyManager.Instance == null || fromAmount <= 0)
+            return false;
 
         if (!CurrencyManager.Instance.Has(from, fromAmount))
             return false;
@@ -57,10 +57,10 @@ public class CurrencyConverter : MonoBehaviour
     public bool ConvertMultiple(Dictionary<CurrencyType, int> fromAmounts, CurrencyType to, out int totalConverted)
     {
         totalConverted = 0;
+
         if (CurrencyManager.Instance == null || fromAmounts == null || fromAmounts.Count == 0)
             return false;
 
-        // Check if all currencies have enough
         foreach (var kvp in fromAmounts)
         {
             if (!CurrencyManager.Instance.Has(kvp.Key, kvp.Value))
@@ -70,7 +70,6 @@ public class CurrencyConverter : MonoBehaviour
         var spendDict = new Dictionary<CurrencyType, int>();
         var addDict = new Dictionary<CurrencyType, int>();
 
-        // Calculate conversion amounts
         foreach (var kvp in fromAmounts)
         {
             if (!rateDict.TryGetValue((kvp.Key, to), out float rate))
@@ -86,7 +85,6 @@ public class CurrencyConverter : MonoBehaviour
 
         addDict[to] = totalConverted;
 
-        // Use multi-currency Spend/Add for notifications
         if (CurrencyManager.Instance.SpendMultiple(spendDict))
         {
             CurrencyManager.Instance.AddMultiple(addDict);

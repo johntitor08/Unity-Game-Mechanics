@@ -79,8 +79,12 @@ public class QuestTrackerUI : MonoBehaviour
 
     public void TrackQuest(string questID)
     {
-        if (trackedQuestIDs.Contains(questID)) return;
-        if (trackedQuestIDs.Count >= maxTrackedQuests) return;
+        if (trackedQuestIDs.Contains(questID))
+            return;
+
+        if (trackedQuestIDs.Count >= maxTrackedQuests)
+            return;
+
         trackedQuestIDs.Add(questID);
         UpdateTracker();
     }
@@ -93,20 +97,39 @@ public class QuestTrackerUI : MonoBehaviour
 
     public void UpdateTracker()
     {
-        foreach (var entry in trackerEntries.Values)
+        var toRemove = new List<string>();
+
+        foreach (var questID in trackerEntries.Keys)
         {
-            if (entry != null) Destroy(entry.gameObject);
+            if (!trackedQuestIDs.Contains(questID))
+                toRemove.Add(questID);
         }
 
-        trackerEntries.Clear();
+        foreach (var questID in toRemove)
+        {
+            if (trackerEntries[questID] != null)
+                Destroy(trackerEntries[questID].gameObject);
+
+            trackerEntries.Remove(questID);
+        }
 
         foreach (var questID in trackedQuestIDs)
         {
-            var quest = QuestManager.Instance?.GetActiveQuest(questID);
-            if (quest == null) continue;
-            var entry = Instantiate(trackerEntryPrefab, trackedQuestsParent);
-            entry.Setup(quest);
-            trackerEntries[questID] = entry;
+            if (QuestManager.Instance == null)
+                break;
+
+            var quest = QuestManager.Instance.GetActiveQuest(questID);
+
+            if (quest == null)
+                continue;
+
+            if (!trackerEntries.ContainsKey(questID))
+            {
+                var entry = Instantiate(trackerEntryPrefab, trackedQuestsParent);
+                trackerEntries[questID] = entry;
+            }
+
+            trackerEntries[questID].Setup(quest);
         }
     }
 

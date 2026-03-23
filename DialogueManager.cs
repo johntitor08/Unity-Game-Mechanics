@@ -60,6 +60,9 @@ public class DialogueManager : MonoBehaviour
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
+
+        if (typewriter != null)
+            typewriter.OnTypingComplete += OnTypingFinished;
     }
 
     void Update()
@@ -88,11 +91,6 @@ public class DialogueManager : MonoBehaviour
     {
         if (startNode == null || State != DialogueState.Idle)
             return;
-
-        if (typewriter != null)
-        {
-            typewriter.OnTypingComplete += OnTypingFinished;
-        }
 
         StopAllCoroutines();
         currentNode = startNode;
@@ -137,7 +135,7 @@ public class DialogueManager : MonoBehaviour
         if (continueButton != null)
             continueButton.SetActive(false);
 
-        string line = ParseLineSafe();
+        string line = ParseLine();
 
         if (typewriter != null)
         {
@@ -226,11 +224,6 @@ public class DialogueManager : MonoBehaviour
         if (State == DialogueState.Closing)
             return;
 
-        if (typewriter != null)
-        {
-            typewriter.OnTypingComplete -= OnTypingFinished;
-        }
-
         State = DialogueState.Closing;
         DialogueNode endedNode = currentNode;
 
@@ -268,7 +261,7 @@ public class DialogueManager : MonoBehaviour
         if (speakerNameText != null)
         {
             speakerNameText.text = currentNode.speakerName ?? "";
-            speakerNameText.color = Color.wheat;
+            speakerNameText.color = currentNode.speakerNameColor;
         }
 
         if (speakerPortrait != null)
@@ -290,7 +283,7 @@ public class DialogueManager : MonoBehaviour
             Destroy(c.gameObject);
     }
 
-    string ParseLineSafe()
+    string ParseLine()
     {
         string line = currentNode.lines[currentLineIndex];
 

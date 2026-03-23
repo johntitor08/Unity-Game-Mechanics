@@ -18,11 +18,13 @@ public class StatusEffectData : ScriptableObject
     [Header("Duration")]
     public float duration = 5f;
     public bool isPermanent = false;
+    public bool isRoundBased = false;
+    public int durationRounds = 3;
 
     [Header("Tick Settings")]
     public bool hasTicks = true;
-    public float tickInterval = 1f; // Damage/heal every second
-    public int tickDamage = 5; // Damage per tick (negative for healing)
+    public float tickInterval = 1f;
+    public int tickDamage = 5;
 
     [Header("Stat Modifiers")]
     public StatModifier[] statModifiers;
@@ -35,10 +37,10 @@ public class StatusEffectData : ScriptableObject
     public bool isDebuff = true;
 
     [Header("Special Effects")]
-    public bool preventActions = false; // Like Stun
+    public bool preventActions = false;
     public bool preventMovement = false;
-    public float damageMultiplier = 1f; // Multiply damage dealt
-    public float damageReduction = 0f; // Reduce damage taken (0-1)
+    public float damageMultiplier = 1f;
+    public float damageReduction = 0f;
 
     [System.Serializable]
     public class StatModifier

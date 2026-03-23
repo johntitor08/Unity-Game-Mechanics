@@ -7,7 +7,7 @@ public class DialogueNode : ScriptableObject
     [Header("Speaker")]
     public string speakerName = "NPC";
     public Sprite speakerPortrait;
-    public Color speakerNameColor = Color.wheat;
+    public Color speakerNameColor = Color.yellow;
 
     [Header("Dialogue Lines")]
     [TextArea(2, 5)]
@@ -38,6 +38,19 @@ public class DialogueNode : ScriptableObject
 [System.Serializable]
 public class DialogueChoice
 {
+    public bool requiresItem;
+    public ItemData requiredItem;
+    public bool requiresStat;
+    public StatType requiredStat;
+    public int requiredStatValue;
+    public bool requiresCurrency;
+    public CurrencyType requiredCurrency;
+    public int requiredCurrencyAmount;
+    public bool giveReward;
+    public CurrencyReward[] currencyRewards;
+    public ItemData[] itemRewards;
+    public int experienceReward;
+
     [Header("Choice Text")]
     public string choiceText;
     public DialogueNode nextNode;
@@ -46,26 +59,10 @@ public class DialogueChoice
     public bool requiresFlag;
     public string requiredFlag;
 
-    public bool requiresItem;
-    public ItemData requiredItem;
-
-    public bool requiresStat;
-    public StatType requiredStat;
-    public int requiredStatValue;
-
-    public bool requiresCurrency;
-    public CurrencyType requiredCurrency;
-    public int requiredCurrencyAmount;
-
     [Header("Effects")]
     public bool consumeItem;
     public bool setFlag;
     public string flagToSet;
-
-    public bool giveReward;
-    public CurrencyReward[] currencyRewards;
-    public ItemData[] itemRewards;
-    public int experienceReward;
 
     [Header("Visual")]
     public Color choiceColor = Color.black;

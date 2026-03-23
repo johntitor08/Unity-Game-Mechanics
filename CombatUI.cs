@@ -1,17 +1,21 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class CombatUI : MonoBehaviour
 {
     public static CombatUI Instance;
     private readonly List<CombatActionButton> actionButtons = new();
+    private bool actionLocked;
     private readonly List<string> logLines = new();
+    public bool IsInCombat => CombatManager.Instance != null && CombatManager.Instance.inCombat;
+    public bool IsPlayerTurn => CombatManager.Instance != null && CombatManager.Instance.IsPlayerTurn();
+    public EnemyData CurrentEnemy => CombatManager.Instance != null ? CombatManager.Instance.currentEnemy : null;
 
     [Header("Panels")]
     public GameObject combatPanel;
+    public GameObject combatMapPanel;
 
     [Header("Enemy Display")]
     public Image enemySprite;
@@ -86,6 +90,7 @@ public class CombatUI : MonoBehaviour
         combatPanel.SetActive(true);
         logLines.Clear();
         UpdateUI();
+        SetupActionButtons();
     }
 
     void OnCombatEnded()
@@ -97,6 +102,9 @@ public class CombatUI : MonoBehaviour
 
     void OnTurnChanged(bool isPlayerTurn)
     {
+        if (isPlayerTurn)
+            actionLocked = false;
+
         if (playerTurnIndicator != null)
             playerTurnIndicator.SetActive(isPlayerTurn);
 
@@ -111,7 +119,7 @@ public class CombatUI : MonoBehaviour
 
     void UpdateUI()
     {
-        if (!CombatManager.Instance.inCombat)
+        if (CombatManager.Instance == null || !CombatManager.Instance.inCombat)
         {
             combatPanel.SetActive(false);
             return;
@@ -120,14 +128,15 @@ public class CombatUI : MonoBehaviour
         UpdateEnemyDisplay();
         UpdatePlayerHealth();
         UpdatePlayerEnergy();
-        SetupActionButtons();
     }
 
     void UpdateEnemyDisplay()
     {
         var enemyStats = CombatManager.Instance.enemyStats;
         var enemyData = CombatManager.Instance.currentEnemy;
-        if (enemyStats == null || enemyData == null) return;
+
+        if (enemyStats == null || enemyData == null)
+            return;
 
         if (enemySprite != null)
             enemySprite.sprite = enemyData.sprite;
@@ -147,49 +156,70 @@ public class CombatUI : MonoBehaviour
 
     void UpdatePlayerHealth()
     {
-        if (PlayerStats.Instance == null) return;
-        int currentHealth = PlayerStats.Instance.Get(StatType.Health);
-        int maxHealth = PlayerStats.Instance.Get(StatType.MaxHealth);
+        if (PlayerStats.Instance == null)
+            return;
+
+        int current = PlayerStats.Instance.Get(StatType.Health);
+        int max = PlayerStats.Instance.Get(StatType.MaxHealth);
 
         if (playerHealthBar != null)
         {
-            playerHealthBar.maxValue = maxHealth;
-            playerHealthBar.value = currentHealth;
+            playerHealthBar.maxValue = max;
+            playerHealthBar.value = current;
         }
 
         if (playerHealthText != null)
-            playerHealthText.text = $"HP: {currentHealth} / {maxHealth}";
+            playerHealthText.text = $"HP: {current} / {max}";
     }
 
     void UpdatePlayerEnergy()
     {
-        if (PlayerStats.Instance == null) return;
-        int currentEnergy = PlayerStats.Instance.Get(StatType.Energy);
-        int maxEnergy = PlayerStats.Instance.Get(StatType.MaxEnergy);
+        if (PlayerStats.Instance == null)
+            return;
+
+        int current = PlayerStats.Instance.Get(StatType.Energy);
+        int max = PlayerStats.Instance.Get(StatType.MaxEnergy);
 
         if (playerEnergyBar != null)
         {
-            playerEnergyBar.maxValue = maxEnergy;
-            playerEnergyBar.value = currentEnergy;
+            playerEnergyBar.maxValue = max;
+            playerEnergyBar.value = current;
         }
 
         if (playerEnergyText != null)
-            playerEnergyText.text = $"Energy: {currentEnergy} / {maxEnergy}";
+            playerEnergyText.text = $"Energy: {current} / {max}";
+
+        RefreshActionButtonsByEnergy();
+    }
+
+    void RefreshActionButtonsByEnergy()
+    {
+        if (CombatManager.Instance == null || !CombatManager.Instance.IsPlayerTurn() || actionLocked)
+            return;
+
+        int currentEnergy = PlayerStats.Instance.Get(StatType.Energy);
+
+        foreach (var btn in actionButtons)
+        {
+            if (btn == null)
+                continue;
+
+            btn.UpdateInteractable(currentEnergy >= btn.action.energyCost);
+        }
     }
 
     void SetupActionButtons()
     {
-        // Clear existing buttons
         foreach (var btn in actionButtons)
-        {
-            if (btn != null) Destroy(btn.gameObject);
-        }
+            if (btn != null)
+                Destroy(btn.gameObject);
 
         actionButtons.Clear();
-        if (CombatManager.Instance == null) return;
-        var actions = CombatManager.Instance.GetAvailableActions();
 
-        foreach (var action in actions)
+        if (CombatManager.Instance == null)
+            return;
+
+        foreach (var action in CombatManager.Instance.GetAvailableActions())
         {
             var btn = Instantiate(actionButtonPrefab, actionsParent);
             btn.Setup(action);
@@ -199,12 +229,26 @@ public class CombatUI : MonoBehaviour
         UpdateActionButtons(CombatManager.Instance.IsPlayerTurn());
     }
 
-    void UpdateActionButtons(bool interactable)
+    public void DisableAllActionButtons()
     {
+        actionLocked = true;
+
         foreach (var btn in actionButtons)
-        {
             if (btn != null)
-                btn.UpdateInteractable(interactable);
+                btn.UpdateInteractable(false);
+    }
+
+    void UpdateActionButtons(bool isPlayerTurn)
+    {
+        if (!isPlayerTurn)
+        {
+            foreach (var btn in actionButtons)
+                if (btn != null)
+                    btn.UpdateInteractable(false);
+        }
+        else
+        {
+            RefreshActionButtonsByEnergy();
         }
     }
 
@@ -212,7 +256,6 @@ public class CombatUI : MonoBehaviour
     {
         logLines.Add(message);
 
-        // Keep only last N lines
         while (logLines.Count > maxLogLines)
             logLines.RemoveAt(0);
 
@@ -224,50 +267,9 @@ public class CombatUI : MonoBehaviour
         if (combatLogText != null)
             combatLogText.text = string.Join("\n", logLines);
     }
-}
 
-public class BuffUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
-{
-    public Image icon;
-    public TextMeshProUGUI timerText;
-    public GameObject tooltip;
-    public TextMeshProUGUI tooltipText;
-    private string buffName;
-    private float duration;
-
-    public void Setup(Sprite buffIcon, string name, float duration)
+    public void CloseButton()
     {
-        icon.sprite = buffIcon;
-        buffName = name;
-        this.duration = duration;
-        timerText.text = duration.ToString("F1") + "s";
-
-        if (tooltip != null)
-        {
-            tooltip.SetActive(false);
-            tooltipText.text = $"{buffName}\nDuration: {duration:F1}s";
-        }
-    }
-
-    public void UpdateTimer(float timeLeft)
-    {
-        timerText.text = Mathf.Max(0f, timeLeft).ToString("F1") + "s";
-
-        if (tooltip != null)
-        {
-            tooltipText.text = $"{buffName}\nDuration: {Mathf.Max(0f, timeLeft):F1}s";
-        }
-    }
-
-    public void OnPointerEnter(PointerEventData eventData)
-    {
-        if (tooltip != null)
-            tooltip.SetActive(true);
-    }
-
-    public void OnPointerExit(PointerEventData eventData)
-    {
-        if (tooltip != null)
-            tooltip.SetActive(false);
+        combatMapPanel.SetActive(false);
     }
 }

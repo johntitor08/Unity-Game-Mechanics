@@ -57,12 +57,6 @@ public class CurrencyManager : MonoBehaviour
         InitializeCurrencies();
     }
 
-    void OnEnable()
-    {
-        if (Instance == this)
-            InitializeCurrencies();
-    }
-
     private void InitializeCurrencies()
     {
         currencyDict.Clear();
@@ -76,9 +70,7 @@ public class CurrencyManager : MonoBehaviour
 
     public int Get(CurrencyType type)
     {
-        return currencyDict.TryGetValue(type, out var currency)
-            ? currency.amount
-            : 0;
+        return currencyDict.TryGetValue(type, out var currency) ? currency.amount : 0;
     }
 
     public bool Has(CurrencyType type, int amount)
@@ -103,13 +95,19 @@ public class CurrencyManager : MonoBehaviour
 
     public void AddMultiple(Dictionary<CurrencyType, int> amounts, bool showNotification = true)
     {
-        if (amounts == null || amounts.Count == 0) return;
+        if (amounts == null || amounts.Count == 0)
+            return;
+
         Dictionary<CurrencyType, int> changes = new();
 
         foreach (var kvp in amounts)
         {
-            if (!currencyDict.TryGetValue(kvp.Key, out var currency)) continue;
-            if (kvp.Value <= 0) continue;
+            if (!currencyDict.TryGetValue(kvp.Key, out var currency))
+                continue;
+
+            if (kvp.Value <= 0)
+                continue;
+
             int old = currency.amount;
             currency.amount = Mathf.Min(currency.amount + kvp.Value, currency.maxAmount);
             int delta = currency.amount - old;
@@ -127,7 +125,8 @@ public class CurrencyManager : MonoBehaviour
 
     public bool SpendMultiple(Dictionary<CurrencyType, int> amounts, bool showNotification = true)
     {
-        if (amounts == null || amounts.Count == 0) return false;
+        if (amounts == null || amounts.Count == 0)
+            return false;
 
         foreach (var kvp in amounts)
         {
@@ -143,7 +142,9 @@ public class CurrencyManager : MonoBehaviour
 
         foreach (var kvp in amounts)
         {
-            var currency = currencyDict[kvp.Key];
+            if (!currencyDict.TryGetValue(kvp.Key, out var currency))
+                continue;
+
             int old = currency.amount;
             currency.amount -= kvp.Value;
             changes[kvp.Key] = -kvp.Value;
@@ -157,17 +158,47 @@ public class CurrencyManager : MonoBehaviour
 
     public void Add(CurrencyType type, int amount, bool showNotification = true)
     {
-        AddMultiple(new Dictionary<CurrencyType, int> { { type, amount } }, showNotification);
+        if (amount <= 0)
+            return;
+
+        if (!currencyDict.TryGetValue(type, out var currency))
+            return;
+
+        int old = currency.amount;
+        currency.amount = Mathf.Min(currency.amount + amount, currency.maxAmount);
+        int delta = currency.amount - old;
+
+        if (delta <= 0)
+            return;
+
+        OnCurrencyAdded?.Invoke(type, delta);
+        OnCurrencyChanged?.Invoke(type, old, currency.amount);
+        FinalizeSingle(isGain: true, showNotification);
     }
 
     public bool Spend(CurrencyType type, int amount, bool showNotification = true)
     {
-        return SpendMultiple(new Dictionary<CurrencyType, int> { { type, amount } }, showNotification);
+        if (!Has(type, amount))
+        {
+            OnInsufficientFunds?.Invoke(type);
+            PlaySound(insufficientFundsSound);
+            return false;
+        }
+
+        var currency = currencyDict[type];
+        int old = currency.amount;
+        currency.amount -= amount;
+        OnCurrencySpent?.Invoke(type, amount);
+        OnCurrencyChanged?.Invoke(type, old, currency.amount);
+        FinalizeSingle(isGain: false, showNotification);
+        return true;
     }
 
     public void Set(CurrencyType type, int amount)
     {
-        if (!currencyDict.TryGetValue(type, out var currency)) return;
+        if (!currencyDict.TryGetValue(type, out var currency))
+            return;
+
         int old = currency.amount;
         currency.amount = Mathf.Clamp(amount, 0, currency.maxAmount);
 
@@ -181,7 +212,17 @@ public class CurrencyManager : MonoBehaviour
     public void ResetAllCurrencies()
     {
         foreach (var currency in currencies)
-            Set(currency.type, 0);
+        {
+            int old = currency.amount;
+
+            if (old == 0)
+                continue;
+
+            currency.amount = 0;
+            OnCurrencyChanged?.Invoke(currency.type, old, 0);
+        }
+
+        SaveSystem.SaveGame();
     }
 
     public void GrantReward(MultiCurrencyReward reward)
@@ -189,16 +230,21 @@ public class CurrencyManager : MonoBehaviour
         reward?.GrantAll(true);
     }
 
-    private void FinalizeTransaction(
-        Dictionary<CurrencyType, int> changes,
-        bool isGain,
-        bool showNotification)
+    private void FinalizeTransaction(Dictionary<CurrencyType, int> changes, bool isGain, bool showNotification)
     {
-        if (changes.Count == 0) return;
+        if (changes.Count == 0)
+            return;
 
         if (showNotification && CurrencyNotificationUI.Instance != null)
             CurrencyNotificationUI.Instance.Show(changes);
 
+        PlaySound(isGain ? gainSound : spendSound);
+        SaveSystem.SaveGame();
+    }
+
+    private void FinalizeSingle(bool isGain, bool showNotification)
+    {
+        _ = showNotification;
         PlaySound(isGain ? gainSound : spendSound);
         SaveSystem.SaveGame();
     }
@@ -208,5 +254,4 @@ public class CurrencyManager : MonoBehaviour
         if (clip != null && Camera.main != null)
             AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, 0.5f);
     }
-
 }

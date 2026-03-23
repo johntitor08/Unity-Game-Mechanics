@@ -61,10 +61,11 @@ public class QuestRewardUI : MonoBehaviour
 
         if (quest.itemRewards != null)
         {
-            foreach (var item in quest.itemRewards)
+            for (int i = 0; i < quest.itemRewards.Length; i++)
             {
+                int qty = (quest.itemRewardQuantities != null && i < quest.itemRewardQuantities.Length) ? quest.itemRewardQuantities[i] : 1;
                 var rewardUI = Instantiate(rewardItemPrefab, rewardsContainer);
-                rewardUI.Setup(item.itemName, "x1", item.icon);
+                rewardUI.Setup(quest.itemRewards[i].itemName, $"x{qty}", quest.itemRewards[i].icon);
             }
         }
 

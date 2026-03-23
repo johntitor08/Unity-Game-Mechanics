@@ -77,10 +77,6 @@ public class Typewriter : MonoBehaviour
     void PlayTypeSound()
     {
         if (Camera.main != null)
-            AudioSource.PlayClipAtPoint(
-                typeSound,
-                Camera.main.transform.position,
-                typeSoundVolume
-            );
+            AudioSource.PlayClipAtPoint(typeSound, Camera.main.transform.position, typeSoundVolume);
     }
 }

@@ -34,7 +34,10 @@ public class PlayerBuffManager : MonoBehaviour
     void Awake()
     {
         if (Instance == null)
+        {
             Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
         else
         {
             Destroy(gameObject);
@@ -68,14 +71,18 @@ public class PlayerBuffManager : MonoBehaviour
 
     void UpdateBuffs()
     {
+        bool changed = false;
+
         for (int i = activeBuffs.Count - 1; i >= 0; i--)
         {
             if (Time.time >= activeBuffs[i].endTime)
             {
                 activeBuffs.RemoveAt(i);
-                OnBuffsChanged?.Invoke();
+                changed = true;
             }
         }
+
+        if (changed) OnBuffsChanged?.Invoke();
     }
 
     public float GetDamageMultiplier()
@@ -84,7 +91,8 @@ public class PlayerBuffManager : MonoBehaviour
 
         foreach (var buff in activeBuffs)
         {
-            multiplier *= buff.damageMultiplier;
+            if (buff.type == BuffType.Damage)
+                multiplier *= buff.damageMultiplier;
         }
 
         return multiplier;
@@ -96,7 +104,8 @@ public class PlayerBuffManager : MonoBehaviour
 
         foreach (var buff in activeBuffs)
         {
-            reduction += buff.damageReduction;
+            if (buff.type == BuffType.Defense)
+                reduction += buff.damageReduction;
         }
 
         return Mathf.Clamp01(reduction);
