@@ -1,4 +1,13 @@
 using UnityEngine;
+using UnityEngine.UI;
+
+public enum TimePhase
+{
+    Morning,
+    Noon,
+    Evening,
+    Night
+}
 
 public class TimePhaseManager : MonoBehaviour
 {
@@ -16,6 +25,10 @@ public class TimePhaseManager : MonoBehaviour
     [Header("Visual Effects")]
     public bool changeScreenColor = true;
     public Camera mainCamera;
+
+    [Header("Phase Buttons")]
+    public Button nextPhaseButton;
+    public Button previousPhaseButton;
 
     void Awake()
     {
@@ -38,11 +51,21 @@ public class TimePhaseManager : MonoBehaviour
     {
         OnPhaseChanged?.Invoke(currentPhase);
         UpdateCameraColor(currentPhase);
+
+        if (nextPhaseButton != null)
+            nextPhaseButton.onClick.AddListener(GoNextPhase);
+
+        if (previousPhaseButton != null)
+            previousPhaseButton.onClick.AddListener(GoPreviousPhase);
+
+        UpdatePhaseButtons();
     }
 
     void Update()
     {
-        if (!autoProgress) return;
+        if (!autoProgress)
+            return;
+
         phaseTimer += Time.deltaTime * timeScale;
 
         if (phaseTimer >= phaseDuration)
@@ -54,11 +77,11 @@ public class TimePhaseManager : MonoBehaviour
 
     public void SetPhase(TimePhase newPhase)
     {
-        if (currentPhase == newPhase) return;
+        if (currentPhase == newPhase)
+            return;
 
         currentPhase = newPhase;
         phaseTimer = 0f;
-
         OnPhaseChanged?.Invoke(currentPhase);
         UpdateCameraColor(currentPhase);
     }
@@ -76,10 +99,9 @@ public class TimePhaseManager : MonoBehaviour
             _ => TimePhase.Morning
         };
 
-        if (previousPhase == TimePhase.Night &&
-            currentPhase == TimePhase.Morning)
+        if (previousPhase == TimePhase.Night && currentPhase == TimePhase.Morning)
         {
-            if (!isFirstMorning && TimeUI.Instance != null)
+            if (TimeUI.Instance != null)
                 TimeUI.Instance.IncrementDay();
 
             isFirstMorning = false;
@@ -88,11 +110,13 @@ public class TimePhaseManager : MonoBehaviour
         phaseTimer = 0f;
         OnPhaseChanged?.Invoke(currentPhase);
         UpdateCameraColor(currentPhase);
+        UpdatePhaseButtons();
     }
 
     void UpdateCameraColor(TimePhase phase)
     {
-        if (!changeScreenColor || mainCamera == null) return;
+        if (!changeScreenColor || mainCamera == null)
+            return;
 
         mainCamera.backgroundColor = phase switch
         {
@@ -131,5 +155,48 @@ public class TimePhaseManager : MonoBehaviour
     public void SetIsFirstMorning(bool value)
     {
         isFirstMorning = value;
+    }
+
+    public void GoPreviousPhase()
+    {
+        if (TimeUI.Instance != null && TimeUI.Instance.GetCurrentDay() == 1 && currentPhase == TimePhase.Morning)
+            return;
+
+        TimePhase previousPhase = currentPhase;
+
+        currentPhase = currentPhase switch
+        {
+            TimePhase.Morning => TimePhase.Night,
+            TimePhase.Noon => TimePhase.Morning,
+            TimePhase.Evening => TimePhase.Noon,
+            TimePhase.Night => TimePhase.Evening,
+            _ => TimePhase.Morning
+        };
+
+        if (previousPhase == TimePhase.Morning && currentPhase == TimePhase.Night)
+        {
+            if (TimeUI.Instance != null && TimeUI.Instance.GetCurrentDay() > 1)
+                TimeUI.Instance.SetDay(TimeUI.Instance.GetCurrentDay() - 1);
+        }
+
+        phaseTimer = 0f;
+        OnPhaseChanged?.Invoke(currentPhase);
+        UpdateCameraColor(currentPhase);
+        UpdatePhaseButtons();
+    }
+
+    public void GoNextPhase()
+    {
+        NextPhase();
+        UpdatePhaseButtons();
+    }
+
+    void UpdatePhaseButtons()
+    {
+        if (previousPhaseButton == null)
+            return;
+
+        bool isFirstMorningNow = TimeUI.Instance != null && TimeUI.Instance.GetCurrentDay() == 1 && currentPhase == TimePhase.Morning;
+        previousPhaseButton.gameObject.SetActive(!isFirstMorningNow);
     }
 }

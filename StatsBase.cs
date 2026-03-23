@@ -45,9 +45,7 @@ public abstract class StatsBase : MonoBehaviour, IStatOwner
         foreach (var stat in stats)
         {
             if (stat.currentValue <= 0)
-            {
                 stat.currentValue = stat.baseValue;
-            }
 
             statDict[stat.type] = stat;
         }
@@ -65,7 +63,7 @@ public abstract class StatsBase : MonoBehaviour, IStatOwner
         return ApplyEffectModifiers(type, baseValue);
     }
 
-    public void Set(StatType type, int value, bool save = true)
+    public virtual void Set(StatType type, int value, bool save = true)
     {
         if (!statDict.TryGetValue(type, out var stat))
         {
@@ -98,7 +96,6 @@ public abstract class StatsBase : MonoBehaviour, IStatOwner
 
         int oldValue = stat.currentValue;
 
-        // Apply status effect damage modifiers
         if (amount < 0 && type == StatType.Health && statusEffectManager != null)
         {
             float reduction = statusEffectManager.GetDamageReduction();
@@ -125,7 +122,6 @@ public abstract class StatsBase : MonoBehaviour, IStatOwner
 
     protected virtual int GetMaxValue(StatType type, Stat stat)
     {
-        // For Health and Energy, use their max stat values
         if (type == StatType.Health)
             return Get(StatType.MaxHealth);
         else if (type == StatType.Energy)
@@ -152,37 +148,27 @@ public abstract class StatsBase : MonoBehaviour, IStatOwner
                     continue;
 
                 int amount = mod.amount * effect.currentStacks;
-
-                value += mod.isPercentage
-                    ? Mathf.RoundToInt(baseValue * amount / 100f)
-                    : amount;
+                value += mod.isPercentage ? Mathf.RoundToInt(baseValue * amount / 100f) : amount;
             }
         }
 
         return value;
     }
 
-    protected virtual void SaveStats()
-    {
-        // Override in derived classes if needed
-    }
+    protected virtual void SaveStats() { }
 
     protected abstract void OnDie();
 
     public void ResetToBase(StatType type)
     {
         if (statDict.TryGetValue(type, out var stat))
-        {
             Set(type, stat.baseValue);
-        }
     }
 
     public void ResetAllToBase()
     {
         foreach (var stat in stats)
-        {
             Set(stat.type, stat.baseValue, false);
-        }
 
         SaveStats();
     }

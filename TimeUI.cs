@@ -5,6 +5,8 @@ using UnityEngine.UI;
 public class TimeUI : MonoBehaviour
 {
     public static TimeUI Instance;
+    private int currentDay = 1;
+    private Coroutine animationCoroutine;
 
     [Header("UI Elements")]
     public TextMeshProUGUI phaseText;
@@ -12,25 +14,22 @@ public class TimeUI : MonoBehaviour
     public Image phaseIcon;
     public Slider progressBar;
 
-    [Header("Phase Icons (4 Sprites Required)")]
-    public Sprite morningIcon;     // Morning Icon
-    public Sprite noonIcon;        // Noon Icon
-    public Sprite eveningIcon;     // Evening Icon
-    public Sprite nightIcon;       // Night Icon
+    [Header("Phase Icons")]
+    public Sprite morningIcon;
+    public Sprite noonIcon;
+    public Sprite eveningIcon;
+    public Sprite nightIcon;
 
     [Header("Phase Colors")]
-    public Color morningColor = new Color(1f, 0.9f, 0.7f);      // Light yellow
-    public Color noonColor = new Color(1f, 1f, 0.9f);           // Whitish yellow
-    public Color eveningColor = new Color(1f, 0.6f, 0.4f);      // Orange
-    public Color nightColor = new Color(0.4f, 0.4f, 0.7f);      // Blue
+    public Color morningColor = new(1f, 0.9f, 0.7f);
+    public Color noonColor = new(1f, 1f, 0.9f);
+    public Color eveningColor = new(1f, 0.6f, 0.4f);
+    public Color nightColor = new(0.4f, 0.4f, 0.7f);
 
     [Header("Display Options")]
     public bool showDayCounter = true;
     public bool showProgressBar = true;
     public bool animateTransitions = true;
-
-    private int currentDay = 1;
-    private Coroutine animationCoroutine;
 
     void Awake()
     {
@@ -52,13 +51,20 @@ public class TimeUI : MonoBehaviour
             UpdateTimeDisplay(TimePhaseManager.Instance.currentPhase);
         }
 
-        // Display settings
         if (dayCounterText != null)
             dayCounterText.gameObject.SetActive(showDayCounter);
 
-        if (progressBar != null)
-            progressBar.gameObject.SetActive(showProgressBar);
+        //if (progressBar != null)
+        //    progressBar.gameObject.SetActive(showProgressBar);
     }
+
+    //void Update()
+    //{
+    //    if (showProgressBar && progressBar != null && TimePhaseManager.Instance != null)
+    //    {
+    //        progressBar.value = TimePhaseManager.Instance.GetPhaseProgress();
+    //    }
+    //}
 
     void OnDestroy()
     {
@@ -66,18 +72,8 @@ public class TimeUI : MonoBehaviour
             TimePhaseManager.Instance.OnPhaseChanged -= UpdateTimeDisplay;
     }
 
-    void Update()
-    {
-        // Update progress bar
-        if (showProgressBar && progressBar != null && TimePhaseManager.Instance != null)
-        {
-            progressBar.value = TimePhaseManager.Instance.GetPhaseProgress();
-        }
-    }
-
     void UpdateTimeDisplay(TimePhase phase)
     {
-        // Update text
         if (phaseText != null)
         {
             phaseText.text = GetPhaseName(phase);
@@ -89,7 +85,6 @@ public class TimeUI : MonoBehaviour
             }
         }
 
-        // Update icon
         if (phaseIcon != null)
         {
             phaseIcon.sprite = GetPhaseIcon(phase);
@@ -100,8 +95,6 @@ public class TimeUI : MonoBehaviour
             }
         }
 
-        // Note: Day increment is handled in TimePhaseManager's NextPhase
-        // to avoid incrementing on game start
         UpdateDayCounter();
     }
 
@@ -151,7 +144,8 @@ public class TimeUI : MonoBehaviour
 
     void AnimateText()
     {
-        if (phaseText == null) return;
+        if (phaseText == null)
+            return;
 
         if (animationCoroutine != null)
             StopCoroutine(animationCoroutine);
@@ -161,7 +155,8 @@ public class TimeUI : MonoBehaviour
 
     void AnimateIcon()
     {
-        if (phaseIcon == null) return;
+        if (phaseIcon == null)
+            return;
 
         StartCoroutine(IconRotateAnimation());
     }
@@ -172,14 +167,13 @@ public class TimeUI : MonoBehaviour
         float elapsed = 0f;
         Vector3 startScale = Vector3.one * 1.5f;
         Vector3 endScale = Vector3.one;
-
         phaseText.transform.localScale = startScale;
 
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / duration;
-            t = 1f - Mathf.Pow(1f - t, 3f); // Ease out
+            t = 1f - Mathf.Pow(1f - t, 3f);
             phaseText.transform.localScale = Vector3.Lerp(startScale, endScale, t);
             yield return null;
         }
@@ -198,7 +192,7 @@ public class TimeUI : MonoBehaviour
         {
             elapsed += Time.deltaTime;
             float t = elapsed / duration;
-            t = 1f - Mathf.Pow(1f - t, 2f); // Ease out
+            t = 1f - Mathf.Pow(1f - t, 2f);
             float angle = Mathf.Lerp(startAngle, endAngle, t);
             phaseIcon.transform.rotation = Quaternion.Euler(0, 0, angle);
             yield return null;
@@ -207,7 +201,6 @@ public class TimeUI : MonoBehaviour
         phaseIcon.transform.rotation = Quaternion.identity;
     }
 
-    // Public methods
     public void SetDay(int day)
     {
         currentDay = day;

@@ -16,10 +16,10 @@ public class PlayerStats : StatsBase
 
     [Header("Regeneration")]
     public bool enableHealthRegen = true;
-    public float healthRegenRate = 1f;
+    public float healthRegenRate = 0.0667f;
     public float healthRegenDelay = 5f;
     public bool enableEnergyRegen = true;
-    public float energyRegenRate = 2f;
+    public float energyRegenRate = 0.2f;
     public float energyRegenDelay = 2f;
 
     [Header("Combat")]
@@ -77,6 +77,7 @@ public class PlayerStats : StatsBase
             if (hp < maxHp)
             {
                 healthRemainder += healthRegenRate * Time.deltaTime;
+
                 if (healthRemainder >= 1f)
                 {
                     int regen = Mathf.FloorToInt(healthRemainder);
@@ -94,6 +95,7 @@ public class PlayerStats : StatsBase
             if (energy < maxEnergy)
             {
                 energyRemainder += energyRegenRate * Time.deltaTime;
+
                 if (energyRemainder >= 1f)
                 {
                     int regen = Mathf.FloorToInt(energyRemainder);
@@ -116,7 +118,67 @@ public class PlayerStats : StatsBase
 
         base.Modify(type, amount, save);
 
+        if (type == StatType.MaxHealth)
+        {
+            int newMax = Get(StatType.MaxHealth);
+
+            if (statDict.TryGetValue(StatType.Health, out var healthStat))
+            {
+                healthStat.maxValue = newMax;
+                healthStat.currentValue = Mathf.Clamp(healthStat.currentValue, healthStat.minValue, newMax);
+            }
+
+            OnHealthChanged?.Invoke();
+        }
+
+        if (type == StatType.MaxEnergy)
+        {
+            int newMax = Get(StatType.MaxEnergy);
+
+            if (statDict.TryGetValue(StatType.Energy, out var energyStat))
+            {
+                energyStat.maxValue = newMax;
+                energyStat.currentValue = Mathf.Clamp(energyStat.currentValue, energyStat.minValue, newMax);
+            }
+
+            OnEnergyChanged?.Invoke();
+        }
+
         if (type == StatType.Health)
+            OnHealthChanged?.Invoke();
+        else if (type == StatType.Energy)
+            OnEnergyChanged?.Invoke();
+    }
+
+    public override void Set(StatType type, int value, bool save = true)
+    {
+        base.Set(type, value, save);
+
+        if (type == StatType.MaxHealth)
+        {
+            int newMax = Get(StatType.MaxHealth);
+
+            if (statDict.TryGetValue(StatType.Health, out var healthStat))
+            {
+                healthStat.maxValue = newMax;
+                healthStat.currentValue = Mathf.Clamp(healthStat.currentValue, healthStat.minValue, newMax);
+            }
+
+            OnHealthChanged?.Invoke();
+        }
+        else if (type == StatType.MaxEnergy)
+        {
+            int newMax = Get(StatType.MaxEnergy);
+
+            if (statDict.TryGetValue(StatType.Energy, out var energyStat))
+            {
+                energyStat.maxValue = newMax;
+                energyStat.currentValue = Mathf.Clamp(energyStat.currentValue, energyStat.minValue, newMax);
+            }
+
+            OnEnergyChanged?.Invoke();
+        }
+        else if (type == StatType.Health)
             OnHealthChanged?.Invoke();
         else if (type == StatType.Energy)
             OnEnergyChanged?.Invoke();
@@ -124,8 +186,12 @@ public class PlayerStats : StatsBase
 
     public void Attack(EnemyStats target)
     {
-        if (target == null) return;
-        if (Time.time - lastAttackTime < attackCooldown) return;
+        if (target == null)
+            return;
+
+        if (Time.time - lastAttackTime < attackCooldown)
+            return;
+
         int damage = baseDamage + Get(StatType.Strength);
         target.Modify(StatType.Health, -damage);
         lastAttackTime = Time.time;
@@ -159,13 +225,9 @@ public class PlayerStats : StatsBase
         return Get(StatType.Health) > 0;
     }
 
-    public float GetHealthPercentage() =>
-        Get(StatType.MaxHealth) <= 0 ? 0f :
-        (float)Get(StatType.Health) / Get(StatType.MaxHealth);
+    public float GetHealthPercentage() => Get(StatType.MaxHealth) <= 0 ? 0f : (float)Get(StatType.Health) / Get(StatType.MaxHealth);
 
-    public float GetEnergyPercentage() =>
-        Get(StatType.MaxEnergy) <= 0 ? 0f :
-        (float)Get(StatType.Energy) / Get(StatType.MaxEnergy);
+    public float GetEnergyPercentage() => Get(StatType.MaxEnergy) <= 0 ? 0f : (float)Get(StatType.Energy) / Get(StatType.MaxEnergy);
 
     protected override void SaveStats()
     {

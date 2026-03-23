@@ -2,10 +2,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.U2D;
 
-public class UIHoverRegion : MonoBehaviour,
-    IPointerEnterHandler,
-    IPointerExitHandler,
-    IPointerClickHandler
+public class UIHoverRegion : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
     [Header("References")]
     public RectTransform rect;
@@ -68,10 +65,10 @@ public class UIHoverRegion : MonoBehaviour,
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (DialogueManager.Instance.IsInDialogue())
+        if (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue())
             return;
 
-        if (SceneEvent.Instance.Progress == SceneProgress.Scene1)
+        if (SceneEvent.Instance != null && SceneEvent.Instance.Progress == SceneProgress.Scene1)
             SceneEvent.Instance.TriggerScene2();
     }
 
@@ -87,14 +84,15 @@ public class UIHoverRegion : MonoBehaviour,
     void DrawOutline(float t)
     {
         int visible = Mathf.FloorToInt(shapePoints.Length * t);
+        bool isClosed = visible >= shapePoints.Length - 1;
+        outline.positionCount = isClosed ? shapePoints.Length + 1 : visible + 1;
 
-        for (int i = 0; i <= visible; i++)
+        for (int i = 0; i <= visible && i < shapePoints.Length; i++)
         {
-            Vector3 p = shapePoints[i % shapePoints.Length];
-            outline.SetPosition(i, p);
+            outline.SetPosition(i, shapePoints[i]);
         }
 
-        if (visible >= shapePoints.Length - 1)
+        if (isClosed)
             outline.SetPosition(shapePoints.Length, outline.GetPosition(0));
     }
 }

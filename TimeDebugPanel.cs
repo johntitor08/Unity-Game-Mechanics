@@ -27,7 +27,6 @@ public class TimeDebugPanel : MonoBehaviour
         if (debugPanel != null)
             debugPanel.SetActive(false);
 
-        // Bind button events
         if (morningButton != null)
             morningButton.onClick.AddListener(() => SetPhase(TimePhase.Morning));
 
@@ -43,7 +42,6 @@ public class TimeDebugPanel : MonoBehaviour
         if (nextPhaseButton != null)
             nextPhaseButton.onClick.AddListener(NextPhase);
 
-        // Slider event
         if (speedSlider != null)
         {
             speedSlider.minValue = 0.1f;
@@ -55,27 +53,34 @@ public class TimeDebugPanel : MonoBehaviour
 
     void Update()
     {
-        // Toggle panel with T key
         if (Input.GetKeyDown(KeyCode.T))
         {
             if (debugPanel != null)
                 debugPanel.SetActive(!debugPanel.activeSelf);
         }
 
-        // Keyboard shortcuts
-        if (Input.GetKeyDown(KeyCode.Alpha1)) SetPhase(TimePhase.Morning);
-        if (Input.GetKeyDown(KeyCode.Alpha2)) SetPhase(TimePhase.Noon);
-        if (Input.GetKeyDown(KeyCode.Alpha3)) SetPhase(TimePhase.Evening);
-        if (Input.GetKeyDown(KeyCode.Alpha4)) SetPhase(TimePhase.Night);
-        if (Input.GetKeyDown(KeyCode.Space)) NextPhase();
+        if (Input.GetKeyDown(KeyCode.Alpha1))
+            SetPhase(TimePhase.Morning);
 
-        // Update debug info
+        if (Input.GetKeyDown(KeyCode.Alpha2))
+            SetPhase(TimePhase.Noon);
+
+        if (Input.GetKeyDown(KeyCode.Alpha3))
+            SetPhase(TimePhase.Evening);
+
+        if (Input.GetKeyDown(KeyCode.Alpha4))
+            SetPhase(TimePhase.Night);
+
+        if (Input.GetKeyDown(KeyCode.Space))
+            NextPhase();
+
         UpdateDebugInfo();
     }
 
     void UpdateDebugInfo()
     {
-        if (TimePhaseManager.Instance == null) return;
+        if (TimePhaseManager.Instance == null)
+            return;
 
         if (currentPhaseText != null)
         {

@@ -10,6 +10,7 @@ public class CircleOutlineOnHit : MonoBehaviour
 
     void Update()
     {
+        if (cam == null) return;
         Vector3 mouseWorld = cam.ScreenToWorldPoint(Input.mousePosition);
         mouseWorld.z = 0;
         RaycastHit2D hit = Physics2D.Raycast(mouseWorld, Vector2.zero, Mathf.Infinity, hitLayers);

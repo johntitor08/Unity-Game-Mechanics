@@ -11,6 +11,9 @@ public class PhaseLockedObject : MonoBehaviour
 
     void Start()
     {
+        if (TimePhaseManager.Instance == null)
+            return;
+
         TimePhaseManager.Instance.OnPhaseChanged += CheckPhase;
         CheckPhase(TimePhaseManager.Instance.currentPhase);
     }

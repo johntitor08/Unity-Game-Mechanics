@@ -13,33 +13,58 @@ public class SellSlot : MonoBehaviour
     private int quantity;
     private float sellRatio;
 
-    public void Setup(ItemData item, int qty, float ratio)
+    public void Setup(ItemData newItem, int qty, float ratio)
     {
-        if (item == null) return;
-        this.item = item;
+        if (newItem == null)
+            return;
+
+        item = newItem;
         quantity = qty;
         sellRatio = ratio;
-        icon.sprite = item.icon;
-        icon.enabled = true;
-        nameText.text = item.itemName;
-        quantityText.text = $"x{quantity}";
-        int price = Mathf.RoundToInt(item.basePrice * item.GetRarityMultiplier() * sellRatio);
-        priceText.text = $"{price} Gold";
-        sellButton.onClick.RemoveAllListeners();
-        sellButton.onClick.AddListener(SellOne);
-        sellButton.interactable = InventoryManager.Instance.GetQuantity(item) > 0;
+
+        if (icon != null)
+        {
+            icon.sprite = item.icon;
+            icon.enabled = item.icon != null;
+        }
+
+        if (nameText != null)
+            nameText.text = item.itemName;
+
+        if (quantityText != null)
+            quantityText.text = $"x{quantity}";
+
+        if (priceText != null)
+        {
+            int price = Mathf.RoundToInt(item.basePrice * item.GetRarityMultiplier() * sellRatio);
+            priceText.text = $"{price} Gold";
+        }
+
+        if (sellButton != null)
+        {
+            sellButton.onClick.RemoveAllListeners();
+            sellButton.onClick.AddListener(SellOne);
+            sellButton.interactable = InventoryManager.Instance != null && InventoryManager.Instance.GetQuantity(item) > 0;
+        }
     }
 
     void SellOne()
     {
-        if (item == null) return;
+        if (item == null || ShopManager.Instance == null)
+            return;
 
         if (ShopManager.Instance.SellItem(item, 1, sellRatio))
         {
-            quantity = InventoryManager.Instance.GetQuantity(item);
-            quantityText.text = $"x{quantity}";
-            sellButton.interactable = quantity > 0;
-            ShopUI.Instance.RefreshSellPanel();
+            quantity = InventoryManager.Instance != null ? InventoryManager.Instance.GetQuantity(item) : 0;
+
+            if (quantityText != null)
+                quantityText.text = $"x{quantity}";
+
+            if (sellButton != null)
+                sellButton.interactable = quantity > 0;
+
+            if (ShopUI.Instance != null)
+                ShopUI.Instance.RefreshSellPanel();
         }
     }
 }

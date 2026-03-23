@@ -10,7 +10,8 @@ public class StatModifierItem : ItemData
 
     public void Use()
     {
-        if (PlayerStats.Instance == null) return;
+        if (PlayerStats.Instance == null)
+            return;
 
         if (modifyMaxStat)
         {

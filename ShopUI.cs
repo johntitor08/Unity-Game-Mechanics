@@ -27,26 +27,30 @@ public class ShopUI : MonoBehaviour
     public Button refreshButton;
 
     [Header("Scroll Settings")]
-    public ScrollRect scrollRect;
+    public ScrollRect shopScrollRect;
+    public ScrollRect sellScrollRect;
 
     [Header("Sell Panel")]
     public GameObject sellPanel;
     public Transform sellContent;
     public SellSlot sellSlotPrefab;
 
+    [Header("Sell Settings")]
+    [Range(0f, 1f)]
+    public float sellPriceRatio = 0.5f;
+
     void Awake()
     {
-        if (Instance == null) Instance = this;
-        else Destroy(gameObject);
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(gameObject);
     }
 
     void Start()
     {
-        if (ProfileManager.Instance != null)
-        {
-            ProfileManager.Instance.OnCurrencyChanged += UpdateCurrency;
-            ProfileManager.Instance.OnProfileChanged += UpdateCurrency;
-        }
+        if (CurrencyManager.Instance != null)
+            CurrencyManager.Instance.OnCurrencyChanged += OnGoldChanged;
 
         if (closeButton != null)
             closeButton.onClick.AddListener(CloseShop);
@@ -60,18 +64,14 @@ public class ShopUI : MonoBehaviour
         if (sellPanel != null)
             sellPanel.SetActive(false);
 
-        OpenShop();
-        UpdateCurrency(ProfileManager.Instance != null ? ProfileManager.Instance.profile : null);
+        UpdateCurrency();
         UpdateMarketStatus();
     }
 
-    void OnDestroy()
+    private void OnDisable()
     {
-        if (ProfileManager.Instance != null)
-        {
-            ProfileManager.Instance.OnCurrencyChanged -= UpdateCurrency;
-            ProfileManager.Instance.OnProfileChanged -= UpdateCurrency;
-        }
+        if (CurrencyManager.Instance != null)
+            CurrencyManager.Instance.OnCurrencyChanged -= OnGoldChanged;
     }
 
     public void OpenShop()
@@ -117,23 +117,18 @@ public class ShopUI : MonoBehaviour
 
     public void RefreshShop()
     {
-        if (ShopManager.Instance == null) return;
+        if (ShopManager.Instance == null)
+            return;
 
-        foreach (ShopSlot slot in slots)
-        {
-            if (slot != null)
-                slot.gameObject.SetActive(false);
-        }
+        foreach (var slot in slots)
+            if (slot != null) slot.gameObject.SetActive(false);
 
         int index = 0;
 
         foreach (var shopItem in ShopManager.Instance.shopItems)
         {
             if (index >= slots.Count)
-            {
-                ShopSlot newSlot = Instantiate(shopSlotPrefab, shopContent);
-                slots.Add(newSlot);
-            }
+                slots.Add(Instantiate(shopSlotPrefab, shopContent));
 
             slots[index].Setup(shopItem);
             slots[index].gameObject.SetActive(true);
@@ -141,74 +136,74 @@ public class ShopUI : MonoBehaviour
         }
 
         for (int i = index; i < slots.Count; i++)
-        {
-            if (slots[i] != null)
-                slots[i].gameObject.SetActive(false);
-        }
+            if (slots[i] != null) slots[i].gameObject.SetActive(false);
 
-        if (scrollRect != null)
-        {
-            Canvas.ForceUpdateCanvases();
-            scrollRect.verticalNormalizedPosition = 1f;
-        }
-
-        UpdateCurrency(ProfileManager.Instance != null ? ProfileManager.Instance.profile : null);
+        ScrollToTop(shopScrollRect);
+        UpdateCurrency();
     }
 
     public void RefreshSellPanel()
     {
-        if (InventoryManager.Instance == null || sellPanel == null) return;
+        if (InventoryManager.Instance == null || sellPanel == null)
+            return;
+
         int index = 0;
 
         foreach (var pair in InventoryManager.Instance.GetItems())
         {
             if (index >= sellSlots.Count)
-            {
-                SellSlot newSlot = Instantiate(sellSlotPrefab, sellContent);
-                sellSlots.Add(newSlot);
-            }
+                sellSlots.Add(Instantiate(sellSlotPrefab, sellContent));
+
+            if (ItemDatabase.Instance == null)
+                continue;
 
             ItemData item = ItemDatabase.Instance.GetByID(pair.Key);
 
             if (item != null)
             {
-                int qty = pair.Value;
-                sellSlots[index].Setup(item, qty, 0.5f);
+                sellSlots[index].Setup(item, pair.Value, sellPriceRatio);
                 sellSlots[index].gameObject.SetActive(true);
                 index++;
             }
         }
 
         for (int i = index; i < sellSlots.Count; i++)
-        {
-            if (sellSlots[i] != null)
-                sellSlots[i].gameObject.SetActive(false);
-        }
+            if (sellSlots[i] != null) sellSlots[i].gameObject.SetActive(false);
 
-        if (scrollRect != null)
-        {
-            Canvas.ForceUpdateCanvases();
-            scrollRect.verticalNormalizedPosition = 1f;
-        }
+        ScrollToTop(sellScrollRect);
     }
 
-    void UpdateCurrency(PlayerProfile profile)
+    void OnGoldChanged(CurrencyType type, int oldAmount, int newAmount)
     {
-        if (profile == null || currencyText == null) return;
-        currencyText.text = $"{profile.currency} Gold";
+        if (type == CurrencyType.Gold)
+            UpdateCurrency();
+    }
+
+    void UpdateCurrency()
+    {
+        if (currencyText == null)
+            return;
+
+        int gold = CurrencyManager.Instance != null ? CurrencyManager.Instance.Get(CurrencyType.Gold) : 0;
+        currencyText.text = $"{gold} Gold";
     }
 
     public void UpdateMarketStatus()
     {
-        if (marketStatusText == null) return;
-        bool isOpen = true;
+        if (marketStatusText == null)
+            return;
 
-        if (MarketController.Instance != null)
-        {
-            isOpen = MarketController.Instance.IsOpen();
-        }
-
+        bool isOpen = MarketController.Instance == null || MarketController.Instance.IsOpen();
         marketStatusText.text = isOpen ? "Market Open" : "Market Closed";
         marketStatusText.color = isOpen ? Color.green : Color.red;
+    }
+
+    private static void ScrollToTop(ScrollRect sr)
+    {
+        if (sr == null)
+            return;
+
+        Canvas.ForceUpdateCanvases();
+        sr.verticalNormalizedPosition = 1f;
     }
 }

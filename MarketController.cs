@@ -18,41 +18,47 @@ public class MarketController : MonoBehaviour
 
     void Start()
     {
+        if (TimePhaseManager.Instance == null)
+            return;
+
         TimePhaseManager.Instance.OnPhaseChanged += OnPhaseChanged;
         OnPhaseChanged(TimePhaseManager.Instance.currentPhase);
     }
 
     void OnDestroy()
     {
-        TimePhaseManager.Instance.OnPhaseChanged -= OnPhaseChanged;
+        if (TimePhaseManager.Instance != null)
+            TimePhaseManager.Instance.OnPhaseChanged -= OnPhaseChanged;
     }
 
     void OnPhaseChanged(TimePhase phase)
     {
-        bool isOpen = phase switch
-        {
-            TimePhase.Morning => openDuringMorning,
-            TimePhase.Noon => openDuringNoon,
-            TimePhase.Evening => openDuringEvening,
-            TimePhase.Night => openDuringNight,
-            _ => false
-        };
+        bool isOpen = IsOpenDuring(phase);
 
-        marketOpenUI.SetActive(isOpen);
-        marketClosedUI.SetActive(!isOpen);
+        if (marketOpenUI != null)
+            marketOpenUI.SetActive(isOpen);
+
+        if (marketClosedUI != null)
+            marketClosedUI.SetActive(!isOpen);
+
+        if (ShopUI.Instance != null)
+            ShopUI.Instance.UpdateMarketStatus();
     }
 
     public bool IsOpen()
     {
-        TimePhase phase = TimePhaseManager.Instance.currentPhase;
+        if (TimePhaseManager.Instance == null)
+            return true;
 
-        return phase switch
-        {
-            TimePhase.Morning => openDuringMorning,
-            TimePhase.Noon => openDuringNoon,
-            TimePhase.Evening => openDuringEvening,
-            TimePhase.Night => openDuringNight,
-            _ => false
-        };
+        return IsOpenDuring(TimePhaseManager.Instance.currentPhase);
     }
+
+    private bool IsOpenDuring(TimePhase phase) => phase switch
+    {
+        TimePhase.Morning => openDuringMorning,
+        TimePhase.Noon => openDuringNoon,
+        TimePhase.Evening => openDuringEvening,
+        TimePhase.Night => openDuringNight,
+        _ => false
+    };
 }

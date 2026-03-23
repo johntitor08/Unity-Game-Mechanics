@@ -15,14 +15,47 @@ public class PhaseMusic : MonoBehaviour
 
     void Play(TimePhase p)
     {
-        morning.Stop(); noon.Stop(); evening.Stop(); night.Stop();
+        if (morning != null)
+            morning.Stop();
+
+        if (noon != null)
+            noon.Stop();
+
+        if (evening != null)
+            evening.Stop();
+
+        if (night != null)
+            night.Stop();
 
         switch (p)
         {
-            case TimePhase.Morning: morning.Play(); break;
-            case TimePhase.Noon: noon.Play(); break;
-            case TimePhase.Evening: evening.Play(); break;
-            case TimePhase.Night: night.Play(); break;
+            case TimePhase.Morning:
+
+                if (morning != null)
+                    morning.Play();
+
+                break;
+
+            case TimePhase.Noon:
+
+                if (noon != null)
+                    noon.Play();
+
+                break;
+
+            case TimePhase.Evening:
+
+                if (evening != null)
+                    evening.Play();
+
+                break;
+
+            case TimePhase.Night:
+
+                if (night != null)
+                    night.Play();
+
+                break;
         }
     }
 }

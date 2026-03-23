@@ -14,7 +14,6 @@ public class SaveData
     public int playerLevel = 1;
     public int playerExperience = 0;
     public int playerExperienceToNext = 100;
-    public int playerCurrency = 100;
     public List<string> shopStockIDs = new();
     public List<int> shopStockAmounts = new();
     public TimePhase currentTimePhase = TimePhase.Morning;

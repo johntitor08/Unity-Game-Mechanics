@@ -57,8 +57,12 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        if (!isActiveAndEnabled) return;
-        if (!enableHoverEffect) return;
+        if (!isActiveAndEnabled)
+            return;
+
+        if (!enableHoverEffect)
+            return;
+
         isHovering = true;
         StopAllCoroutines();
         StartCoroutine(ScaleEffect(hoverScale, hoverDuration));
@@ -71,8 +75,12 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        if (!isActiveAndEnabled) return;
-        if (!enableHoverEffect) return;
+        if (!isActiveAndEnabled)
+            return;
+
+        if (!enableHoverEffect)
+            return;
+
         isHovering = false;
         StopAllCoroutines();
         StartCoroutine(ScaleEffect(1f, hoverDuration));
@@ -83,8 +91,12 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (!isActiveAndEnabled) return;
-        if (!enableClickEffect) return;
+        if (!isActiveAndEnabled)
+            return;
+
+        if (!enableClickEffect)
+            return;
+
         StopAllCoroutines();
         StartCoroutine(ClickEffect());
         PlaySound(clickSound);
@@ -92,7 +104,9 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     System.Collections.IEnumerator ScaleEffect(float targetScale, float duration)
     {
-        if (gameObject == null) yield break;
+        if (gameObject == null)
+            yield break;
+
         Vector3 startScale = transform.localScale;
         Vector3 endScale = originalScale * targetScale;
         float elapsed = 0f;
@@ -110,22 +124,24 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     System.Collections.IEnumerator ClickEffect()
     {
-        if (gameObject == null) yield break;
-        Vector3 currentScale = transform.localScale;
+        if (gameObject == null)
+            yield break;
+
+        Vector3 startScale = transform.localScale;
         Vector3 clickedScale = originalScale * clickScale;
         float elapsed = 0f;
-        
+
         while (elapsed < clickDuration)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / clickDuration;
-            transform.localScale = Vector3.Lerp(currentScale, clickedScale, t);
+            transform.localScale = Vector3.Lerp(startScale, clickedScale, t);
             yield return null;
         }
 
-        float targetScale = isHovering ? hoverScale : 1f;
-        Vector3 endScale = originalScale * targetScale;
-        
+        elapsed = 0f;
+        Vector3 endScale = originalScale * (isHovering ? hoverScale : 1f);
+
         while (elapsed < clickDuration)
         {
             elapsed += Time.deltaTime;

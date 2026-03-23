@@ -10,6 +10,7 @@ public class ShopSlot : MonoBehaviour
     private static readonly WaitForSeconds waitForSeconds0_5 = new(0.5f);
     private ShopItemData currentItem;
     private bool isPurchasing;
+    private readonly List<TextMeshProUGUI> spawnedStatTexts = new();
 
     [Header("Visual Elements")]
     public Image itemIcon;
@@ -27,19 +28,20 @@ public class ShopSlot : MonoBehaviour
 
     [Header("Stats Display")]
     public GameObject statsContainer;
-    public TextMeshProUGUI[] statTexts;
+    public TextMeshProUGUI statTextPrefab;
+    public Transform statsParent;
+    public int maxStatLines = 2;
 
     [Header("Interaction")]
     public Button buyButton;
     public TextMeshProUGUI buyButtonText;
+    public Button closeButton;
 
     [Header("Locked State")]
     public GameObject lockedOverlay;
 
     [Header("Visual Feedback")]
-    public Color normalColor = Color.white;
-    public Color canAffordColor = Color.green;
-    public Color cannotAffordColor = Color.red;
+    public Color normalColor = Color.black;
     public Color lockedColor = Color.gray;
 
     [Header("Rarity Colors")]
@@ -52,6 +54,9 @@ public class ShopSlot : MonoBehaviour
     {
         if (buyButton != null)
             buyButton.onClick.AddListener(OnBuyClicked);
+
+        if (closeButton != null)
+            closeButton.onClick.AddListener(Close);
     }
 
     void OnEnable()
@@ -68,13 +73,24 @@ public class ShopSlot : MonoBehaviour
 
     public void Setup(ShopItemData shopItem)
     {
-        if (shopItem == null || ShopManager.Instance == null) return;
+        if (shopItem == null || ShopManager.Instance == null)
+            return;
+
         currentItem = shopItem;
         isPurchasing = false;
-        if (itemIcon != null) itemIcon.sprite = shopItem.item.icon;
-        if (itemNameText != null) itemNameText.text = shopItem.item.itemName;
-        if (itemDescriptionText != null) itemDescriptionText.text = shopItem.item.description;
-        if (priceText != null) priceText.text = $"{shopItem.price}";
+
+        if (itemIcon != null)
+            itemIcon.sprite = shopItem.item.icon;
+
+        if (itemNameText != null)
+            itemNameText.text = shopItem.item.itemName;
+
+        if (itemDescriptionText != null)
+            itemDescriptionText.text = shopItem.item.description;
+
+        if (priceText != null)
+            priceText.text = $"{shopItem.price}";
+
         UpdateStockDisplay();
         SetupRarity(shopItem.item);
         SetupRequirements(shopItem);
@@ -84,23 +100,11 @@ public class ShopSlot : MonoBehaviour
         UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
     }
 
-    void UpdateStockDisplay()
-    {
-        if (currentItem == null || stockText == null || ShopManager.Instance == null) return;
-        int stockAmount = ShopManager.Instance.GetStock(currentItem.item.itemID);
-        stockText.text = stockAmount == -1 ? "∞" : $"Stock: {stockAmount}";
-    }
-
-    void RefreshVisuals(PlayerProfile profile)
-    {
-        if (currentItem == null || ShopManager.Instance == null || profile == null) return;
-        bool canBuy = ShopManager.Instance.CanBuy(currentItem);
-        UpdateVisuals(currentItem, canBuy);
-    }
-
     void SetupRarity(ItemData item)
     {
-        if (item == null) return;
+        if (item == null)
+            return;
+
         Rarity rarityEnum = item.rarity;
         Color color;
 
@@ -121,50 +125,89 @@ public class ShopSlot : MonoBehaviour
             };
         }
 
-        if (rarityText != null) rarityText.text = rarityEnum.ToString();
-        if (rarityBadge != null) rarityBadge.color = color;
+        if (rarityText != null)
+            rarityText.text = rarityEnum.ToString();
+
+        if (rarityBadge != null)
+            rarityBadge.color = color;
     }
 
     void SetupStats(ItemData item)
     {
-        if (statsContainer == null || statTexts == null) return;
+        foreach (var t in spawnedStatTexts)
+            if (t != null)
+                Destroy(t.gameObject);
+
+        spawnedStatTexts.Clear();
+
+        if (statsContainer == null)
+            return;
+
+        var lines = new List<string>();
 
         if (item is EquipmentData equip)
         {
-            statsContainer.SetActive(true);
-            int shown = 0;
+            if (equip.damageBonus > 0)
+                lines.Add($"Damage: +{equip.damageBonus}");
 
-            if (equip.damageBonus > 0 && shown < statTexts.Length)
-                statTexts[shown++].text = $"Damage: +{equip.damageBonus}";
+            if (equip.defenseBonus > 0)
+                lines.Add($"Defense: +{equip.defenseBonus}");
 
-            if (equip.defenseBonus > 0 && shown < statTexts.Length)
-                statTexts[shown++].text = $"Defense: +{equip.defenseBonus}";
+            if (equip.primaryStatBonus > 0)
+                lines.Add($"{equip.primaryStat}: +{equip.primaryStatBonus}");
 
-            if (equip.primaryStatBonus > 0 && shown < statTexts.Length)
-                statTexts[shown++].text = $"{equip.primaryStat}: +{equip.primaryStatBonus}";
-
-            if (equip.secondaryStatBonus > 0 && shown < statTexts.Length)
-                statTexts[shown++].text = $"{equip.secondaryStat}: +{equip.secondaryStatBonus}";
-
-            for (int i = shown; i < statTexts.Length; i++)
-                statTexts[i].text = "";
+            if (equip.secondaryStatBonus > 0)
+                lines.Add($"{equip.secondaryStat}: +{equip.secondaryStatBonus}");
         }
-        else
+        else if (item is StatModifierItem statMod)
+        {
+            string sign = statMod.modifyAmount >= 0 ? "+" : "";
+            string label = statMod.modifyMaxStat ? $"Max {statMod.targetStat}" : statMod.targetStat.ToString();
+            lines.Add($"{label}: {sign}{statMod.modifyAmount}");
+        }
+
+        int count = Mathf.Min(lines.Count, maxStatLines);
+
+        if (count == 0)
         {
             statsContainer.SetActive(false);
+            return;
+        }
+
+        statsContainer.SetActive(true);
+        Transform parent = statsParent != null ? statsParent : statsContainer.transform;
+
+        for (int i = 0; i < count; i++)
+        {
+            TextMeshProUGUI textObj;
+
+            if (statTextPrefab != null)
+            {
+                textObj = Instantiate(statTextPrefab, parent);
+            }
+            else
+            {
+                var go = new GameObject($"StatText_{i}", typeof(TextMeshProUGUI));
+                go.transform.SetParent(parent, false);
+                textObj = go.GetComponent<TextMeshProUGUI>();
+            }
+
+            textObj.text = lines[i];
+            spawnedStatTexts.Add(textObj);
         }
     }
 
     void SetupProperties(ItemData item)
     {
-        if (propertiesText == null) return;
+        if (propertiesText == null)
+            return;
 
         if (item is EquipmentData equip)
         {
             string props = $"Slot: {equip.slot}";
-            
-            if (!string.IsNullOrEmpty(equip.setName))
-                props += $"\nSet: {equip.setName}";
+
+            if (equip.setData != null && !string.IsNullOrEmpty(equip.setData.setName))
+                props += $"\nSet: {equip.setData.setName}";
 
             propertiesText.gameObject.SetActive(true);
             propertiesText.text = props;
@@ -177,7 +220,9 @@ public class ShopSlot : MonoBehaviour
 
     void SetupRequirements(ShopItemData shopItem)
     {
-        if (requirementText == null || ProfileManager.Instance == null || ShopManager.Instance == null) return;
+        if (requirementText == null || ProfileManager.Instance == null || ShopManager.Instance == null)
+            return;
+
         List<string> unmet = new();
         var profile = ProfileManager.Instance.profile;
 
@@ -188,6 +233,7 @@ public class ShopSlot : MonoBehaviour
             unmet.Add("Story Progress Required");
 
         int stockAmount = ShopManager.Instance.GetStock(shopItem.item.itemID);
+
         if (!shopItem.unlimitedStock && stockAmount <= 0)
             unmet.Add("Out of Stock");
 
@@ -205,30 +251,54 @@ public class ShopSlot : MonoBehaviour
 
     void UpdateVisuals(ShopItemData shopItem, bool canBuy)
     {
-        if (buyButton == null || buyButtonText == null || background == null || ProfileManager.Instance == null) return;
+        if (buyButton == null || buyButtonText == null || background == null || ProfileManager.Instance == null)
+            return;
+
         buyButton.interactable = canBuy && !isPurchasing;
         buyButtonText.text = canBuy ? "BUY" : "LOCKED";
 
         if (!canBuy)
             background.color = lockedColor;
-        else if (ProfileManager.Instance.profile.currency >= shopItem.price)
-            background.color = canAffordColor * 0.3f;
         else
-            background.color = cannotAffordColor * 0.3f;
+            background.color = normalColor;
 
         if (lockedOverlay != null)
             lockedOverlay.SetActive(!canBuy);
     }
 
+    void UpdateStockDisplay()
+    {
+        if (currentItem == null || stockText == null || ShopManager.Instance == null)
+            return;
+
+        int stockAmount = ShopManager.Instance.GetStock(currentItem.item.itemID);
+        stockText.text = stockAmount == -1 ? "Stock: ∞" : $"Stock: {stockAmount}";
+    }
+
+    void RefreshVisuals(PlayerProfile profile)
+    {
+        if (currentItem == null || ShopManager.Instance == null || profile == null)
+            return;
+
+        bool canBuy = ShopManager.Instance.CanBuy(currentItem);
+        SetupRequirements(currentItem);
+        UpdateVisuals(currentItem, canBuy);
+    }
+
+    public void Close()
+    {
+        gameObject.SetActive(false);
+    }
+
     void OnBuyClicked()
     {
-        if (isPurchasing || ShopManager.Instance == null || currentItem == null) return;
+        if (isPurchasing || ShopManager.Instance == null || currentItem == null)
+            return;
+
         isPurchasing = true;
 
         if (ShopManager.Instance.BuyItem(currentItem))
-        {
             StartCoroutine(PurchaseFeedback());
-        }
         else
         {
             isPurchasing = false;
@@ -244,6 +314,12 @@ public class ShopSlot : MonoBehaviour
             yield break;
         }
 
+        RectTransform btnRect = buyButton.GetComponent<RectTransform>();
+        Vector2 originalSize = btnRect != null ? btnRect.sizeDelta : Vector2.zero;
+
+        if (btnRect != null)
+            btnRect.sizeDelta = new Vector2(originalSize.x + 50f, originalSize.y);
+
         string originalText = buyButtonText.text;
         Color originalColor = buyButtonText.color;
         buyButtonText.text = "PURCHASED!";
@@ -252,6 +328,10 @@ public class ShopSlot : MonoBehaviour
         yield return waitForSeconds0_5;
         buyButtonText.text = originalText;
         buyButtonText.color = originalColor;
+
+        if (btnRect != null)
+            btnRect.sizeDelta = originalSize;
+
         UpdateStockDisplay();
         RefreshVisuals(ProfileManager.Instance != null ? ProfileManager.Instance.profile : null);
         isPurchasing = false;
@@ -262,7 +342,12 @@ public class ShopSlot : MonoBehaviour
 
     IEnumerator FailureFeedback()
     {
-        if (background == null) yield break;
+        if (background == null)
+        {
+            isPurchasing = false;
+            yield break;
+        }
+
         Color original = background.color;
 
         for (int i = 0; i < 3; i++)
@@ -272,5 +357,7 @@ public class ShopSlot : MonoBehaviour
             background.color = original;
             yield return waitForSeconds0_1;
         }
+
+        isPurchasing = false;
     }
 }

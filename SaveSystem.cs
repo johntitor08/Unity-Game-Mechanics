@@ -9,7 +9,8 @@ public static class SaveSystem
 {
     private static string SavePath => Path.Combine(Application.persistentDataPath, "save.json");
     public static SaveData CachedData;
-    
+    public static bool IsLoading { get; private set; }
+
     public static bool HasSaveFile() => File.Exists(SavePath);
 
     public static void DeleteSave()
@@ -20,6 +21,9 @@ public static class SaveSystem
 
     public static void SaveGame()
     {
+        if (IsLoading)
+            return;
+
         SaveData data = new();
 
         if (InventoryManager.Instance != null)
@@ -35,8 +39,7 @@ public static class SaveSystem
         }
 
         data.currentScene = SceneManager.GetActiveScene().name;
-        data.storyFlags.Clear();
-        data.storyFlags.AddRange(StoryFlags.flags);
+        data.storyFlags.AddRange(StoryFlags.GetAll());
 
         if (SceneEvent.Instance != null)
             data.sceneProgress = (int)SceneEvent.Instance.Progress;
@@ -69,7 +72,6 @@ public static class SaveSystem
             data.playerLevel = p.level;
             data.playerExperience = p.experience;
             data.playerExperienceToNext = p.experienceToNextLevel;
-            data.playerCurrency = p.currency;
         }
 
         if (ShopManager.Instance != null)
@@ -113,9 +115,7 @@ public static class SaveSystem
         if (ScenarioManager.Instance != null)
         {
             data.completedScenarios.Clear();
-            data.completedScenarios.AddRange(
-                ScenarioManager.Instance.GetCompletedScenarios()
-            );
+            data.completedScenarios.AddRange(ScenarioManager.Instance.GetCompletedScenarios());
 
             if (ScenarioManager.Instance.IsScenarioActive())
             {
@@ -155,7 +155,9 @@ public static class SaveSystem
 
     public static void LoadGame()
     {
-        if (!HasSaveFile()) return;
+        if (!HasSaveFile())
+            return;
+
         CachedData = JsonUtility.FromJson<SaveData>(File.ReadAllText(SavePath));
         SceneManager.sceneLoaded += OnSceneLoaded;
         SceneManager.LoadScene(CachedData.currentScene);
@@ -189,20 +191,25 @@ public static class SaveSystem
 
     public static void ApplyLoadedData(SaveData data)
     {
-        if (data == null) return;
+        if (data == null)
+            return;
+
+        IsLoading = true;
 
         if (InventoryManager.Instance != null)
         {
             InventoryManager.Instance.Clear();
+
             for (int i = 0; i < data.itemIDs.Count; i++)
             {
                 ItemData item = ItemDatabase.Instance.GetByID(data.itemIDs[i]);
+
                 if (item != null)
                     InventoryManager.Instance.AddItem(item, data.itemCounts[i]);
             }
         }
 
-        StoryFlags.flags = new HashSet<string>(data.storyFlags);
+        StoryFlags.Load(data.storyFlags);
 
         if (SceneEvent.Instance != null)
             SceneEvent.Instance.ApplySceneProgress((SceneProgress)data.sceneProgress);
@@ -221,11 +228,7 @@ public static class SaveSystem
         {
             for (int i = 0; i < data.statTypes.Count; i++)
             {
-                PlayerStats.Instance.Set(
-                    data.statTypes[i],
-                    data.statValues[i],
-                    true
-                );
+                PlayerStats.Instance.Set(data.statTypes[i], data.statValues[i], true);
             }
         }
 
@@ -237,7 +240,6 @@ public static class SaveSystem
                 level = data.playerLevel,
                 experience = data.playerExperience,
                 experienceToNextLevel = data.playerExperienceToNext,
-                currency = data.playerCurrency,
                 profileIconID = "default"
             });
         }
@@ -253,7 +255,9 @@ public static class SaveSystem
             foreach (var saved in data.equippedItems)
             {
                 EquipmentData eq = ItemDatabase.Instance.GetByID(saved.itemID) as EquipmentData;
-                if (eq != null) EquipmentManager.Instance.Equip(eq);
+
+                if (eq != null)
+                    EquipmentManager.Instance.Equip(eq);
             }
         }
 
@@ -271,9 +275,12 @@ public static class SaveSystem
             foreach (var qSave in data.activeQuests)
             {
                 QuestData quest = QuestManager.Instance.allQuests.FirstOrDefault(q => q.questID == qSave.questID);
-                if (quest == null) continue;
+
+                if (quest == null)
+                    continue;
 
                 QuestManager.Instance.StartQuest(quest);
+
                 for (int i = 0; i < quest.objectives.Length && i < qSave.objectiveProgress.Count; i++)
                 {
                     quest.objectives[i].currentProgress = qSave.objectiveProgress[i];
@@ -290,12 +297,7 @@ public static class SaveSystem
 
         if (ProfileUI.Instance != null)
             ProfileUI.Instance.RefreshAll();
-    }
 
-    public static SaveData LoadShopStockData()
-    {
-        if (!HasSaveFile()) return null;
-        string json = File.ReadAllText(SavePath);
-        return JsonUtility.FromJson<SaveData>(json);
+        IsLoading = false;
     }
 }

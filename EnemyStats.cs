@@ -29,7 +29,9 @@ public class EnemyStats : StatsBase
 
     public void InitializeFromData(EnemyData data)
     {
-        if (data == null) return;
+        if (data == null)
+            return;
+
         stats.Clear();
         stats.Add(new Stat(StatType.MaxHealth, data.maxHealth, 1, data.maxHealth));
         stats.Add(new Stat(StatType.Health, data.maxHealth, 0, data.maxHealth));
@@ -41,8 +43,7 @@ public class EnemyStats : StatsBase
 
     protected override void OnDie()
     {
-        if (CombatManager.Instance != null &&
-            CombatManager.Instance.inCombat)
+        if (CombatManager.Instance != null && CombatManager.Instance.inCombat)
             return;
 
         if (destroyOnDeath)

@@ -4,12 +4,10 @@ using UnityEngine.UI;
 public class PhaseVisuals : MonoBehaviour
 {
     public Image overlay;
-
-    public Color morning = new Color(1f, 0.85f, 0.7f, 0.15f);
-    public Color noon = new Color(1f, 1f, 1f, 0f);
-    public Color evening = new Color(1f, 0.6f, 0.4f, 0.25f);
-    public Color night = new Color(0.2f, 0.3f, 0.6f, 0.45f);
-
+    public Color morning = new(1f, 0.85f, 0.7f, 0.15f);
+    public Color noon = new(1f, 1f, 1f, 0f);
+    public Color evening = new(1f, 0.6f, 0.4f, 0.25f);
+    public Color night = new(0.2f, 0.3f, 0.6f, 0.45f);
     public float fadeSpeed = 2f;
     Color target;
 
