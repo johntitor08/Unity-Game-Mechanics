@@ -26,7 +26,9 @@ public class LootNotificationUI : MonoBehaviour
 
     public void ShowLoot(EquipmentData equipment)
     {
-        if (equipment == null) return;
+        if (equipment == null)
+            return;
+
         string message = $"+1 {equipment.itemName}";
         Color color = equipment.GetRarityColor();
         ShowNotification(message, color, equipment.icon);
@@ -34,7 +36,9 @@ public class LootNotificationUI : MonoBehaviour
 
     public void ShowLoot(ItemData item)
     {
-        if (item == null) return;
+        if (item == null)
+            return;
+
         string message = $"+1 {item.itemName}";
         ShowNotification(message, Color.white, item.icon);
     }
@@ -44,9 +48,7 @@ public class LootNotificationUI : MonoBehaviour
         GameObject notification = GetNotification();
         
         if (notification.TryGetComponent<LootNotification>(out LootNotification notifScript))
-        {
             notifScript.Setup(message, color, icon, notificationDuration);
-        }
 
         notification.SetActive(true);
     }
@@ -54,9 +56,7 @@ public class LootNotificationUI : MonoBehaviour
     GameObject GetNotification()
     {
         if (notificationPool.Count > 0)
-        {
             return notificationPool.Dequeue();
-        }
 
         return Instantiate(notificationPrefab, notificationParent);
     }

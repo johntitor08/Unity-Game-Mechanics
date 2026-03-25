@@ -21,11 +21,11 @@ public class EquipmentData : ItemData
     public StatType requiredStat;
     public int requiredStatValue = 0;
 
-    [Header("Rarity")]
-    public EquipmentRarity equipmentRarity = EquipmentRarity.Common;
-
     [Header("Set Data")]
     public EquipmentSetData setData;
+
+    [Header("Upgrade")]
+    public int maxUpgradeLevel = 5;
 
     void OnEnable()
     {
@@ -54,13 +54,4 @@ public class EquipmentData : ItemData
 
         return desc;
     }
-}
-
-public enum EquipmentRarity
-{
-    Common,
-    Rare,
-    Epic,
-    Legendary,
-    Godly
 }

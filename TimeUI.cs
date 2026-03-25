@@ -6,7 +6,8 @@ public class TimeUI : MonoBehaviour
 {
     public static TimeUI Instance;
     private int currentDay = 1;
-    private Coroutine animationCoroutine;
+    private Coroutine textAnimationCoroutine;
+    private Coroutine iconAnimationCoroutine;
 
     [Header("UI Elements")]
     public TextMeshProUGUI phaseText;
@@ -54,17 +55,17 @@ public class TimeUI : MonoBehaviour
         if (dayCounterText != null)
             dayCounterText.gameObject.SetActive(showDayCounter);
 
-        //if (progressBar != null)
-        //    progressBar.gameObject.SetActive(showProgressBar);
+        if (progressBar != null)
+            progressBar.gameObject.SetActive(showProgressBar);
     }
 
-    //void Update()
-    //{
-    //    if (showProgressBar && progressBar != null && TimePhaseManager.Instance != null)
-    //    {
-    //        progressBar.value = TimePhaseManager.Instance.GetPhaseProgress();
-    //    }
-    //}
+    void Update()
+    {
+        if (showProgressBar && progressBar != null && TimePhaseManager.Instance != null)
+        {
+            progressBar.value = TimePhaseManager.Instance.GetPhaseProgress();
+        }
+    }
 
     void OnDestroy()
     {
@@ -147,10 +148,10 @@ public class TimeUI : MonoBehaviour
         if (phaseText == null)
             return;
 
-        if (animationCoroutine != null)
-            StopCoroutine(animationCoroutine);
+        if (textAnimationCoroutine != null)
+            StopCoroutine(textAnimationCoroutine);
 
-        animationCoroutine = StartCoroutine(TextScaleAnimation());
+        textAnimationCoroutine = StartCoroutine(TextScaleAnimation());
     }
 
     void AnimateIcon()
@@ -158,7 +159,11 @@ public class TimeUI : MonoBehaviour
         if (phaseIcon == null)
             return;
 
-        StartCoroutine(IconRotateAnimation());
+        if (iconAnimationCoroutine != null)
+            StopCoroutine(iconAnimationCoroutine);
+
+        phaseIcon.transform.rotation = Quaternion.identity;
+        iconAnimationCoroutine = StartCoroutine(IconRotateAnimation());
     }
 
     System.Collections.IEnumerator TextScaleAnimation()

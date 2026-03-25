@@ -53,12 +53,9 @@ public class EquipmentUI : MonoBehaviour
             TogglePanel();
     }
 
-    void OnDestroy()
-    {
-        UnsubscribeFromEvents();
-    }
+    void OnDestroy() => UnsubscribeFromEvents();
 
-    private void InitializeSlots()
+    void InitializeSlots()
     {
         slotUIMap = new Dictionary<EquipmentSlot, EquipmentSlotUI>
         {
@@ -79,7 +76,7 @@ public class EquipmentUI : MonoBehaviour
             },
             {
                 EquipmentSlot.Boots, bootsSlot
-            }
+            },
         };
 
         foreach (var (slot, ui) in slotUIMap)
@@ -100,7 +97,7 @@ public class EquipmentUI : MonoBehaviour
         }
     }
 
-    private void SubscribeToEvents()
+    void SubscribeToEvents()
     {
         if (EquipmentManager.Instance != null)
             EquipmentManager.Instance.OnEquipmentChanged += RefreshUI;
@@ -109,7 +106,7 @@ public class EquipmentUI : MonoBehaviour
             CombatManager.Instance.OnCombatStateChanged += RefreshCombatStats;
     }
 
-    private void UnsubscribeFromEvents()
+    void UnsubscribeFromEvents()
     {
         if (EquipmentManager.Instance != null)
             EquipmentManager.Instance.OnEquipmentChanged -= RefreshUI;
@@ -132,34 +129,56 @@ public class EquipmentUI : MonoBehaviour
 
     public void ShowPanel()
     {
-        if (equipmentPanel == null)
-            return;
+        if (equipmentPanel != null)
+        {
+            equipmentPanel.SetActive(true);
+        }
 
-        equipmentPanel.SetActive(true);
         RefreshUI();
     }
 
     public void HidePanel()
     {
-        equipmentPanel?.SetActive(false);
+        if (equipmentPanel != null)
+        {
+            equipmentPanel.SetActive(false);
+        }
     }
 
-    public void OpenItemPanel(EquipmentData equipment)
+    public bool IsPanelVisible() => equipmentPanel != null && equipmentPanel.activeSelf;
+
+    public void OpenItemPanel(EquipmentInstance instance)
     {
-        if (equipmentInfoPanel == null || equipment == null)
+        if (equipmentInfoPanel == null || instance == null)
             return;
 
         equipmentInfoPanel.SetActive(true);
-        EquipmentInfoPanel.Instance.ShowPanel(equipment, EquipmentInfoPanel.PanelMode.Item);
+        EquipmentInfoPanel.Instance.ShowPanel(instance, EquipmentInfoPanel.PanelMode.Item);
     }
 
-    public void OpenDetailPanel(EquipmentData equipment)
+    public void OpenDetailPanel(EquipmentInstance instance)
     {
-        if (equipmentInfoPanel == null || equipment == null)
+        if (equipmentInfoPanel == null || instance == null)
             return;
 
         equipmentInfoPanel.SetActive(true);
-        EquipmentInfoPanel.Instance.ShowPanel(equipment, EquipmentInfoPanel.PanelMode.Detail);
+        EquipmentInfoPanel.Instance.ShowPanel(instance, EquipmentInfoPanel.PanelMode.Detail);
+    }
+
+    public void OpenItemPanel(EquipmentData data)
+    {
+        if (data == null)
+            return;
+
+        OpenItemPanel(new EquipmentInstance(data));
+    }
+
+    public void OpenDetailPanel(EquipmentData data)
+    {
+        if (data == null)
+            return;
+
+        OpenDetailPanel(new EquipmentInstance(data));
     }
 
     public void RefreshUI()
@@ -181,13 +200,14 @@ public class EquipmentUI : MonoBehaviour
         RefreshSetBonuses();
     }
 
-    private void RefreshSlots()
+    void RefreshSlots()
     {
         foreach (var ui in slotUIMap.Values)
-            ui?.Refresh();
+            if (ui != null)
+                ui.Refresh();
     }
 
-    private void RefreshStats()
+    void RefreshStats()
     {
         if (EquipmentManager.Instance == null)
             return;
@@ -199,39 +219,36 @@ public class EquipmentUI : MonoBehaviour
             totalDefenseText.text = $"Total Defense: +{EquipmentManager.Instance.GetTotalDefenseBonus()}";
     }
 
-    private void RefreshSetBonuses()
+    void RefreshSetBonuses()
     {
         ClearSetBonusTexts();
 
         if (setBonusesParent == null || setBonusTextPrefab == null || EquipmentManager.Instance == null)
             return;
 
-        List<string> bonuses = EquipmentManager.Instance.GetActiveSetBonusDescriptions();
+        var bonuses = EquipmentManager.Instance.GetActiveSetBonusDescriptions();
 
         if (bonuses.Count == 0)
             CreateSetBonusText("<color=#888888>No set bonuses active</color>");
         else
-            foreach (var bonus in bonuses)
-                CreateSetBonusText(bonus);
+            foreach (var b in bonuses) CreateSetBonusText(b);
     }
 
-    private void ClearSetBonusTexts()
+    void ClearSetBonusTexts()
     {
-        foreach (var text in setBonusTexts)
-            if (text != null)
-                Destroy(text.gameObject);
+        foreach (var t in setBonusTexts)
+            if (t != null)
+                Destroy(t.gameObject);
 
         setBonusTexts.Clear();
     }
 
-    private void CreateSetBonusText(string bonusText)
+    void CreateSetBonusText(string text)
     {
-        TextMeshProUGUI text = Instantiate(setBonusTextPrefab, setBonusesParent);
-        text.text = bonusText;
-        setBonusTexts.Add(text);
+        var t = Instantiate(setBonusTextPrefab, setBonusesParent);
+        t.text = text;
+        setBonusTexts.Add(t);
     }
 
     public EquipmentSlotUI GetSlotUI(EquipmentSlot slot) => slotUIMap.TryGetValue(slot, out var ui) ? ui : null;
-
-    public bool IsPanelVisible() => equipmentPanel != null && equipmentPanel.activeSelf;
 }

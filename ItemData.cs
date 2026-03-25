@@ -41,13 +41,9 @@ public class ItemData : ScriptableObject
             Rarity.Rare => new Color(0.2f, 0.5f, 1f),
             Rarity.Epic => new Color(0.8f, 0.2f, 0.8f),
             Rarity.Legendary => new Color(1f, 0.6f, 0f),
+            Rarity.Godly => new Color(1f, 0.15f, 0.15f),
             _ => Color.white
         };
-    }
-
-    public int GetSellPrice(float sellRatio = 0.5f)
-    {
-        return Mathf.RoundToInt(basePrice * GetRarityMultiplier() * sellRatio);
     }
 
     public float GetRarityMultiplier()
@@ -58,8 +54,14 @@ public class ItemData : ScriptableObject
             Rarity.Rare => 1.5f,
             Rarity.Epic => 2.5f,
             Rarity.Legendary => 5f,
+            Rarity.Godly => 10f,
             _ => 1f
         };
+    }
+
+    public int GetSellPrice(float sellRatio = 0.5f)
+    {
+        return Mathf.RoundToInt(basePrice * GetRarityMultiplier() * sellRatio);
     }
 }
 
@@ -68,5 +70,6 @@ public enum Rarity
     Common,
     Rare,
     Epic,
-    Legendary
+    Legendary,
+    Godly
 }

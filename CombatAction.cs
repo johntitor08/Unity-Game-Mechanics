@@ -19,7 +19,6 @@ public class CombatAction
     [Header("Defensive")]
     public bool isDefensive = false;
     public int defenseBonus = 30;
-    [Tooltip("Defense stat'ının kaçta biri bonus defense'e eklenir (0.5 = %50)")]
     public float defenseStatScaling = 0.5f;
     public int healAmount = 0;
 
@@ -31,6 +30,9 @@ public class CombatAction
     [Header("Armor Interaction")]
     [Range(0f, 1f)]
     public float armorPenetration = 0f;
+
+    [Header("Flee")]
+    public bool isFlee = false;
 
     public int CalculateDamage()
     {

@@ -62,13 +62,15 @@ public class EquipmentLootTable : ScriptableObject
 
     EquipmentData RollSingleItem(int playerLuck)
     {
-        EquipmentRarity targetRarity = RollRarity(playerLuck);
-        var eligibleItems = possibleEquipment.Where(e => e.equipment != null && e.equipment.equipmentRarity == targetRarity && playerLuck >= e.minLuckRequired).ToList();
+        Rarity targetRarity = RollRarity(playerLuck);
+        var eligibleItems = possibleEquipment.Where(e => e.equipment != null && e.equipment.rarity == targetRarity && playerLuck >= e.minLuckRequired).ToList();
 
         if (eligibleItems.Count == 0)
         {
             eligibleItems = possibleEquipment.Where(e => e.equipment != null && playerLuck >= e.minLuckRequired).ToList();
-            return null;
+
+            if (eligibleItems.Count == 0)
+                return null;
         }
 
         float totalWeight = eligibleItems.Sum(e => e.baseDropChance);
@@ -88,7 +90,7 @@ public class EquipmentLootTable : ScriptableObject
         return eligibleItems[Random.Range(0, eligibleItems.Count)].equipment;
     }
 
-    EquipmentRarity RollRarity(int playerLuck)
+    Rarity RollRarity(int playerLuck)
     {
         float luckBonus = Mathf.Min(playerLuck * luckBonusPerPoint / 100f, 0.05f);
         float roll = Random.value;
@@ -96,18 +98,18 @@ public class EquipmentLootTable : ScriptableObject
         cumulative += legendaryChance + luckBonus;
 
         if (roll <= cumulative)
-            return EquipmentRarity.Legendary;
+            return Rarity.Legendary;
 
         cumulative += epicChance + luckBonus * 0.5f;
 
         if (roll <= cumulative)
-            return EquipmentRarity.Epic;
+            return Rarity.Epic;
 
         cumulative += rareChance + luckBonus * 0.3f;
 
         if (roll <= cumulative)
-            return EquipmentRarity.Rare;
+            return Rarity.Rare;
 
-        return EquipmentRarity.Common;
+        return Rarity.Common;
     }
 }

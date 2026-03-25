@@ -6,7 +6,7 @@ public class EquipmentInfoPanel : MonoBehaviour
 {
     public enum PanelMode { Detail, Item }
     public static EquipmentInfoPanel Instance;
-    private EquipmentData currentEquipment;
+    private EquipmentInstance currentInstance;
     private PanelMode currentMode;
 
     [Header("Panel")]
@@ -57,136 +57,170 @@ public class EquipmentInfoPanel : MonoBehaviour
 
     void OnEnable()
     {
-        if (currentEquipment != null)
-            ShowPanel(currentEquipment, currentMode);
+        if (InventoryManager.Instance != null)
+            InventoryManager.Instance.OnInventoryChanged += OnDataChanged;
+
+        if (EquipmentManager.Instance != null)
+            EquipmentManager.Instance.OnEquipmentChanged += OnDataChanged;
+
+        if (currentInstance != null)
+            ShowPanel(currentInstance, currentMode);
     }
 
-    public void ShowPanel(EquipmentData equipment, PanelMode mode = PanelMode.Detail)
+    void OnDisable()
     {
-        if (equipment == null || EquipmentManager.Instance == null)
+        if (InventoryManager.Instance != null)
+            InventoryManager.Instance.OnInventoryChanged -= OnDataChanged;
+
+        if (EquipmentManager.Instance != null)
+            EquipmentManager.Instance.OnEquipmentChanged -= OnDataChanged;
+    }
+
+    void OnDataChanged()
+    {
+        if (currentInstance != null && panel != null && panel.activeSelf)
+            ShowPanel(currentInstance, currentMode);
+    }
+
+    public void ShowPanel(EquipmentInstance instance, PanelMode mode = PanelMode.Detail)
+    {
+        if (instance == null || instance.baseData == null || EquipmentManager.Instance == null)
             return;
 
-        currentEquipment = equipment;
+        currentInstance = instance;
         currentMode = mode;
         panel.SetActive(true);
-        DisplayEquipment(equipment);
-
-        bool isEquipped = EquipmentManager.Instance.GetEquipped(equipment.slot) == equipment;
+        DisplayEquipment(instance);
+        EquipmentInstance slotInst = EquipmentManager.Instance.GetEquipped(instance.baseData.slot);
+        bool isEquipped = slotInst != null && slotInst.baseData.itemID == instance.baseData.itemID;
 
         if (mode == PanelMode.Detail)
         {
-            DisplayRequirements(equipment);
+            DisplayRequirements(instance.baseData);
             HideComparisonText();
-            ConfigureDetailButtons(isEquipped, equipment);
+            ConfigureDetailButtons(isEquipped, instance);
         }
         else
         {
             HideRequirementsText();
-            DisplayComparison(equipment);
-            ConfigureItemButton(isEquipped, equipment);
+            DisplayComparison(instance);
+            ConfigureItemButton(isEquipped, instance);
         }
     }
 
-    private void DisplayEquipment(EquipmentData equipment)
+    public void ShowPanel(EquipmentData data, PanelMode mode = PanelMode.Detail)
     {
+        if (data == null || EquipmentManager.Instance == null)
+            return;
+
+        EquipmentInstance live = EquipmentManager.Instance.GetEquipped(data.slot);
+
+        if (live != null && live.baseData.itemID == data.itemID)
+            ShowPanel(live, mode);
+        else
+            ShowPanel(new EquipmentInstance(data, 0), mode);
+    }
+
+    void DisplayEquipment(EquipmentInstance instance)
+    {
+        var data = instance.baseData;
+
         if (iconImage != null)
-            iconImage.sprite = equipment.icon;
+            iconImage.sprite = data.icon;
 
         if (nameText != null)
-        {
-            nameText.text = equipment.itemName;
-            nameText.color = equipment.GetRarityColor();
-        }
+            nameText.text = instance.GetDisplayName();
 
         if (descriptionText != null)
-            descriptionText.text = equipment.description;
+            descriptionText.text = data.description;
 
         if (statsText != null)
-            statsText.text = equipment.GetStatsDescription();
+            statsText.text = instance.GetStatsDescription();
 
         if (rarityBackground != null)
         {
-            Color color = equipment.GetRarityColor();
-            color.a = 0.3f;
-            rarityBackground.color = color;
+            Color c = data.GetRarityColor();
+            c.a = 0.3f;
+            rarityBackground.color = c;
         }
     }
 
-    private void DisplayRequirements(EquipmentData equipment)
+    void DisplayRequirements(EquipmentData data)
     {
         if (requirementsText == null)
             return;
 
-        string req = $"Level {equipment.requiredLevel} Required";
+        string req = $"Level {data.requiredLevel} Required";
 
-        if (equipment.requiredStatValue > 0)
-            req += $"\n{equipment.requiredStat} {equipment.requiredStatValue} Required";
+        if (data.requiredStatValue > 0)
+            req += $"\n{data.requiredStat} {data.requiredStatValue} Required";
 
-        bool meetsRequirements = EquipmentManager.Instance.CanEquip(equipment);
+        bool meetsLevel = ProfileManager.Instance == null || ProfileManager.Instance.profile.level >= data.requiredLevel;
+        bool meetsStat = data.requiredStatValue <= 0 || PlayerStats.Instance == null || PlayerStats.Instance.Get(data.requiredStat) >= data.requiredStatValue;
         requirementsText.text = req;
-        requirementsText.color = meetsRequirements ? Color.green : Color.red;
+        requirementsText.color = (meetsLevel && meetsStat) ? Color.green : Color.red;
         requirementsText.gameObject.SetActive(true);
     }
 
-    private void HideRequirementsText()
+    void HideRequirementsText()
     {
         if (requirementsText != null)
             requirementsText.gameObject.SetActive(false);
     }
 
-    private void DisplayComparison(EquipmentData newEquipment)
+    void DisplayComparison(EquipmentInstance incoming)
     {
         if (comparisonText == null)
             return;
 
         comparisonText.gameObject.SetActive(true);
-        EquipmentData currentEquipped = EquipmentManager.Instance.GetEquipped(newEquipment.slot);
+        EquipmentInstance current = EquipmentManager.Instance.GetEquipped(incoming.baseData.slot);
 
-        if (currentEquipped == null)
+        if (current == null)
         {
             comparisonText.text = "<color=green>No item equipped in this slot</color>";
             return;
         }
 
-        string comparison = $"<b>Currently Equipped: {currentEquipped.itemName}</b>\n\n";
-        comparison += CompareValue("Damage", currentEquipped.damageBonus, newEquipment.damageBonus);
-        comparison += CompareValue("Defense", currentEquipped.defenseBonus, newEquipment.defenseBonus);
-        comparison += CompareValue(currentEquipped.primaryStat.ToString(), currentEquipped.primaryStatBonus, newEquipment.primaryStatBonus);
-        comparisonText.text = comparison;
+        string text = $"<b>{current.GetDisplayName()}</b>\n";
+        text += CompareValue("Damage", current.GetDamageBonus(), incoming.GetDamageBonus());
+        text += CompareValue("Defense", current.GetDefenseBonus(), incoming.GetDefenseBonus());
+        text += CompareValue(current.baseData.primaryStat.ToString(), current.GetPrimaryBonus(), incoming.GetPrimaryBonus());
+        comparisonText.text = text;
     }
 
-    private void HideComparisonText()
+    void HideComparisonText()
     {
         if (comparisonText != null)
             comparisonText.gameObject.SetActive(false);
     }
 
-    private static string CompareValue(string statName, int current, int newValue)
+    static string CompareValue(string statName, int current, int newVal)
     {
-        if (current == 0 && newValue == 0)
+        if (current == 0 && newVal == 0)
             return "";
 
-        int difference = newValue - current;
-        string color = difference > 0 ? "green" : (difference < 0 ? "red" : "white");
-        string arrow = difference > 0 ? "↑" : (difference < 0 ? "↓" : "=");
-        return $"{statName}: {current} → <color={color}>{newValue} {arrow}{Mathf.Abs(difference)}</color>\n";
+        int diff = newVal - current;
+        string col = diff > 0 ? "green" : (diff < 0 ? "red" : "white");
+        string arrow = diff > 0 ? "↑" : (diff < 0 ? "↓" : "=");
+        return $"{statName}: {current} → <color={col}>{newVal} {arrow} {Mathf.Abs(diff)}</color>\n";
     }
 
-    private void ConfigureDetailButtons(bool isEquipped, EquipmentData equipment)
+    void ConfigureDetailButtons(bool isEquipped, EquipmentInstance instance)
     {
         if (equipButton != null)
         {
             equipButton.gameObject.SetActive(!isEquipped);
 
             if (!isEquipped)
-                equipButton.interactable = EquipmentManager.Instance.CanEquip(equipment);
+                equipButton.interactable = EquipmentManager.Instance.CanEquip(instance);
         }
 
         if (unequipButton != null)
             unequipButton.gameObject.SetActive(isEquipped);
     }
 
-    private void ConfigureItemButton(bool isEquipped, EquipmentData equipment)
+    void ConfigureItemButton(bool isEquipped, EquipmentInstance instance)
     {
         if (unequipButton != null)
             unequipButton.gameObject.SetActive(false);
@@ -194,37 +228,31 @@ public class EquipmentInfoPanel : MonoBehaviour
         if (equipButton != null)
         {
             equipButton.gameObject.SetActive(true);
-            equipButton.interactable = !isEquipped && EquipmentManager.Instance.CanEquip(equipment);
+            equipButton.interactable = !isEquipped && EquipmentManager.Instance.CanEquip(instance);
         }
     }
 
     public void Equip()
     {
-        if (currentEquipment == null || EquipmentManager.Instance == null)
+        if (currentInstance == null || EquipmentManager.Instance == null || InventoryManager.Instance == null || !EquipmentManager.Instance.Equip(currentInstance))
             return;
 
-        if (!EquipmentManager.Instance.Equip(currentEquipment))
-            return;
-
-        InventoryManager.Instance.RemoveItem(currentEquipment, 1);
+        InventoryManager.Instance.RemoveInstance(currentInstance, 1);
         Close();
     }
 
     public void Unequip()
     {
-        if (currentEquipment == null || EquipmentManager.Instance == null)
+        if (currentInstance == null || EquipmentManager.Instance == null)
             return;
 
-        if (!EquipmentManager.Instance.Unequip(currentEquipment.slot))
-            return;
-
-        InventoryManager.Instance.AddItem(currentEquipment, 1);
+        EquipmentManager.Instance.Unequip(currentInstance.baseData.slot, returnToInventory: true);
         Close();
     }
 
     public void Close()
     {
         panel.SetActive(false);
-        currentEquipment = null;
+        currentInstance = null;
     }
 }

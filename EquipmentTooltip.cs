@@ -44,7 +44,7 @@ public class EquipmentTooltip : MonoBehaviour
         canvasGroup.alpha = 1f;
         canvasGroup.blocksRaycasts = false;
         nameText.text = equipment.itemName;
-        rarityText.text = equipment.equipmentRarity.ToString();
+        rarityText.text = equipment.rarity.ToString();
         statsText.text = equipment.GetStatsDescription();
         requirementsText.text = GetRequirementsText(equipment);
         Color rarityColor = equipment.GetRarityColor();
@@ -111,7 +111,7 @@ public class EquipmentTooltip : MonoBehaviour
             text += $"Level {equipment.requiredLevel}+ required\n";
 
         if (equipment.requiredStatValue > 0)
-            text += $"{equipment.requiredStat} {equipment.requiredStatValue}+ required\n";
+            text += $"{equipment.requiredStat} {equipment.requiredStatValue}+ required";
 
         return text;
     }

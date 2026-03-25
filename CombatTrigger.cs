@@ -7,7 +7,6 @@ public class CombatTrigger : MonoBehaviour, IPointerClickHandler
     public EnemyData enemy;
 
     [Header("Trigger Settings")]
-    public bool oneTimeOnly = true;
     public bool requirePlayerInRange = false;
 
     [Header("Visual")]
@@ -46,10 +45,7 @@ public class CombatTrigger : MonoBehaviour, IPointerClickHandler
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (hasTriggered)
-            return;
-
-        if (requirePlayerInRange && !playerInRange)
+        if (hasTriggered || (requirePlayerInRange && !playerInRange))
             return;
 
         TriggerCombat();
@@ -62,8 +58,6 @@ public class CombatTrigger : MonoBehaviour, IPointerClickHandler
 
         CombatManager.Instance.StartCombat(enemy);
         hasTriggered = true;
-
-        if (oneTimeOnly)
-            gameObject.SetActive(false);
+        gameObject.SetActive(false);
     }
 }

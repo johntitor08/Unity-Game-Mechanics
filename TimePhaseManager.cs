@@ -13,7 +13,6 @@ public class TimePhaseManager : MonoBehaviour
 {
     public static TimePhaseManager Instance;
     private float phaseTimer = 0f;
-    private bool isFirstMorning = true;
     public event System.Action<TimePhase> OnPhaseChanged;
 
     [Header("Time Settings")]
@@ -103,8 +102,6 @@ public class TimePhaseManager : MonoBehaviour
         {
             if (TimeUI.Instance != null)
                 TimeUI.Instance.IncrementDay();
-
-            isFirstMorning = false;
         }
 
         phaseTimer = 0f;
@@ -150,11 +147,6 @@ public class TimePhaseManager : MonoBehaviour
         int minutes = Mathf.FloorToInt(remaining / 60f);
         int seconds = Mathf.FloorToInt(remaining % 60f);
         return $"{minutes:00}:{seconds:00}";
-    }
-
-    public void SetIsFirstMorning(bool value)
-    {
-        isFirstMorning = value;
     }
 
     public void GoPreviousPhase()

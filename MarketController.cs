@@ -2,16 +2,7 @@ using UnityEngine;
 
 public class MarketController : MonoBehaviour
 {
-    [Header("UI Panels")]
-    public GameObject marketOpenUI;
-    public GameObject marketClosedUI;
-
-    [Header("Open During Phases")]
-    public bool openDuringMorning = true;
-    public bool openDuringNoon = true;
-    public bool openDuringEvening = false;
-    public bool openDuringNight = false;
-
+    public GameObject marketClosedPanel;
     public static MarketController Instance;
 
     void Awake() => Instance = this;
@@ -35,11 +26,8 @@ public class MarketController : MonoBehaviour
     {
         bool isOpen = IsOpenDuring(phase);
 
-        if (marketOpenUI != null)
-            marketOpenUI.SetActive(isOpen);
-
-        if (marketClosedUI != null)
-            marketClosedUI.SetActive(!isOpen);
+        if (marketClosedPanel != null)
+            marketClosedPanel.SetActive(!isOpen);
 
         if (ShopUI.Instance != null)
             ShopUI.Instance.UpdateMarketStatus();
@@ -55,10 +43,10 @@ public class MarketController : MonoBehaviour
 
     private bool IsOpenDuring(TimePhase phase) => phase switch
     {
-        TimePhase.Morning => openDuringMorning,
-        TimePhase.Noon => openDuringNoon,
-        TimePhase.Evening => openDuringEvening,
-        TimePhase.Night => openDuringNight,
+        TimePhase.Morning => true,
+        TimePhase.Noon => true,
+        TimePhase.Evening => true,
+        TimePhase.Night => false,
         _ => false
     };
 }

@@ -65,13 +65,7 @@ public class ShopManager : MonoBehaviour
 
     public bool BuyItem(ShopItemData shopItem)
     {
-        if (!CanBuy(shopItem))
-            return false;
-
-        if (!shopItem.unlimitedStock && !TryReduceStock(shopItem.item.itemID))
-            return false;
-
-        if (!CurrencyManager.Instance.Spend(CurrencyType.Gold, shopItem.price))
+        if (!CanBuy(shopItem) || !shopItem.unlimitedStock && !TryReduceStock(shopItem.item.itemID) || !CurrencyManager.Instance.Spend(CurrencyType.Gold, shopItem.price))
             return false;
 
         InventoryManager.Instance.AddItem(shopItem.item, 1);
@@ -91,7 +85,7 @@ public class ShopManager : MonoBehaviour
 
         int price = Mathf.RoundToInt(item.basePrice * item.GetRarityMultiplier() * sellRatio) * quantity;
         InventoryManager.Instance.RemoveItem(item, quantity);
-        ProfileManager.Instance.AddCurrency(price);
+        CurrencyManager.Instance.Add(CurrencyType.Gold, price);
         SaveSystem.SaveGame();
         return true;
     }

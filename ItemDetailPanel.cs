@@ -6,9 +6,11 @@ public class ItemDetailPanel : MonoBehaviour
 {
     public static ItemDetailPanel Instance;
     private ItemData currentItem;
+    private int currentUpgradeLevel;
     private bool isProcessingUse;
 
     [Header("UI")]
+    public GameObject itemDetailPanel;
     public TextMeshProUGUI title;
     public Image icon;
     public TextMeshProUGUI quantityText;
@@ -16,6 +18,8 @@ public class ItemDetailPanel : MonoBehaviour
     public Button useButton;
     public Button equipButton;
     public Button closeButton;
+    public TextMeshProUGUI upgradeLevelText;
+    public UpgradeFusionButton upgradeFusionButton;
 
     void Awake()
     {
@@ -26,7 +30,6 @@ public class ItemDetailPanel : MonoBehaviour
         }
 
         Instance = this;
-        gameObject.SetActive(false);
     }
 
     void OnEnable()
@@ -41,13 +44,23 @@ public class ItemDetailPanel : MonoBehaviour
             InventoryManager.Instance.OnInventoryChanged -= RefreshQuantity;
     }
 
-    public void ShowItemDetail(ItemData item, int quantity)
+    public void ShowItemDetail(ItemData item, int quantity, int upgradeLevel = 0)
     {
         currentItem = item;
+        currentUpgradeLevel = upgradeLevel;
         isProcessingUse = false;
 
+        if (useButton != null)
+            useButton.interactable = false;
+
+        if (equipButton != null)
+            equipButton.interactable = false;
+
         if (title != null)
-            title.text = item.itemName;
+        {
+            string upgradeStr = upgradeLevel > 0 ? $" <color=#FFD700>+{upgradeLevel}</color>" : "";
+            title.text = $"{item.itemName}{upgradeStr}";
+        }
 
         if (description != null)
             description.text = item.description;
@@ -55,13 +68,42 @@ public class ItemDetailPanel : MonoBehaviour
         if (icon != null)
             icon.sprite = item.icon;
 
-        int qty = quantity >= 0 ? quantity : InventoryManager.Instance.GetQuantity(item);
+        int qty = ResolveQuantity(item, quantity, upgradeLevel);
 
         if (quantityText != null)
             quantityText.text = $"Sahip olunan: {qty}";
 
+        if (upgradeLevelText != null)
+        {
+            bool showUpgrade = upgradeLevel > 0 && item is EquipmentData;
+            upgradeLevelText.gameObject.SetActive(showUpgrade);
+            upgradeLevelText.text = $"+{upgradeLevel}";
+        }
+
+        if (upgradeFusionButton != null)
+            upgradeFusionButton.SetItem(item is EquipmentData eq ? eq : null);
+
         ConfigureButtons(item, qty);
-        gameObject.SetActive(true);
+        itemDetailPanel.SetActive(true);
+    }
+
+    public void RefreshPanel()
+    {
+        if (currentItem == null || itemDetailPanel == null || !itemDetailPanel.activeSelf)
+            return;
+
+        ShowItemDetail(currentItem, -1, currentUpgradeLevel);
+    }
+
+    private int ResolveQuantity(ItemData item, int quantity, int upgradeLevel)
+    {
+        if (quantity >= 0)
+            return quantity;
+
+        if (item is EquipmentData eqData)
+            return upgradeLevel > 0 ? InventoryManager.Instance.GetUpgradedQuantity(eqData, upgradeLevel) : InventoryManager.Instance.GetQuantity(eqData);
+
+        return InventoryManager.Instance.GetQuantity(item);
     }
 
     private void ConfigureButtons(ItemData item, int quantity)
@@ -72,38 +114,36 @@ public class ItemDetailPanel : MonoBehaviour
             closeButton.onClick.AddListener(Close);
         }
 
-        if (equipButton != null && useButton != null)
+        if (equipButton == null || useButton == null)
+            return;
+
+        if (item.IsEquipment())
         {
-            if (item.IsEquipment())
-            {
-                equipButton.gameObject.SetActive(true);
-                equipButton.interactable = item.useable && quantity > 0;
-                useButton.gameObject.SetActive(false);
-                equipButton.onClick.RemoveAllListeners();
-                equipButton.onClick.AddListener(UseItem);
-            }
-            else
-            {
-                useButton.gameObject.SetActive(true);
-                useButton.interactable = item.useable && quantity > 0;
-                equipButton.gameObject.SetActive(false);
-                useButton.onClick.RemoveAllListeners();
-                useButton.onClick.AddListener(UseItem);
-            }
+            equipButton.gameObject.SetActive(true);
+            equipButton.interactable = item.useable && quantity > 0;
+            useButton.gameObject.SetActive(false);
+            equipButton.onClick.RemoveAllListeners();
+            equipButton.onClick.AddListener(UseItem);
+        }
+        else
+        {
+            useButton.gameObject.SetActive(true);
+            useButton.interactable = item.useable && quantity > 0;
+            equipButton.gameObject.SetActive(false);
+            useButton.onClick.RemoveAllListeners();
+            useButton.onClick.AddListener(UseItem);
         }
     }
 
     private void EquipEquipment(EquipmentData equipment)
     {
-        if (EquipmentManager.Instance.CanEquip(equipment))
-        {
-            InventoryManager.Instance.RemoveItem(equipment, 1);
-            EquipmentManager.Instance.Equip(equipment);
-        }
-        else
-        {
+        var em = EquipmentManager.Instance;
+
+        if (em == null)
+            return;
+
+        if (!em.Equip(new EquipmentInstance(equipment, currentUpgradeLevel)))
             Debug.Log("Cannot equip this item!");
-        }
     }
 
     public void UseItem()
@@ -116,6 +156,9 @@ public class ItemDetailPanel : MonoBehaviour
         if (useButton != null)
             useButton.interactable = false;
 
+        if (equipButton != null)
+            equipButton.interactable = false;
+
         currentItem.onUse?.Invoke();
 
         if (currentItem.IsEquipment())
@@ -123,7 +166,7 @@ public class ItemDetailPanel : MonoBehaviour
             if (currentItem is EquipmentData eq)
                 EquipEquipment(eq);
             else
-                Debug.LogError($"{currentItem.itemID} is flagged as Equipment but is not EquipmentData");
+                Debug.LogError($"{currentItem.itemID} IsEquipment() true ama EquipmentData değil");
 
             isProcessingUse = false;
             RefreshQuantity();
@@ -141,7 +184,11 @@ public class ItemDetailPanel : MonoBehaviour
 
             if (useButton != null)
                 useButton.interactable = true;
+
+            return;
         }
+
+        RefreshQuantity();
     }
 
     void RefreshQuantity()
@@ -149,7 +196,7 @@ public class ItemDetailPanel : MonoBehaviour
         if (currentItem == null || InventoryManager.Instance == null)
             return;
 
-        int qty = InventoryManager.Instance.GetQuantity(currentItem);
+        int qty = ResolveQuantity(currentItem, -1, currentUpgradeLevel);
 
         if (quantityText != null)
             quantityText.text = $"Sahip olunan: {qty}";
@@ -159,12 +206,14 @@ public class ItemDetailPanel : MonoBehaviour
         if (qty <= 0)
         {
             Close();
+            return;
         }
-        else
-        {
-            if (useButton != null && currentItem.useable)
-                useButton.interactable = true;
-        }
+
+        if (useButton != null && currentItem.useable)
+            useButton.interactable = true;
+
+        if (equipButton != null && currentItem.useable)
+            equipButton.interactable = true;
     }
 
     public void Close()
@@ -175,8 +224,18 @@ public class ItemDetailPanel : MonoBehaviour
             useButton.interactable = false;
         }
 
+        if (equipButton != null)
+        {
+            equipButton.onClick.RemoveAllListeners();
+            equipButton.interactable = false;
+        }
+
+        if (upgradeFusionButton != null)
+            upgradeFusionButton.SetItem(null);
+
         currentItem = null;
+        currentUpgradeLevel = 0;
         isProcessingUse = false;
-        gameObject.SetActive(false);
+        itemDetailPanel.SetActive(false);
     }
 }

@@ -4,23 +4,46 @@ using UnityEngine.UI;
 
 public class SellSlot : MonoBehaviour
 {
+    [Header("Visual")]
     public Image icon;
     public TextMeshProUGUI nameText;
     public TextMeshProUGUI quantityText;
     public TextMeshProUGUI priceText;
     public Button sellButton;
+
     private ItemData item;
+    private EquipmentData equipData;
+    private int upgradeLevel;
     private int quantity;
     private float sellRatio;
+    private bool isEquipment;
 
     public void Setup(ItemData newItem, int qty, float ratio)
     {
-        if (newItem == null)
-            return;
-
         item = newItem;
+        equipData = null;
+        upgradeLevel = 0;
         quantity = qty;
         sellRatio = ratio;
+        isEquipment = false;
+        ApplyVisuals();
+    }
+
+    public void SetupEquipment(EquipmentData data, int lvl, int qty, float ratio)
+    {
+        item = data;
+        equipData = data;
+        upgradeLevel = lvl;
+        quantity = qty;
+        sellRatio = ratio;
+        isEquipment = true;
+        ApplyVisuals();
+    }
+
+    void ApplyVisuals()
+    {
+        if (item == null)
+            return;
 
         if (icon != null)
         {
@@ -29,7 +52,7 @@ public class SellSlot : MonoBehaviour
         }
 
         if (nameText != null)
-            nameText.text = item.itemName;
+            nameText.text = (isEquipment && upgradeLevel > 0) ? $"{item.itemName} +{upgradeLevel}" : item.itemName;
 
         if (quantityText != null)
             quantityText.text = $"x{quantity}";
@@ -44,8 +67,27 @@ public class SellSlot : MonoBehaviour
         {
             sellButton.onClick.RemoveAllListeners();
             sellButton.onClick.AddListener(SellOne);
-            sellButton.interactable = InventoryManager.Instance != null && InventoryManager.Instance.GetQuantity(item) > 0;
+            RefreshButton();
         }
+    }
+
+    void RefreshButton()
+    {
+        if (sellButton == null)
+            return;
+
+        sellButton.interactable = GetCurrentQuantity() > 0;
+    }
+
+    int GetCurrentQuantity()
+    {
+        if (InventoryManager.Instance == null)
+            return 0;
+
+        if (isEquipment && equipData != null)
+            return InventoryManager.Instance.GetUpgradedQuantity(equipData, upgradeLevel);
+
+        return item != null ? InventoryManager.Instance.GetQuantity(item) : 0;
     }
 
     void SellOne()
@@ -53,18 +95,38 @@ public class SellSlot : MonoBehaviour
         if (item == null || ShopManager.Instance == null)
             return;
 
-        if (ShopManager.Instance.SellItem(item, 1, sellRatio))
+        bool sold;
+
+        if (isEquipment && equipData != null)
         {
-            quantity = InventoryManager.Instance != null ? InventoryManager.Instance.GetQuantity(item) : 0;
+            if (InventoryManager.Instance.GetUpgradedQuantity(equipData, upgradeLevel) <= 0)
+                return;
 
-            if (quantityText != null)
-                quantityText.text = $"x{quantity}";
+            int price = Mathf.RoundToInt(item.basePrice * item.GetRarityMultiplier() * sellRatio);
+            InventoryManager.Instance.RemoveUpgradedItem(equipData, upgradeLevel, 1);
 
-            if (sellButton != null)
-                sellButton.interactable = quantity > 0;
+            if (CurrencyManager.Instance != null)
+                CurrencyManager.Instance.Add(CurrencyType.Gold, price);
 
-            if (ShopUI.Instance != null)
-                ShopUI.Instance.RefreshSellPanel();
+            SaveSystem.SaveGame();
+            sold = true;
         }
+        else
+        {
+            sold = ShopManager.Instance.SellItem(item, 1, sellRatio);
+        }
+
+        if (!sold)
+            return;
+
+        quantity = GetCurrentQuantity();
+
+        if (quantityText != null)
+            quantityText.text = $"x{quantity}";
+
+        RefreshButton();
+
+        if (SellUI.Instance != null)
+            SellUI.Instance.Refresh();
     }
 }

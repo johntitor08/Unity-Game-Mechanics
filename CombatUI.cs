@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -5,6 +6,7 @@ using UnityEngine.UI;
 
 public class CombatUI : MonoBehaviour
 {
+    private static WaitForSeconds _waitForSeconds2 = new(2f);
     public static CombatUI Instance;
     private readonly List<CombatActionButton> actionButtons = new();
     private bool actionLocked;
@@ -49,25 +51,16 @@ public class CombatUI : MonoBehaviour
 
     void Start()
     {
-        if (CombatManager.Instance != null)
-        {
-            CombatManager.Instance.OnCombatStateChanged += UpdateUI;
-            CombatManager.Instance.OnCombatLog += AddLogMessage;
-            CombatManager.Instance.OnCombatStarted += OnCombatStarted;
-            CombatManager.Instance.OnCombatEnded += OnCombatEnded;
-            CombatManager.Instance.OnTurnChanged += OnTurnChanged;
-        }
-
-        if (PlayerStats.Instance != null)
-        {
-            PlayerStats.Instance.OnHealthChanged += UpdatePlayerHealth;
-            PlayerStats.Instance.OnEnergyChanged += UpdatePlayerEnergy;
-        }
-
-        combatPanel.SetActive(false);
+        if (combatPanel != null)
+            combatPanel.SetActive(false);
     }
 
-    void OnDestroy()
+    void OnEnable()
+    {
+        StartCoroutine(SubscribeWhenReady());
+    }
+
+    void OnDisable()
     {
         if (CombatManager.Instance != null)
         {
@@ -85,9 +78,25 @@ public class CombatUI : MonoBehaviour
         }
     }
 
+    IEnumerator SubscribeWhenReady()
+    {
+        while (CombatManager.Instance == null || PlayerStats.Instance == null)
+            yield return null;
+
+        CombatManager.Instance.OnCombatStateChanged += UpdateUI;
+        CombatManager.Instance.OnCombatLog += AddLogMessage;
+        CombatManager.Instance.OnCombatStarted += OnCombatStarted;
+        CombatManager.Instance.OnCombatEnded += OnCombatEnded;
+        CombatManager.Instance.OnTurnChanged += OnTurnChanged;
+        PlayerStats.Instance.OnHealthChanged += UpdatePlayerHealth;
+        PlayerStats.Instance.OnEnergyChanged += UpdatePlayerEnergy;
+    }
+
     void OnCombatStarted()
     {
-        combatPanel.SetActive(true);
+        if (combatPanel != null)
+            combatPanel.SetActive(true);
+
         logLines.Clear();
         UpdateUI();
         SetupActionButtons();
@@ -95,7 +104,16 @@ public class CombatUI : MonoBehaviour
 
     void OnCombatEnded()
     {
-        combatPanel.SetActive(false);
+        StartCoroutine(DelayedCombatClose());
+    }
+
+    IEnumerator DelayedCombatClose()
+    {
+        yield return _waitForSeconds2;
+
+        if (combatPanel != null)
+            combatPanel.SetActive(false);
+
         logLines.Clear();
         UpdateLogDisplay();
     }
@@ -121,7 +139,9 @@ public class CombatUI : MonoBehaviour
     {
         if (CombatManager.Instance == null || !CombatManager.Instance.inCombat)
         {
-            combatPanel.SetActive(false);
+            if (combatPanel != null)
+                combatPanel.SetActive(false);
+
             return;
         }
 
@@ -189,7 +209,8 @@ public class CombatUI : MonoBehaviour
         if (playerEnergyText != null)
             playerEnergyText.text = $"Energy: {current} / {max}";
 
-        RefreshActionButtonsByEnergy();
+        if (IsInCombat)
+            RefreshActionButtonsByEnergy();
     }
 
     void RefreshActionButtonsByEnergy()
@@ -204,7 +225,10 @@ public class CombatUI : MonoBehaviour
             if (btn == null)
                 continue;
 
-            btn.UpdateInteractable(currentEnergy >= btn.action.energyCost);
+            if (btn.action.isFlee)
+                btn.UpdateInteractable(true);
+            else
+                btn.UpdateInteractable(currentEnergy >= btn.action.energyCost);
         }
     }
 
@@ -222,6 +246,13 @@ public class CombatUI : MonoBehaviour
         foreach (var action in CombatManager.Instance.GetAvailableActions())
         {
             var btn = Instantiate(actionButtonPrefab, actionsParent);
+
+            if (action.isFlee)
+            {
+                int chance = Mathf.RoundToInt(CombatManager.Instance.GetFleeChance() * 100);
+                action.actionName = $"Kaç ({chance}%)";
+            }
+
             btn.Setup(action);
             actionButtons.Add(btn);
         }
@@ -270,6 +301,7 @@ public class CombatUI : MonoBehaviour
 
     public void CloseButton()
     {
-        combatMapPanel.SetActive(false);
+        if (combatMapPanel != null)
+            combatMapPanel.SetActive(false);
     }
 }

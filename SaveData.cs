@@ -4,8 +4,6 @@ using System.Collections.Generic;
 [Serializable]
 public class SaveData
 {
-    public List<string> itemIDs = new();
-    public List<int> itemCounts = new();
     public string currentScene;
     public List<string> storyFlags = new();
     public List<StatType> statTypes = new();
@@ -20,6 +18,8 @@ public class SaveData
     public int currentDay = 1;
     public float phaseProgress = 0f;
     public List<EquippedItemSave> equippedItems = new();
+    public List<string> inventoryKeys = new();
+    public List<int> inventoryCounts = new();
     public List<CurrencyType> currencyTypes = new();
     public List<int> currencyAmounts = new();
     public List<string> completedScenarios = new();
@@ -37,6 +37,7 @@ public class EquippedItemSave
 {
     public EquipmentSlot slot;
     public string itemID;
+    public int upgradeLevel;
 }
 
 [Serializable]

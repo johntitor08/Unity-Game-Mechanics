@@ -11,10 +11,7 @@ public class InventoryUI : MonoBehaviour
     public Transform content;
     public ItemSlot slotPrefab;
 
-    void Awake()
-    {
-        Instance = this;
-    }
+    void Awake() => Instance = this;
 
     void Update()
     {
@@ -50,20 +47,28 @@ public class InventoryUI : MonoBehaviour
     {
         int index = 0;
 
-        foreach (var pair in InventoryManager.Instance.GetItems())
+        foreach (var (inst, qty) in InventoryManager.Instance.GetEquipmentInstances())
         {
-            if (index >= slots.Count)
-            {
-                var s = Instantiate(slotPrefab, content);
-                slots.Add(s);
-            }
+            EnsureSlot(index).Setup(inst.baseData.itemID, qty, inst.upgradeLevel);
+            index++;
+        }
 
-            slots[index].Setup(pair.Key, pair.Value);
-            slots[index].gameObject.SetActive(true);
+        foreach (var (item, qty) in InventoryManager.Instance.GetNonEquipmentItems())
+        {
+            EnsureSlot(index).Setup(item.itemID, qty, 0);
             index++;
         }
 
         for (int i = index; i < slots.Count; i++)
             slots[i].gameObject.SetActive(false);
+    }
+
+    ItemSlot EnsureSlot(int index)
+    {
+        if (index >= slots.Count)
+            slots.Add(Instantiate(slotPrefab, content));
+
+        slots[index].gameObject.SetActive(true);
+        return slots[index];
     }
 }

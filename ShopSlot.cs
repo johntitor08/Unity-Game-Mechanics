@@ -11,6 +11,10 @@ public class ShopSlot : MonoBehaviour
     private ShopItemData currentItem;
     private bool isPurchasing;
     private readonly List<TextMeshProUGUI> spawnedStatTexts = new();
+    private RectTransform btnRect;
+    private Vector2 originalSize;
+    private string originalText;
+    private Color originalColor;
 
     [Header("Visual Elements")]
     public Image itemIcon;
@@ -69,6 +73,9 @@ public class ShopSlot : MonoBehaviour
     {
         if (ProfileManager.Instance != null)
             ProfileManager.Instance.OnCurrencyChanged -= RefreshVisuals;
+
+        if (isPurchasing)
+            ResetVisuals();
     }
 
     public void Setup(ShopItemData shopItem)
@@ -91,6 +98,7 @@ public class ShopSlot : MonoBehaviour
         if (priceText != null)
             priceText.text = $"{shopItem.price}";
 
+        GetProperties();
         UpdateStockDisplay();
         SetupRarity(shopItem.item);
         SetupRequirements(shopItem);
@@ -197,6 +205,14 @@ public class ShopSlot : MonoBehaviour
         }
     }
 
+    void GetProperties()
+    {
+        btnRect = buyButton.GetComponent<RectTransform>();
+        originalSize = btnRect != null ? btnRect.sizeDelta : Vector2.zero;
+        originalText = buyButtonText.text;
+        originalColor = buyButtonText.color;
+    }
+
     void SetupProperties(ItemData item)
     {
         if (propertiesText == null)
@@ -249,7 +265,7 @@ public class ShopSlot : MonoBehaviour
         }
     }
 
-    void UpdateVisuals(ShopItemData shopItem, bool canBuy)
+    void UpdateVisuals(bool canBuy)
     {
         if (buyButton == null || buyButtonText == null || background == null || ProfileManager.Instance == null)
             return;
@@ -282,11 +298,30 @@ public class ShopSlot : MonoBehaviour
 
         bool canBuy = ShopManager.Instance.CanBuy(currentItem);
         SetupRequirements(currentItem);
-        UpdateVisuals(currentItem, canBuy);
+        UpdateVisuals(canBuy);
+    }
+
+    void ResetVisuals()
+    {
+        isPurchasing = false;
+
+        if (buyButtonText != null)
+        {
+            buyButtonText.text = originalText;
+            buyButtonText.color = originalColor;
+        }
+
+        if (btnRect != null)
+            btnRect.sizeDelta = originalSize;
+
+        if (currentItem != null)
+            RefreshVisuals(ProfileManager.Instance != null ? ProfileManager.Instance.profile : null);
     }
 
     public void Close()
     {
+        StopAllCoroutines();
+        isPurchasing = false;
         gameObject.SetActive(false);
     }
 
@@ -295,43 +330,39 @@ public class ShopSlot : MonoBehaviour
         if (isPurchasing || ShopManager.Instance == null || currentItem == null)
             return;
 
-        isPurchasing = true;
-
-        if (ShopManager.Instance.BuyItem(currentItem))
-            StartCoroutine(PurchaseFeedback());
-        else
+        if (!ShopManager.Instance.BuyItem(currentItem))
         {
-            isPurchasing = false;
             StartCoroutine(FailureFeedback());
+            return;
         }
+
+        isPurchasing = true;
+        StartCoroutine(PurchaseFeedback());
     }
 
     IEnumerator PurchaseFeedback()
     {
-        if (buyButtonText == null)
+        if (!gameObject.activeInHierarchy || buyButtonText == null || btnRect == null)
         {
             isPurchasing = false;
             yield break;
         }
 
-        RectTransform btnRect = buyButton.GetComponent<RectTransform>();
-        Vector2 originalSize = btnRect != null ? btnRect.sizeDelta : Vector2.zero;
-
-        if (btnRect != null)
-            btnRect.sizeDelta = new Vector2(originalSize.x + 50f, originalSize.y);
-
-        string originalText = buyButtonText.text;
-        Color originalColor = buyButtonText.color;
+        btnRect.sizeDelta = new Vector2(originalSize.x + 50f, originalSize.y);
         buyButtonText.text = "PURCHASED!";
         buyButtonText.color = Color.green;
         buyButton.interactable = false;
         yield return waitForSeconds0_5;
+
+        if (!gameObject.activeInHierarchy)
+        {
+            isPurchasing = false;
+            yield break;
+        }
+
+        btnRect.sizeDelta = originalSize;
         buyButtonText.text = originalText;
         buyButtonText.color = originalColor;
-
-        if (btnRect != null)
-            btnRect.sizeDelta = originalSize;
-
         UpdateStockDisplay();
         RefreshVisuals(ProfileManager.Instance != null ? ProfileManager.Instance.profile : null);
         isPurchasing = false;
@@ -342,7 +373,7 @@ public class ShopSlot : MonoBehaviour
 
     IEnumerator FailureFeedback()
     {
-        if (background == null)
+        if (!gameObject.activeInHierarchy || background == null)
         {
             isPurchasing = false;
             yield break;
@@ -354,6 +385,13 @@ public class ShopSlot : MonoBehaviour
         {
             background.color = Color.red * 0.5f;
             yield return waitForSeconds0_1;
+
+            if (!gameObject.activeInHierarchy)
+            {
+                isPurchasing = false;
+                yield break;
+            }
+
             background.color = original;
             yield return waitForSeconds0_1;
         }

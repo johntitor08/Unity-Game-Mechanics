@@ -5,6 +5,8 @@ using System.Collections.Generic;
 
 public class CombatManager : MonoBehaviour
 {
+    private static WaitForSeconds _waitForSeconds2 = new WaitForSeconds(2f);
+
     public static CombatManager Instance { get; private set; }
     public event Action<string> OnCombatLog;
     public event Action OnCombatStarted;
@@ -30,26 +32,27 @@ public class CombatManager : MonoBehaviour
     private readonly List<CombatAction> unlockedActions = new();
 
     [Header("Turn Settings")]
-    [Tooltip("Delay between player action and enemy turn")]
     public float turnDelay = 1f;
-    [Tooltip("Delay before enemy executes their action")]
     public float enemyActionDelay = 1.5f;
 
     [Header("Combat Balancing")]
     [Range(0f, 1f)]
-    [Tooltip("Base critical hit chance (before luck modifiers)")]
     public float baseCritChance = 0.1f;
-    [Tooltip("Damage multiplier for critical hits")]
     public float critDamageMultiplier = 1.5f;
-    [Tooltip("Maximum defense bonus cap")]
     public int maxDefenseBonus = 50;
-    [Tooltip("Defense decay per turn")]
     public int defenseDecayPerTurn = 2;
     [Tooltip("Defense mitigation softcap divisor — higher = weaker defense")]
     public float defenseSoftcap = 100f;
     [Tooltip("Maximum damage reduction from defense (0–1)")]
     [Range(0f, 1f)]
     public float maxDamageReduction = 0.75f;
+
+    [Header("Flee Settings")]
+    [Tooltip("Base flee success chance (0–1)")]
+    [Range(0f, 1f)]
+    public float baseFleeChance = 0.3f;
+    public float fleeSpeedScaling = 0.005f;
+    public int fleeEnergyGain = 20;
 
     [Header("Status Effects")]
     public StatusEffectData stunEffect;
@@ -161,9 +164,10 @@ public class CombatManager : MonoBehaviour
         }
 
         currentEnemy = enemy;
-        InitializeEnemyStats();
-        ResetCombatState();
         inCombat = true;
+        InitializeEnemyStats();
+        SubscribeToEnemyEvents();
+        ResetCombatState();
         NotifyCombatStarted();
     }
 
@@ -185,7 +189,7 @@ public class CombatManager : MonoBehaviour
     private void NotifyCombatStarted()
     {
         PlayerStats.enableHealthRegen = false;
-        PlayerStats.enableEnergyRegen = true;
+        PlayerStats.enableEnergyRegen = false;
         OnCombatStarted?.Invoke();
         OnTurnChanged?.Invoke(true);
         OnCombatStateChanged?.Invoke();
@@ -193,6 +197,12 @@ public class CombatManager : MonoBehaviour
 
     public void ExecutePlayerAction(CombatAction action)
     {
+        if (action.isFlee)
+        {
+            TryFleeAction();
+            return;
+        }
+
         if (!CanExecutePlayerAction(action))
             return;
 
@@ -227,9 +237,60 @@ public class CombatManager : MonoBehaviour
         PlayerStats.Modify(StatType.Energy, -cost);
     }
 
+    public void TryFleeAction()
+    {
+        if (!inCombat || !IsPlayerTurn())
+            return;
+
+        waitingForInput = false;
+        int speed = PlayerStats != null ? PlayerStats.Get(StatType.Speed) : 0;
+        float fleeChance = Mathf.Clamp01(baseFleeChance + speed * fleeSpeedScaling);
+        bool success = UnityEngine.Random.value <= fleeChance;
+
+        if (success)
+        {
+            int gained = fleeEnergyGain;
+            PlayerStats.Modify(StatType.Energy, gained);
+            Log($"Kaçmayı başardın! +{gained} enerji kazandın.");
+            OnCombatStateChanged?.Invoke();
+            FleeCombat();
+        }
+        else
+        {
+            Log($"Kaçmaya çalıştın ama başarısız oldun! (%{Mathf.RoundToInt(fleeChance * 100)} şans)");
+            OnCombatStateChanged?.Invoke();
+            Invoke(nameof(StartEnemyTurn), turnDelay);
+        }
+    }
+
+    public float GetFleeChance()
+    {
+        int speed = PlayerStats != null ? PlayerStats.Get(StatType.Speed) : 0;
+        return Mathf.Clamp01(baseFleeChance + speed * fleeSpeedScaling);
+    }
+
+    private void FleeCombat()
+    {
+        if (combatResolved)
+            return;
+
+        combatResolved = true;
+        EndCombat();
+    }
+
+    void StartPlayerTurn()
+    {
+        if (!inCombat || combatResolved)
+            return;
+
+        isPlayerTurn = true;
+        waitingForInput = true;
+        OnTurnChanged?.Invoke(true);
+    }
+
     void StartEnemyTurn()
     {
-        if (!inCombat)
+        if (!inCombat || combatResolved)
             return;
 
         isPlayerTurn = false;
@@ -237,11 +298,27 @@ public class CombatManager : MonoBehaviour
         Invoke(nameof(ExecuteEnemyAction), enemyActionDelay);
     }
 
-    void StartPlayerTurn()
+    private void SubscribeToEnemyEvents()
     {
-        isPlayerTurn = true;
-        waitingForInput = true;
-        OnTurnChanged?.Invoke(true);
+        if (enemyStats != null && enemyStats.TryGetComponent<StatusEffectManager>(out var fx))
+            fx.OnEffectTick += OnEnemyEffectTick;
+    }
+
+    private void UnsubscribeFromEnemyEvents()
+    {
+        if (enemyStats != null && enemyStats.TryGetComponent<StatusEffectManager>(out var fx))
+            fx.OnEffectTick -= OnEnemyEffectTick;
+    }
+
+    private void OnEnemyEffectTick(StatusEffectData data, int damage)
+    {
+        if (!inCombat || combatResolved)
+            return;
+
+        Log($"{currentEnemy.enemyName} takes {damage} {data.effectName} damage.");
+
+        if (IsEnemyDefeated())
+            ResolveCombat(true);
     }
 
     private void HandleDefensiveAction(CombatAction action)
@@ -270,7 +347,7 @@ public class CombatManager : MonoBehaviour
         ApplyDamageToEnemy(damage);
 
         if (IsEnemyDefeated())
-            StartCoroutine(HandleVictoryAfterDelay(turnDelay));
+            ResolveCombat(true);
     }
 
     private int CalculatePlayerDamage(CombatAction action)
@@ -370,6 +447,12 @@ public class CombatManager : MonoBehaviour
         {
             effects.OnEnemyTurnStart();
 
+            if (IsEnemyDefeated() && !combatResolved)
+            {
+                StartCoroutine(HandleVictoryAfterDelay(turnDelay));
+                return;
+            }
+
             if (!effects.CanAct())
             {
                 Log($"{currentEnemy.enemyName} is stunned and cannot act!");
@@ -399,7 +482,7 @@ public class CombatManager : MonoBehaviour
 
     private bool CanExecuteEnemyAction()
     {
-        return inCombat && enemyStats != null && currentEnemy != null;
+        return inCombat && !combatResolved && enemyStats != null && currentEnemy != null;
     }
 
     private int GetEnemyTotalDefense()
@@ -496,9 +579,9 @@ public class CombatManager : MonoBehaviour
 
     private void Defend()
     {
-        int defenseBonus = Mathf.RoundToInt(currentEnemy.defense * 0.5f);
+        int defenseBonus = Mathf.Max(15, Mathf.RoundToInt(currentEnemy.defense * 1.2f));
         enemyDefenseBonus = Mathf.Clamp(enemyDefenseBonus + defenseBonus, 0, maxDefenseBonus);
-        Log($"{currentEnemy.enemyName} defends! (Total Defense: {GetEnemyTotalDefense()})");
+        Log($"{currentEnemy.enemyName} defends! (+{defenseBonus} | Total: {GetEnemyTotalDefense()})");
     }
 
     private void SpecialAttack()
@@ -556,6 +639,19 @@ public class CombatManager : MonoBehaviour
             return;
 
         if (!PlayerStats.IsAlive())
+            ResolveCombat(false);
+    }
+
+    private void ResolveCombat(bool victory)
+    {
+        if (combatResolved)
+            return;
+
+        combatResolved = true;
+
+        if (victory)
+            StartCoroutine(HandleVictoryAfterDelay(turnDelay));
+        else
             StartCoroutine(HandleDefeatAfterDelay(turnDelay));
     }
 
@@ -563,25 +659,44 @@ public class CombatManager : MonoBehaviour
     {
         Log($"Defeated {currentEnemy.enemyName}!");
         yield return new WaitForSeconds(delay);
-        Victory();
+        GrantVictoryRewards();
+        DropEnemyLoot();
+        OnCombatEnded?.Invoke();
+        yield return _waitForSeconds2;
+        EndCombatInternal();
     }
 
     IEnumerator HandleDefeatAfterDelay(float delay)
     {
         Log("You have been defeated and lost some currency.");
         yield return new WaitForSeconds(delay);
-        Defeat();
+        ApplyDefeatPenalties();
+        OnCombatEnded?.Invoke();
+        yield return _waitForSeconds2;
+        EndCombatInternal();
     }
 
-    private void Victory()
+    private void EndCombat()
     {
-        if (combatResolved)
-            return;
+        OnCombatEnded?.Invoke();
+        EndCombatInternal();
+    }
 
-        combatResolved = true;
-        GrantVictoryRewards();
-        DropEnemyLoot();
-        EndCombat();
+    private void EndCombatInternal()
+    {
+        inCombat = false;
+        UnsubscribeFromEnemyEvents();
+        ClearAllBuffs();
+        ClearEnemyStatusEffects();
+        ResetCombatVariables();
+        PlayerStats.enableHealthRegen = true;
+        PlayerStats.enableEnergyRegen = true;
+        OnCombatStateChanged?.Invoke();
+
+        if (ProfileUI.Instance != null)
+            ProfileUI.Instance.RefreshAll();
+
+        SaveSystem.SaveGame();
     }
 
     private void GrantVictoryRewards()
@@ -608,16 +723,6 @@ public class CombatManager : MonoBehaviour
             Debug.LogWarning("No EnemyLoot component found on enemy!");
     }
 
-    private void Defeat()
-    {
-        if (combatResolved)
-            return;
-
-        combatResolved = true;
-        ApplyDefeatPenalties();
-        EndCombat();
-    }
-
     private void ApplyDefeatPenalties()
     {
         int healAmount = PlayerStats.Get(StatType.MaxHealth) / 3;
@@ -629,24 +734,6 @@ public class CombatManager : MonoBehaviour
             int currencyLoss = Mathf.Min(currentGold / 4, 50);
             CurrencyManager.Instance.Spend(CurrencyType.Gold, currencyLoss);
         }
-    }
-
-    private void EndCombat()
-    {
-        inCombat = false;
-        ClearAllBuffs();
-        ClearEnemyStatusEffects();
-        ResetCombatVariables();
-        RestorePlayerEnergy();
-        PlayerStats.enableHealthRegen = true;
-        PlayerStats.enableEnergyRegen = true;
-        OnCombatEnded?.Invoke();
-        OnCombatStateChanged?.Invoke();
-
-        if (ProfileUI.Instance != null)
-            ProfileUI.Instance.RefreshAll();
-
-        SaveSystem.SaveGame();
     }
 
     private void ClearEnemyStatusEffects()
@@ -675,7 +762,7 @@ public class CombatManager : MonoBehaviour
         waitingForInput = true;
     }
 
-    private void RestorePlayerEnergy()
+    public void RestorePlayerEnergy()
     {
         int maxEnergy = PlayerStats.Get(StatType.MaxEnergy);
         int currentEnergy = PlayerStats.Get(StatType.Energy);

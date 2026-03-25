@@ -88,18 +88,18 @@ public class ProfileUI : MonoBehaviour
     [Header("Database")]
     public ProfileIconDatabase iconDatabase;
 
-    private void Awake()
+    void Awake()
     {
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
             return;
-
         }
+
         Instance = this;
     }
 
-    private void OnEnable()
+    void OnEnable()
     {
         if (ProfileManager.Instance != null)
         {
@@ -133,7 +133,7 @@ public class ProfileUI : MonoBehaviour
         RefreshAll();
     }
 
-    private void OnDisable()
+    void OnDisable()
     {
         if (ProfileManager.Instance != null)
         {
@@ -164,17 +164,17 @@ public class ProfileUI : MonoBehaviour
 
         foreach (var kvp in _originalTextScales)
         {
-            var text = GetTextForStat(kvp.Key);
+            var t = GetTextForStat(kvp.Key);
 
-            if (text != null)
-                text.transform.localScale = kvp.Value;
+            if (t != null)
+                t.transform.localScale = kvp.Value;
         }
 
         _pulseCoroutines.Clear();
         System.Array.Clear(pendingStatIncreases, 0, pendingStatIncreases.Length);
     }
 
-    private void Update()
+    void Update()
     {
         if (Input.GetKeyDown(toggleKey) && profilePanel != null)
         {
@@ -185,43 +185,42 @@ public class ProfileUI : MonoBehaviour
         }
     }
 
-    private void SetupEquipmentSlots()
+    (Button btn, Image icon, EquipmentSlot slot)[] SlotDefs() => new[]
     {
-        (Button slot, Image icon, EquipmentSlot slotType)[] defs =
-        {
-            (slot1, slot1Icon, EquipmentSlot.Weapon),
-            (slot2, slot2Icon, EquipmentSlot.Armor),
-            (slot3, slot3Icon, EquipmentSlot.Helmet),
-            (slot4, slot4Icon, EquipmentSlot.Accessory),
-            (slot5, slot5Icon, EquipmentSlot.Shield),
-            (slot6, slot6Icon, EquipmentSlot.Boots),
-        };
+        (slot1, slot1Icon, EquipmentSlot.Weapon),
+        (slot2, slot2Icon, EquipmentSlot.Armor),
+        (slot3, slot3Icon, EquipmentSlot.Helmet),
+        (slot4, slot4Icon, EquipmentSlot.Accessory),
+        (slot5, slot5Icon, EquipmentSlot.Shield),
+        (slot6, slot6Icon, EquipmentSlot.Boots),
+    };
 
-        foreach (var (slot, _, slotType) in defs)
+    void SetupEquipmentSlots()
+    {
+        foreach (var (btn, _, slotType) in SlotDefs())
         {
-            if (slot == null)
+            if (btn == null)
                 continue;
 
             EquipmentSlot captured = slotType;
-            slot.onClick.RemoveAllListeners();
-            slot.onClick.AddListener(() => OnSlotClicked(captured));
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => OnSlotClicked(captured));
         }
 
         RefreshEquipmentSlots();
     }
 
-    private void OnSlotClicked(EquipmentSlot slotType)
+    void OnSlotClicked(EquipmentSlot slotType)
     {
-        if (EquipmentManager.Instance == null)
+        if (EquipmentManager.Instance == null || EquipmentInfoPanel.Instance == null)
             return;
 
-        EquipmentData eq = EquipmentManager.Instance.GetEquipped(slotType);
+        EquipmentInstance inst = EquipmentManager.Instance.GetEquipped(slotType);
 
-        if (eq == null)
+        if (inst == null)
             return;
 
-        if (EquipmentInfoPanel.Instance != null)
-            EquipmentInfoPanel.Instance.ShowPanel(eq, EquipmentInfoPanel.PanelMode.Detail);
+        EquipmentInfoPanel.Instance.ShowPanel(inst, EquipmentInfoPanel.PanelMode.Detail);
     }
 
     public void RefreshEquipmentSlots()
@@ -229,41 +228,33 @@ public class ProfileUI : MonoBehaviour
         if (EquipmentManager.Instance == null)
             return;
 
-        (Button slot, Image icon, EquipmentSlot slotType)[] defs =
+        foreach (var (btn, icon, slotType) in SlotDefs())
         {
-            (slot1, slot1Icon, EquipmentSlot.Weapon),
-            (slot2, slot2Icon, EquipmentSlot.Armor),
-            (slot3, slot3Icon, EquipmentSlot.Helmet),
-            (slot4, slot4Icon, EquipmentSlot.Accessory),
-            (slot5, slot5Icon, EquipmentSlot.Shield),
-            (slot6, slot6Icon, EquipmentSlot.Boots),
-        };
+            if (btn == null)
+                continue;
 
-        foreach (var (slot, icon, slotType) in defs)
-        {
-            if (slot == null) continue;
-
-            EquipmentData eq = EquipmentManager.Instance.GetEquipped(slotType);
-            bool filled = eq != null;
+            EquipmentInstance inst = EquipmentManager.Instance.GetEquipped(slotType);
+            bool filled = inst != null;
+            var data = inst?.baseData;
 
             if (icon != null)
             {
-                icon.sprite = filled ? eq.icon : null;
+                icon.sprite = filled ? data.icon : null;
                 icon.enabled = filled;
             }
 
-            if (slot.TryGetComponent<Image>(out var slotImg))
+            if (btn.TryGetComponent<Image>(out var slotImg))
             {
-                slotImg.sprite = filled ? GetRarityBorder(eq.equipmentRarity) : emptyBorder;
+                slotImg.sprite = filled ? GetRarityBorder(data.rarity) : emptyBorder;
                 slotImg.color = Color.white;
             }
 
-            var clickable = slot.GetComponent<ClickableIcon>();
+            var clickable = btn.GetComponent<ClickableIcon>();
 
             if (filled)
             {
                 if (clickable == null)
-                    clickable = slot.gameObject.AddComponent<ClickableIcon>();
+                    clickable = btn.gameObject.AddComponent<ClickableIcon>();
             }
             else
             {
@@ -271,35 +262,35 @@ public class ProfileUI : MonoBehaviour
                     Destroy(clickable);
             }
 
-            slot.interactable = filled;
+            btn.interactable = filled;
         }
 
         UpdateHealthBar();
     }
 
-    private Sprite GetRarityBorder(EquipmentRarity rarity) => rarity switch
+    Sprite GetRarityBorder(Rarity rarity) => rarity switch
     {
-        EquipmentRarity.Common => commonBorder,
-        EquipmentRarity.Rare => rareBorder,
-        EquipmentRarity.Epic => epicBorder,
-        EquipmentRarity.Legendary => legendaryBorder,
-        EquipmentRarity.Godly => godlyBorder,
+        Rarity.Common => commonBorder,
+        Rarity.Rare => rareBorder,
+        Rarity.Epic => epicBorder,
+        Rarity.Legendary => legendaryBorder,
+        Rarity.Godly => godlyBorder,
         _ => emptyBorder
     };
 
-    private void SubscribeToStats()
+    void SubscribeToStats()
     {
-        if (PlayerStats.Instance != null && !statsSubscribed)
-        {
-            PlayerStats.Instance.OnHealthChanged += UpdateHealthBar;
-            PlayerStats.Instance.OnEnergyChanged += UpdateEnergyBar;
-            PlayerStats.Instance.OnStatChanged += OnStatChanged;
-            statsSubscribed = true;
-            RefreshAll();
-        }
+        if (PlayerStats.Instance == null || statsSubscribed)
+            return;
+
+        PlayerStats.Instance.OnHealthChanged += UpdateHealthBar;
+        PlayerStats.Instance.OnEnergyChanged += UpdateEnergyBar;
+        PlayerStats.Instance.OnStatChanged += OnStatChanged;
+        statsSubscribed = true;
+        RefreshAll();
     }
 
-    private void OnProfileManagerReady()
+    void OnProfileManagerReady()
     {
         ProfileManager.OnReady -= OnProfileManagerReady;
         ProfileManager.Instance.OnProfileChanged -= RefreshProfile;
@@ -309,15 +300,15 @@ public class ProfileUI : MonoBehaviour
         RefreshAll();
     }
 
-    private void OnEquipmentManagerReady()
+    void OnEquipmentManagerReady()
     {
+        EquipmentManager.OnReady -= OnEquipmentManagerReady;
         EquipmentManager.Instance.OnEquipmentChanged -= RefreshEquipmentSlots;
         EquipmentManager.Instance.OnEquipmentChanged += RefreshEquipmentSlots;
         SetupEquipmentSlots();
-        EquipmentManager.OnReady -= OnEquipmentManagerReady;
     }
 
-    private void WireStatButtons()
+    void WireStatButtons()
     {
         WireIncrDec(strengthIncrementButton, strengthDecrementButton, StatType.Strength, 0);
         WireIncrDec(intelligenceIncrementButton, intelligenceDecrementButton, StatType.Intelligence, 1);
@@ -328,22 +319,21 @@ public class ProfileUI : MonoBehaviour
         RefreshStatButtons();
     }
 
-    private void WireIncrDec(Button incr, Button decr, StatType type, int index)
+    void WireIncrDec(Button incr, Button decr, StatType type, int index)
     {
         if (incr != null)
         {
-            incr.onClick.RemoveAllListeners();
-            incr.onClick.AddListener(() => IncrementStat(type, index));
+            incr.onClick.RemoveAllListeners(); incr.onClick.AddListener(() => IncrementStat(type, index));
         }
 
         if (decr != null)
         {
-            decr.onClick.RemoveAllListeners();
-            decr.onClick.AddListener(() => DecrementStat(type, index));
+            decr.onClick.RemoveAllListeners(); decr.onClick.AddListener(() => DecrementStat(type, index));
         }
+
     }
 
-    private void IncrementStat(StatType type, int index)
+    void IncrementStat(StatType type, int index)
     {
         if (ProfileManager.Instance == null)
             return;
@@ -361,7 +351,7 @@ public class ProfileUI : MonoBehaviour
         SaveSystem.SaveGame();
     }
 
-    private void DecrementStat(StatType type, int index)
+    void DecrementStat(StatType type, int index)
     {
         if (pendingStatIncreases[index] <= 0 || PlayerStats.Instance == null)
             return;
@@ -377,19 +367,19 @@ public class ProfileUI : MonoBehaviour
         SaveSystem.SaveGame();
     }
 
-    private void RefreshStatButtons()
+    void RefreshStatButtons()
     {
         if (ProfileManager.Instance == null)
             return;
 
-        int availablePoints = ProfileManager.Instance.profile?.statPoints ?? 0;
-        bool canIncrement = availablePoints > 0;
-        SetIncrementButton(strengthIncrementButton, canIncrement);
-        SetIncrementButton(intelligenceIncrementButton, canIncrement);
-        SetIncrementButton(charismaIncrementButton, canIncrement);
-        SetIncrementButton(defenseIncrementButton, canIncrement);
-        SetIncrementButton(speedIncrementButton, canIncrement);
-        SetIncrementButton(luckIncrementButton, canIncrement);
+        int pts = ProfileManager.Instance.profile?.statPoints ?? 0;
+        bool can = pts > 0;
+        SetIncrementButton(strengthIncrementButton, can);
+        SetIncrementButton(intelligenceIncrementButton, can);
+        SetIncrementButton(charismaIncrementButton, can);
+        SetIncrementButton(defenseIncrementButton, can);
+        SetIncrementButton(speedIncrementButton, can);
+        SetIncrementButton(luckIncrementButton, can);
         SetButtonInteractable(strengthDecrementButton, pendingStatIncreases[0] > 0);
         SetButtonInteractable(intelligenceDecrementButton, pendingStatIncreases[1] > 0);
         SetButtonInteractable(charismaDecrementButton, pendingStatIncreases[2] > 0);
@@ -398,20 +388,18 @@ public class ProfileUI : MonoBehaviour
         SetButtonInteractable(luckDecrementButton, pendingStatIncreases[5] > 0);
     }
 
-    private void SetIncrementButton(Button btn, bool canIncrement)
+    void SetIncrementButton(Button btn, bool canIncrement)
     {
         if (btn == null)
             return;
 
         btn.interactable = canIncrement;
 
-        if (!btn.TryGetComponent<Image>(out var img))
-            return;
-
-        img.sprite = canIncrement && incrementButtonAvailable != null ? incrementButtonAvailable : incrementButtonDefault;
+        if (btn.TryGetComponent<Image>(out var img))
+            img.sprite = canIncrement && incrementButtonAvailable != null ? incrementButtonAvailable : incrementButtonDefault;
     }
 
-    private static void SetButtonInteractable(Button btn, bool state)
+    static void SetButtonInteractable(Button btn, bool state)
     {
         if (btn != null)
             btn.interactable = state;
@@ -439,7 +427,8 @@ public class ProfileUI : MonoBehaviour
         playerNameText.text = profile.playerName;
         levelText.text = $"Level {profile.level}";
         int gold = CurrencyManager.Instance != null ? CurrencyManager.Instance.Get(CurrencyType.Gold) : 0;
-        currencyText.text = $"{gold} Gold"; expBar.maxValue = Mathf.Max(1, profile.experienceToNextLevel);
+        currencyText.text = $"{gold} Gold";
+        expBar.maxValue = Mathf.Max(1, profile.experienceToNextLevel);
         expBar.value = Mathf.Clamp(profile.experience, 0, profile.experienceToNextLevel);
         expText.text = $"{profile.experience} / {profile.experienceToNextLevel} XP";
 
@@ -455,7 +444,7 @@ public class ProfileUI : MonoBehaviour
         RefreshStatButtons();
     }
 
-    private void RefreshStatPointsText()
+    void RefreshStatPointsText()
     {
         if (statPointsText == null || ProfileManager.Instance == null)
             return;
@@ -465,7 +454,7 @@ public class ProfileUI : MonoBehaviour
         statPointsText.color = pts > 0 ? Color.yellow : Color.white;
     }
 
-    private void RefreshAllStats()
+    void RefreshAllStats()
     {
         if (PlayerStats.Instance == null)
             return;
@@ -478,47 +467,50 @@ public class ProfileUI : MonoBehaviour
         luckText.text = $"Luck: {PlayerStats.Instance.Get(StatType.Luck)}";
     }
 
-    private void OnStatChanged(StatType type, int oldValue, int newValue)
+    void OnStatChanged(StatType type, int oldValue, int newValue)
     {
-        int displayValue = PlayerStats.Instance?.Get(type) ?? 0;
+        if (PlayerStats.Instance == null)
+            return;
+
+        int val = PlayerStats.Instance.Get(type);
 
         switch (type)
         {
             case StatType.Strength:
-                strengthText.text = $"Strength: {displayValue}";
+                strengthText.text = $"Strength: {val}";
                 break;
 
             case StatType.Intelligence:
-                intelligenceText.text = $"Intelligence: {displayValue}";
+                intelligenceText.text = $"Intelligence: {val}";
                 break;
 
             case StatType.Charisma:
-                charismaText.text = $"Charisma: {displayValue}";
+                charismaText.text = $"Charisma: {val}";
                 break;
 
             case StatType.Defense:
-                defenseText.text = $"Defense: {displayValue}";
+                defenseText.text = $"Defense: {val}";
                 break;
 
             case StatType.Speed:
-                speedText.text = $"Speed: {displayValue}";
+                speedText.text = $"Speed: {val}";
                 break;
 
             case StatType.Luck:
-                luckText.text = $"Luck: {displayValue}";
+                luckText.text = $"Luck: {val}";
                 break;
         }
 
-        if (type != StatType.Health && type != StatType.Energy)
-        {
-            if (_pulseCoroutines.TryGetValue(type, out Coroutine existing) && existing != null)
-                StopCoroutine(existing);
+        if (type == StatType.Health || type == StatType.Energy)
+            return;
 
-            _pulseCoroutines[type] = StartCoroutine(PulseText(type, GetTextForStat(type)));
-        }
+        if (_pulseCoroutines.TryGetValue(type, out var existing) && existing != null)
+            StopCoroutine(existing);
+
+        _pulseCoroutines[type] = StartCoroutine(PulseText(type, GetTextForStat(type)));
     }
 
-    private TextMeshProUGUI GetTextForStat(StatType type) => type switch
+    TextMeshProUGUI GetTextForStat(StatType type) => type switch
     {
         StatType.Strength => strengthText,
         StatType.Intelligence => intelligenceText,
@@ -529,50 +521,50 @@ public class ProfileUI : MonoBehaviour
         _ => null
     };
 
-    private void UpdateHealthBar()
+    void UpdateHealthBar()
     {
         if (PlayerStats.Instance == null)
             return;
 
-        int currentHealth = PlayerStats.Instance.Get(StatType.Health);
-        int maxHealth = PlayerStats.Instance.Get(StatType.MaxHealth);
-        float percentage = PlayerStats.Instance.GetHealthPercentage();
+        int cur = PlayerStats.Instance.Get(StatType.Health);
+        int max = PlayerStats.Instance.Get(StatType.MaxHealth);
+        float pct = PlayerStats.Instance.GetHealthPercentage();
 
         if (healthBar != null)
         {
-            healthBar.maxValue = maxHealth;
-            healthBar.value = currentHealth;
+            healthBar.maxValue = max;
+            healthBar.value = cur;
         }
 
         if (healthText != null)
-            healthText.text = $"Health: {currentHealth} / {maxHealth}";
+            healthText.text = $"Health: {cur} / {max}";
 
         if (healthFillImage != null)
-            healthFillImage.color = percentage > 0.6f ? healthHighColor : percentage > 0.3f ? healthMediumColor : healthLowColor;
+            healthFillImage.color = pct > 0.6f ? healthHighColor : pct > 0.3f ? healthMediumColor : healthLowColor;
     }
 
-    private void UpdateEnergyBar()
+    void UpdateEnergyBar()
     {
         if (PlayerStats.Instance == null)
             return;
 
-        int currentEnergy = PlayerStats.Instance.Get(StatType.Energy);
-        int maxEnergy = PlayerStats.Instance.Get(StatType.MaxEnergy);
+        int cur = PlayerStats.Instance.Get(StatType.Energy);
+        int max = PlayerStats.Instance.Get(StatType.MaxEnergy);
 
         if (energyBar != null)
         {
-            energyBar.maxValue = maxEnergy;
-            energyBar.value = currentEnergy;
+            energyBar.maxValue = max;
+            energyBar.value = cur;
         }
 
         if (energyText != null)
-            energyText.text = $"Energy: {currentEnergy} / {maxEnergy}";
+            energyText.text = $"Energy: {cur} / {max}";
 
         if (energyFillImage != null)
             energyFillImage.color = energyColor;
     }
 
-    private IEnumerator PulseText(StatType type, TextMeshProUGUI text)
+    IEnumerator PulseText(StatType type, TextMeshProUGUI text)
     {
         if (text == null)
             yield break;
@@ -582,22 +574,19 @@ public class ProfileUI : MonoBehaviour
 
         Vector3 original = _originalTextScales[type];
         Vector3 target = original * 1.2f;
-        float duration = 0.2f;
-        float elapsed = 0f;
+        float dur = 0.2f, t = 0f;
 
-        while (elapsed < duration)
+        while (t < dur)
         {
-            elapsed += Time.deltaTime;
-            text.transform.localScale = Vector3.Lerp(original, target, elapsed / duration);
+            t += Time.deltaTime; text.transform.localScale = Vector3.Lerp(original, target, t / dur);
             yield return null;
         }
 
-        elapsed = 0f;
+        t = 0f;
 
-        while (elapsed < duration)
+        while (t < dur)
         {
-            elapsed += Time.deltaTime;
-            text.transform.localScale = Vector3.Lerp(target, original, elapsed / duration);
+            t += Time.deltaTime; text.transform.localScale = Vector3.Lerp(target, original, t / dur);
             yield return null;
         }
 

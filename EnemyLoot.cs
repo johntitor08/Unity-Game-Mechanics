@@ -22,22 +22,22 @@ public class EnemyLoot : MonoBehaviour
     [Header("Debug")]
     public bool showDropLog = true;
 
-    private static readonly Dictionary<EquipmentRarity, string> RarityColors = new()
+    private static readonly Dictionary<Rarity, string> RarityColors = new()
     {
         {
-            EquipmentRarity.Common, "#CCCCCC"
+            Rarity.Common, "#CCCCCC"
         },
         {
-            EquipmentRarity.Rare, "#3399FF"
+            Rarity.Rare, "#3399FF"
         },
         {
-            EquipmentRarity.Epic, "#CC33FF"
+            Rarity.Epic, "#CC33FF"
         },
         {
-            EquipmentRarity.Legendary, "#FF9933"
+            Rarity.Legendary, "#FF9933"
         },
         {
-            EquipmentRarity.Godly, "#CC2200"
+            Rarity.Godly, "#CC2200"
         }
     };
 
@@ -81,7 +81,7 @@ public class EnemyLoot : MonoBehaviour
                 continue;
 
             AddItemToInventory(equipment, 1);
-            string rarityColor = GetRarityColorHex(equipment.equipmentRarity);
+            string rarityColor = GetRarityColorHex(equipment.rarity);
             LogDrop($"<color={rarityColor}>{equipment.itemName}</color> (Equipment)");
         }
     }
@@ -161,7 +161,7 @@ public class EnemyLoot : MonoBehaviour
         }
     }
 
-    private string GetRarityColorHex(EquipmentRarity rarity)
+    private string GetRarityColorHex(Rarity rarity)
     {
         return RarityColors.TryGetValue(rarity, out string color) ? color : "#FFFFFF";
     }

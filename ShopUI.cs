@@ -1,13 +1,12 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using System.Collections.Generic;
 
 public class ShopUI : MonoBehaviour
 {
     public static ShopUI Instance;
     private readonly List<ShopSlot> slots = new();
-    private readonly List<SellSlot> sellSlots = new();
 
     [Header("Main Panels")]
     public GameObject shopPanel;
@@ -25,19 +24,10 @@ public class ShopUI : MonoBehaviour
     public TextMeshProUGUI marketStatusText;
     public Button closeButton;
     public Button refreshButton;
+    public Button switchToSellButton;
 
     [Header("Scroll Settings")]
     public ScrollRect shopScrollRect;
-    public ScrollRect sellScrollRect;
-
-    [Header("Sell Panel")]
-    public GameObject sellPanel;
-    public Transform sellContent;
-    public SellSlot sellSlotPrefab;
-
-    [Header("Sell Settings")]
-    [Range(0f, 1f)]
-    public float sellPriceRatio = 0.5f;
 
     void Awake()
     {
@@ -53,48 +43,46 @@ public class ShopUI : MonoBehaviour
             CurrencyManager.Instance.OnCurrencyChanged += OnGoldChanged;
 
         if (closeButton != null)
-            closeButton.onClick.AddListener(CloseShop);
+            closeButton.onClick.AddListener(CloseAll);
 
         if (refreshButton != null)
-            refreshButton.onClick.AddListener(RefreshShop);
+            refreshButton.onClick.AddListener(Refresh);
+
+        if (switchToSellButton != null)
+            switchToSellButton.onClick.AddListener(() =>
+            {
+                if (MarketUI.Instance != null)
+                    MarketUI.Instance.OpenSell();
+            });
 
         if (shopPanel != null)
             shopPanel.SetActive(false);
 
-        if (sellPanel != null)
-            sellPanel.SetActive(false);
+        if (marketClosedPanel != null)
+            marketClosedPanel.SetActive(false);
 
         UpdateCurrency();
         UpdateMarketStatus();
     }
 
-    private void OnDisable()
+    void OnDisable()
     {
         if (CurrencyManager.Instance != null)
             CurrencyManager.Instance.OnCurrencyChanged -= OnGoldChanged;
     }
 
-    public void OpenShop()
+    public void Open()
     {
-        if (MarketController.Instance != null && !MarketController.Instance.IsOpen())
-        {
-            if (marketClosedPanel != null)
-                marketClosedPanel.SetActive(true);
-
-            return;
-        }
-
-        if (sellPanel != null)
-            sellPanel.SetActive(false);
-
         if (shopPanel != null)
         {
             shopPanel.SetActive(true);
-            RefreshShop();
+            Refresh();
         }
+
+        UpdateMarketStatus();
     }
 
-    public void CloseShop()
+    public void Close()
     {
         if (shopPanel != null)
             shopPanel.SetActive(false);
@@ -103,19 +91,19 @@ public class ShopUI : MonoBehaviour
             marketClosedPanel.SetActive(false);
     }
 
-    public void OpenSell()
+    public void CloseAll()
     {
-        if (shopPanel != null)
-            shopPanel.SetActive(false);
-
-        if (sellPanel != null)
-        {
-            sellPanel.SetActive(true);
-            RefreshSellPanel();
-        }
+        if (MarketUI.Instance != null)
+            MarketUI.Instance.CloseAll();
     }
 
-    public void RefreshShop()
+    public void ShowMarketClosed()
+    {
+        if (marketClosedPanel != null)
+            marketClosedPanel.SetActive(true);
+    }
+
+    public void Refresh()
     {
         if (ShopManager.Instance == null)
             return;
@@ -142,36 +130,7 @@ public class ShopUI : MonoBehaviour
         UpdateCurrency();
     }
 
-    public void RefreshSellPanel()
-    {
-        if (InventoryManager.Instance == null || sellPanel == null)
-            return;
-
-        int index = 0;
-
-        foreach (var pair in InventoryManager.Instance.GetItems())
-        {
-            if (index >= sellSlots.Count)
-                sellSlots.Add(Instantiate(sellSlotPrefab, sellContent));
-
-            if (ItemDatabase.Instance == null)
-                continue;
-
-            ItemData item = ItemDatabase.Instance.GetByID(pair.Key);
-
-            if (item != null)
-            {
-                sellSlots[index].Setup(item, pair.Value, sellPriceRatio);
-                sellSlots[index].gameObject.SetActive(true);
-                index++;
-            }
-        }
-
-        for (int i = index; i < sellSlots.Count; i++)
-            if (sellSlots[i] != null) sellSlots[i].gameObject.SetActive(false);
-
-        ScrollToTop(sellScrollRect);
-    }
+    public void RefreshShop() => Refresh();
 
     void OnGoldChanged(CurrencyType type, int oldAmount, int newAmount)
     {

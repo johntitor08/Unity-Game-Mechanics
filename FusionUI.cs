@@ -27,7 +27,12 @@ public class FusionUI : MonoBehaviour
 
     void Awake()
     {
-        if (Instance != null) { Destroy(gameObject); return; }
+        if (Instance != null)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         Instance = this;
     }
 
@@ -40,10 +45,18 @@ public class FusionUI : MonoBehaviour
 
     public void SelectItem(EquipmentData equipment)
     {
-        if (selectedA == null || selectedA.itemID == equipment.itemID)
+        if (equipment == null)
+            return;
+
+        if (selectedA == null)
             selectedA = equipment;
-        else
+        else if (selectedB == null)
             selectedB = equipment;
+        else
+        {
+            selectedA = selectedB;
+            selectedB = equipment;
+        }
 
         RefreshSlots();
         RefreshPreview();

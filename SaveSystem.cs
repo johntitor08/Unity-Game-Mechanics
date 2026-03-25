@@ -28,13 +28,13 @@ public static class SaveSystem
 
         if (InventoryManager.Instance != null)
         {
-            data.itemIDs.Clear();
-            data.itemCounts.Clear();
+            data.inventoryKeys.Clear();
+            data.inventoryCounts.Clear();
 
-            foreach (var pair in InventoryManager.Instance.GetItems())
+            foreach (var kv in InventoryManager.Instance.GetRawStock())
             {
-                data.itemIDs.Add(pair.Key);
-                data.itemCounts.Add(pair.Value);
+                data.inventoryKeys.Add(kv.Key);
+                data.inventoryCounts.Add(kv.Value);
             }
         }
 
@@ -55,13 +55,12 @@ public static class SaveSystem
 
         if (PlayerStats.Instance != null)
         {
-            data.statTypes.Clear();
-            data.statValues.Clear();
+            data.statTypes.Clear(); data.statValues.Clear();
 
-            foreach (var stat in PlayerStats.Instance.stats)
+            foreach (var s in PlayerStats.Instance.stats)
             {
-                data.statTypes.Add(stat.type);
-                data.statValues.Add(stat.currentValue);
+                data.statTypes.Add(s.type);
+                data.statValues.Add(s.currentValue);
             }
         }
 
@@ -76,8 +75,7 @@ public static class SaveSystem
 
         if (ShopManager.Instance != null)
         {
-            data.shopStockIDs.Clear();
-            data.shopStockAmounts.Clear();
+            data.shopStockIDs.Clear(); data.shopStockAmounts.Clear();
 
             foreach (var s in ShopManager.Instance.GetStockDataForSave())
             {
@@ -91,13 +89,12 @@ public static class SaveSystem
             data.equippedItems.Clear();
 
             foreach (var kvp in EquipmentManager.Instance.GetAllEquipped())
-            {
                 data.equippedItems.Add(new EquippedItemSave
                 {
                     slot = kvp.Key,
-                    itemID = kvp.Value.itemID
+                    itemID = kvp.Value.baseData.itemID,
+                    upgradeLevel = kvp.Value.upgradeLevel
                 });
-            }
         }
 
         if (CurrencyManager.Instance != null)
@@ -119,10 +116,8 @@ public static class SaveSystem
 
             if (ScenarioManager.Instance.IsScenarioActive())
             {
-                data.activeScenarioID =
-                    ScenarioManager.Instance.GetCurrentScenario().scenarioID;
-                data.activeScenarioStep =
-                    ScenarioManager.Instance.GetCurrentStepIndex();
+                data.activeScenarioID = ScenarioManager.Instance.GetCurrentScenario().scenarioID;
+                data.activeScenarioStep = ScenarioManager.Instance.GetCurrentStepIndex();
             }
         }
 
@@ -132,7 +127,10 @@ public static class SaveSystem
 
             foreach (var quest in QuestManager.Instance.GetActiveQuests())
             {
-                QuestSaveData q = new() { questID = quest.questID };
+                QuestSaveData q = new()
+                {
+                    questID = quest.questID
+                };
 
                 foreach (var obj in quest.objectives)
                 {
@@ -163,22 +161,18 @@ public static class SaveSystem
         SceneManager.LoadScene(CachedData.currentScene);
 
         if (ProfileUI.Instance != null)
-        {
             ProfileUI.Instance.StartCoroutine(UpdateUIAfterLoad());
-        }
     }
-    
-    private static System.Collections.IEnumerator UpdateUIAfterLoad()
+
+    static System.Collections.IEnumerator UpdateUIAfterLoad()
     {
         yield return null;
 
         if (ProfileUI.Instance != null)
-        {
             ProfileUI.Instance.RefreshAll();
-        }
     }
 
-    private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         if (CachedData != null)
         {
@@ -200,12 +194,36 @@ public static class SaveSystem
         {
             InventoryManager.Instance.Clear();
 
-            for (int i = 0; i < data.itemIDs.Count; i++)
+            if (data.inventoryKeys != null && data.inventoryKeys.Count > 0)
             {
-                ItemData item = ItemDatabase.Instance.GetByID(data.itemIDs[i]);
+                for (int i = 0; i < data.inventoryKeys.Count; i++)
+                {
+                    string key = data.inventoryKeys[i];
+                    int sep = key.LastIndexOf(':');
 
-                if (item != null)
-                    InventoryManager.Instance.AddItem(item, data.itemCounts[i]);
+                    if (sep < 0)
+                        continue;
+
+                    string id = key[..sep];
+
+                    if (!int.TryParse(key[(sep + 1)..], out int lvl))
+                        continue;
+
+                    if (ItemDatabase.Instance == null)
+                        return;
+
+                    var itemData = ItemDatabase.Instance.GetByID(id);
+
+                    if (itemData == null)
+                        continue;
+
+                    int qty = data.inventoryCounts[i];
+
+                    if (itemData is EquipmentData eq)
+                        InventoryManager.Instance.AddUpgradedItem(eq, lvl, qty);
+                    else
+                        InventoryManager.Instance.AddItem(itemData, qty);
+                }
             }
         }
 
@@ -218,22 +236,16 @@ public static class SaveSystem
         {
             TimePhaseManager.Instance.SetPhase(data.currentTimePhase);
             TimePhaseManager.Instance.SetPhaseProgress(data.phaseProgress);
-            TimePhaseManager.Instance.SetIsFirstMorning(false);
         }
 
         if (TimeUI.Instance != null)
             TimeUI.Instance.SetDay(data.currentDay);
 
         if (PlayerStats.Instance != null)
-        {
             for (int i = 0; i < data.statTypes.Count; i++)
-            {
                 PlayerStats.Instance.Set(data.statTypes[i], data.statValues[i], true);
-            }
-        }
 
         if (ProfileManager.Instance != null)
-        {
             ProfileManager.Instance.ApplyLoadedProfile(new PlayerProfile
             {
                 playerName = data.playerName,
@@ -242,7 +254,6 @@ public static class SaveSystem
                 experienceToNextLevel = data.playerExperienceToNext,
                 profileIconID = "default"
             });
-        }
 
         if (ShopManager.Instance != null)
             ShopManager.Instance.ApplyLoadedStock(data.shopStockIDs, data.shopStockAmounts);
@@ -250,22 +261,23 @@ public static class SaveSystem
         if (EquipmentManager.Instance != null)
         {
             foreach (EquipmentSlot slot in System.Enum.GetValues(typeof(EquipmentSlot)))
-                EquipmentManager.Instance.Unequip(slot, false);
+                EquipmentManager.Instance.Unequip(slot, returnToInventory: false, save: false);
 
             foreach (var saved in data.equippedItems)
             {
-                EquipmentData eq = ItemDatabase.Instance.GetByID(saved.itemID) as EquipmentData;
+                if (ItemDatabase.Instance == null)
+                    return;
+
+                var eq = ItemDatabase.Instance.GetByID(saved.itemID) as EquipmentData;
 
                 if (eq != null)
-                    EquipmentManager.Instance.Equip(eq);
+                    EquipmentManager.Instance.Equip(new EquipmentInstance(eq, saved.upgradeLevel));
             }
         }
 
         if (CurrencyManager.Instance != null)
-        {
             for (int i = 0; i < data.currencyTypes.Count; i++)
                 CurrencyManager.Instance.Set(data.currencyTypes[i], data.currencyAmounts[i]);
-        }
 
         if (ScenarioManager.Instance != null)
             ScenarioManager.Instance.SetCompletedScenarios(new HashSet<string>(data.completedScenarios));
@@ -274,7 +286,7 @@ public static class SaveSystem
         {
             foreach (var qSave in data.activeQuests)
             {
-                QuestData quest = QuestManager.Instance.allQuests.FirstOrDefault(q => q.questID == qSave.questID);
+                var quest = QuestManager.Instance.allQuests.FirstOrDefault(q => q.questID == qSave.questID);
 
                 if (quest == null)
                     continue;
@@ -289,13 +301,11 @@ public static class SaveSystem
             }
 
             if (QuestTrackerUI.Instance != null)
-            {
                 foreach (var id in data.trackedQuests)
                     QuestTrackerUI.Instance.TrackQuest(id);
-            }
         }
 
-        if (ProfileUI.Instance != null)
+        if (ProfileManager.Instance != null)
             ProfileUI.Instance.RefreshAll();
 
         IsLoading = false;
