@@ -16,7 +16,7 @@ public class PlayerStats : StatsBase
 
     [Header("Regeneration")]
     public bool enableHealthRegen = true;
-    public float healthRegenRate = 0.0667f;
+    public float healthRegenRate = 0.05f;
     public float healthRegenDelay = 5f;
     public bool enableEnergyRegen = true;
     public float energyRegenRate = 0.2f;
@@ -65,45 +65,6 @@ public class PlayerStats : StatsBase
     void Update()
     {
         HandleRegeneration();
-    }
-
-    void HandleRegeneration()
-    {
-        if (enableHealthRegen && Time.time - lastHealthDamageTime >= healthRegenDelay)
-        {
-            int hp = Get(StatType.Health);
-            int maxHp = Get(StatType.MaxHealth);
-
-            if (hp < maxHp)
-            {
-                healthRemainder += healthRegenRate * Time.deltaTime;
-
-                if (healthRemainder >= 1f)
-                {
-                    int regen = Mathf.FloorToInt(healthRemainder);
-                    Modify(StatType.Health, regen, true);
-                    healthRemainder -= regen;
-                }
-            }
-        }
-
-        if (enableEnergyRegen && Time.time - lastEnergyUseTime >= energyRegenDelay)
-        {
-            int energy = Get(StatType.Energy);
-            int maxEnergy = Get(StatType.MaxEnergy);
-
-            if (energy < maxEnergy)
-            {
-                energyRemainder += energyRegenRate * Time.deltaTime;
-
-                if (energyRemainder >= 1f)
-                {
-                    int regen = Mathf.FloorToInt(energyRemainder);
-                    Modify(StatType.Energy, regen, true);
-                    energyRemainder -= regen;
-                }
-            }
-        }
     }
 
     public override void Modify(StatType type, int amount, bool save = true)
@@ -186,15 +147,63 @@ public class PlayerStats : StatsBase
 
     public void Attack(EnemyStats target)
     {
-        if (target == null)
-            return;
-
-        if (Time.time - lastAttackTime < attackCooldown)
+        if (target == null || Time.time - lastAttackTime < attackCooldown)
             return;
 
         int damage = baseDamage + Get(StatType.Strength);
         target.Modify(StatType.Health, -damage);
         lastAttackTime = Time.time;
+    }
+
+    void HandleRegeneration()
+    {
+        float healthRegenMultiplier = 1f;
+        float energyRegenMultiplier = 1f;
+
+        if (PlayerBuffManager.Instance != null)
+            foreach (var buff in PlayerBuffManager.Instance.GetActiveBuffs())
+            {
+                if (buff.type == PlayerBuffManager.BuffType.HealthRegen)
+                    healthRegenMultiplier += buff.multiplier;
+                else if (buff.type == PlayerBuffManager.BuffType.EnergyRegen)
+                    energyRegenMultiplier += buff.multiplier;
+            }
+
+        if (enableHealthRegen && Time.time - lastHealthDamageTime >= healthRegenDelay)
+        {
+            int hp = Get(StatType.Health);
+            int maxHp = Get(StatType.MaxHealth);
+
+            if (hp < maxHp)
+            {
+                healthRemainder += healthRegenRate * healthRegenMultiplier * Time.deltaTime;
+
+                if (healthRemainder >= 1f)
+                {
+                    int regen = Mathf.FloorToInt(healthRemainder);
+                    Modify(StatType.Health, regen, true);
+                    healthRemainder -= regen;
+                }
+            }
+        }
+
+        if (enableEnergyRegen && Time.time - lastEnergyUseTime >= energyRegenDelay)
+        {
+            int energy = Get(StatType.Energy);
+            int maxEnergy = Get(StatType.MaxEnergy);
+
+            if (energy < maxEnergy)
+            {
+                energyRemainder += energyRegenRate * energyRegenMultiplier * Time.deltaTime;
+
+                if (energyRemainder >= 1f)
+                {
+                    int regen = Mathf.FloorToInt(energyRemainder);
+                    Modify(StatType.Energy, regen, true);
+                    energyRemainder -= regen;
+                }
+            }
+        }
     }
 
     public void FullRestore()

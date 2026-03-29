@@ -5,8 +5,7 @@ using System.Collections.Generic;
 
 public class CombatManager : MonoBehaviour
 {
-    private static WaitForSeconds _waitForSeconds2 = new WaitForSeconds(2f);
-
+    private static readonly WaitForSeconds _waitForSeconds2 = new(2f);
     public static CombatManager Instance { get; private set; }
     public event Action<string> OnCombatLog;
     public event Action OnCombatStarted;
@@ -53,6 +52,7 @@ public class CombatManager : MonoBehaviour
     public float baseFleeChance = 0.3f;
     public float fleeSpeedScaling = 0.005f;
     public int fleeEnergyGain = 20;
+    private Coroutine fleeCoroutine;
 
     [Header("Status Effects")]
     public StatusEffectData stunEffect;
@@ -86,6 +86,14 @@ public class CombatManager : MonoBehaviour
     {
         InitializeActions();
         SubscribeToPlayerEvents();
+    }
+
+    void Update()
+    {
+        if (!inCombat)
+            return;
+
+        UpdateBuffTimers();
     }
 
     void OnDestroy()
@@ -124,51 +132,16 @@ public class CombatManager : MonoBehaviour
             PlayerStats.OnHealthChanged -= OnPlayerHealthChanged;
     }
 
-    void Update()
+    private void SubscribeToEnemyEvents()
     {
-        if (!inCombat)
-            return;
-
-        UpdateBuffTimers();
+        if (enemyStats != null && enemyStats.TryGetComponent<StatusEffectManager>(out var fx))
+            fx.OnEffectTick += OnEnemyEffectTick;
     }
 
-    private void UpdateBuffTimers()
+    private void UnsubscribeFromEnemyEvents()
     {
-        for (int i = activeCombatBuffs.Count - 1; i >= 0; i--)
-        {
-            CombatBuff buff = activeCombatBuffs[i];
-            float timeLeft = buff.endTime - Time.time;
-
-            if (buff.ui != null)
-                buff.ui.UpdateTimer(timeLeft);
-
-            if (timeLeft <= 0f)
-                RemoveBuff(i);
-        }
-    }
-
-    private void RemoveBuff(int index)
-    {
-        if (activeCombatBuffs[index].ui != null)
-            Destroy(activeCombatBuffs[index].ui.gameObject);
-
-        activeCombatBuffs.RemoveAt(index);
-    }
-
-    public void StartCombat(EnemyData enemy)
-    {
-        if (inCombat || enemy == null)
-        {
-            Debug.LogWarning("Cannot start combat: already in combat or enemy is null");
-            return;
-        }
-
-        currentEnemy = enemy;
-        inCombat = true;
-        InitializeEnemyStats();
-        SubscribeToEnemyEvents();
-        ResetCombatState();
-        NotifyCombatStarted();
+        if (enemyStats != null && enemyStats.TryGetComponent<StatusEffectManager>(out var fx))
+            fx.OnEffectTick -= OnEnemyEffectTick;
     }
 
     private void InitializeEnemyStats()
@@ -193,6 +166,34 @@ public class CombatManager : MonoBehaviour
         OnCombatStarted?.Invoke();
         OnTurnChanged?.Invoke(true);
         OnCombatStateChanged?.Invoke();
+    }
+
+    public void StartCombat(EnemyData enemy)
+    {
+        if (inCombat || enemy == null)
+        {
+            Debug.LogWarning("Cannot start combat: already in combat or enemy is null");
+            return;
+        }
+
+        if (PlayerStats != null && !PlayerStats.IsAlive())
+        {
+            Debug.LogWarning("Cannot start combat: player is dead");
+            return;
+        }
+
+        if (fleeCoroutine != null)
+        {
+            StopCoroutine(fleeCoroutine);
+            fleeCoroutine = null;
+        }
+
+        currentEnemy = enemy;
+        inCombat = true;
+        InitializeEnemyStats();
+        SubscribeToEnemyEvents();
+        ResetCombatState();
+        NotifyCombatStarted();
     }
 
     public void ExecutePlayerAction(CombatAction action)
@@ -232,50 +233,9 @@ public class CombatManager : MonoBehaviour
         return true;
     }
 
-    private void ConsumePlayerEnergy(int cost)
+    public bool IsPlayerTurn()
     {
-        PlayerStats.Modify(StatType.Energy, -cost);
-    }
-
-    public void TryFleeAction()
-    {
-        if (!inCombat || !IsPlayerTurn())
-            return;
-
-        waitingForInput = false;
-        int speed = PlayerStats != null ? PlayerStats.Get(StatType.Speed) : 0;
-        float fleeChance = Mathf.Clamp01(baseFleeChance + speed * fleeSpeedScaling);
-        bool success = UnityEngine.Random.value <= fleeChance;
-
-        if (success)
-        {
-            int gained = fleeEnergyGain;
-            PlayerStats.Modify(StatType.Energy, gained);
-            Log($"Kaçmayı başardın! +{gained} enerji kazandın.");
-            OnCombatStateChanged?.Invoke();
-            FleeCombat();
-        }
-        else
-        {
-            Log($"Kaçmaya çalıştın ama başarısız oldun! (%{Mathf.RoundToInt(fleeChance * 100)} şans)");
-            OnCombatStateChanged?.Invoke();
-            Invoke(nameof(StartEnemyTurn), turnDelay);
-        }
-    }
-
-    public float GetFleeChance()
-    {
-        int speed = PlayerStats != null ? PlayerStats.Get(StatType.Speed) : 0;
-        return Mathf.Clamp01(baseFleeChance + speed * fleeSpeedScaling);
-    }
-
-    private void FleeCombat()
-    {
-        if (combatResolved)
-            return;
-
-        combatResolved = true;
-        EndCombat();
+        return isPlayerTurn && waitingForInput;
     }
 
     void StartPlayerTurn()
@@ -298,33 +258,32 @@ public class CombatManager : MonoBehaviour
         Invoke(nameof(ExecuteEnemyAction), enemyActionDelay);
     }
 
-    private void SubscribeToEnemyEvents()
-    {
-        if (enemyStats != null && enemyStats.TryGetComponent<StatusEffectManager>(out var fx))
-            fx.OnEffectTick += OnEnemyEffectTick;
-    }
-
-    private void UnsubscribeFromEnemyEvents()
-    {
-        if (enemyStats != null && enemyStats.TryGetComponent<StatusEffectManager>(out var fx))
-            fx.OnEffectTick -= OnEnemyEffectTick;
-    }
-
-    private void OnEnemyEffectTick(StatusEffectData data, int damage)
-    {
-        if (!inCombat || combatResolved)
-            return;
-
-        Log($"{currentEnemy.enemyName} takes {damage} {data.effectName} damage.");
-
-        if (IsEnemyDefeated())
-            ResolveCombat(true);
-    }
-
     private void HandleDefensiveAction(CombatAction action)
     {
-        ApplyDefenseBonus(action.CalculateDefenseBonus());
+        int bonus = action.CalculateDefenseBonus();
+        ApplyDefenseBonus(bonus);
         ApplyHealing(action.healAmount);
+        Log($"{action.actionName} used! +{bonus} defense.");
+
+        if (action.healAmount > 0)
+            Log($"+{action.healAmount} health restored.");
+
+        if (action.applyBuff && PlayerBuffs != null)
+        {
+            PlayerBuffs.AddBuff(new PlayerBuffManager.Buff
+            {
+                id = action.buffId,
+                displayName = action.buffDisplayName,
+                type = action.buffType,
+                damageMultiplier = action.buffDamageMultiplier,
+                damageReduction = action.buffDamageReduction,
+                duration = action.buffDuration,
+                icon = action.buffIcon,
+                stackable = false
+            });
+
+            Log($"{action.buffDisplayName} active! ({action.buffDuration}s)");
+        }
     }
 
     private void ApplyDefenseBonus(int bonus)
@@ -348,6 +307,52 @@ public class CombatManager : MonoBehaviour
 
         if (IsEnemyDefeated())
             ResolveCombat(true);
+    }
+
+    public void TryFleeAction()
+    {
+        if (!inCombat || !IsPlayerTurn())
+            return;
+
+        waitingForInput = false;
+        int speed = PlayerStats != null ? PlayerStats.Get(StatType.Speed) : 0;
+        float speedMultiplier = 1f;
+
+        if (PlayerBuffs != null)
+            foreach (var buff in PlayerBuffs.GetActiveBuffs())
+                if (buff.type == PlayerBuffManager.BuffType.Speed)
+                    speedMultiplier += buff.multiplier;
+
+        float fleeChance = Mathf.Clamp01(baseFleeChance + speed * fleeSpeedScaling * speedMultiplier);
+        bool success = UnityEngine.Random.value <= fleeChance;
+
+        if (success)
+        {
+            Log("You successfully fled!");
+            OnCombatStateChanged?.Invoke();
+            FleeCombat();
+        }
+        else
+        {
+            Log($"Failed to flee! ({Mathf.RoundToInt(fleeChance * 100)}% chance)");
+            OnCombatStateChanged?.Invoke();
+            Invoke(nameof(StartEnemyTurn), turnDelay);
+        }
+    }
+
+    public float GetFleeChance()
+    {
+        int speed = PlayerStats != null ? PlayerStats.Get(StatType.Speed) : 0;
+        return Mathf.Clamp01(baseFleeChance + speed * fleeSpeedScaling);
+    }
+
+    private void FleeCombat()
+    {
+        if (combatResolved)
+            return;
+
+        combatResolved = true;
+        fleeCoroutine = StartCoroutine(HandleFleeAfterDelay(turnDelay));
     }
 
     private int CalculatePlayerDamage(CombatAction action)
@@ -404,6 +409,11 @@ public class CombatManager : MonoBehaviour
         return enemyStats.Get(StatType.Health) <= 0;
     }
 
+    private void ConsumePlayerEnergy(int cost)
+    {
+        PlayerStats.Modify(StatType.Energy, -cost);
+    }
+
     private void TryApplyOnHitEffects(EnemyStats target)
     {
         if (!target.TryGetComponent<StatusEffectManager>(out var effects))
@@ -430,6 +440,12 @@ public class CombatManager : MonoBehaviour
     {
         float chance = baseCritChance + action.critChanceBonus;
         chance += GetLuckCritBonus();
+
+        if (PlayerBuffs != null)
+            foreach (var buff in PlayerBuffs.GetActiveBuffs())
+                if (buff.type == PlayerBuffManager.BuffType.CritChance)
+                    chance += buff.multiplier;
+
         return Mathf.Clamp01(chance);
     }
 
@@ -498,6 +514,17 @@ public class CombatManager : MonoBehaviour
     private float GetPlayerHealthPercent()
     {
         return (float)PlayerStats.Get(StatType.Health) / PlayerStats.Get(StatType.MaxHealth);
+    }
+
+    private void OnEnemyEffectTick(StatusEffectData data, int damage)
+    {
+        if (!inCombat || combatResolved)
+            return;
+
+        Log($"{currentEnemy.enemyName} takes {damage} {data.effectName} damage.");
+
+        if (IsEnemyDefeated())
+            ResolveCombat(true);
     }
 
     private void ExecuteAIPattern(float enemyHp, float playerHp)
@@ -655,6 +682,13 @@ public class CombatManager : MonoBehaviour
             StartCoroutine(HandleDefeatAfterDelay(turnDelay));
     }
 
+    IEnumerator HandleFleeAfterDelay(float delay)
+    {
+        OnCombatEnded?.Invoke();
+        yield return new WaitForSeconds(delay);
+        EndCombatInternal();
+    }
+
     IEnumerator HandleVictoryAfterDelay(float delay)
     {
         Log($"Defeated {currentEnemy.enemyName}!");
@@ -668,29 +702,30 @@ public class CombatManager : MonoBehaviour
 
     IEnumerator HandleDefeatAfterDelay(float delay)
     {
-        Log("You have been defeated and lost some currency.");
         yield return new WaitForSeconds(delay);
+        Log("You have been defeated and lost some gold.");
         ApplyDefeatPenalties();
+        int gold = CurrencyManager.Instance != null ? CurrencyManager.Instance.Get(CurrencyType.Gold) : 0;
+        Log($"Remaining gold: {gold}");
         OnCombatEnded?.Invoke();
         yield return _waitForSeconds2;
-        EndCombatInternal();
-    }
-
-    private void EndCombat()
-    {
-        OnCombatEnded?.Invoke();
         EndCombatInternal();
     }
 
     private void EndCombatInternal()
     {
         inCombat = false;
+        combatResolved = false;
         UnsubscribeFromEnemyEvents();
         ClearAllBuffs();
         ClearEnemyStatusEffects();
         ResetCombatVariables();
         PlayerStats.enableHealthRegen = true;
         PlayerStats.enableEnergyRegen = true;
+
+        if (!PlayerStats.IsAlive())
+            PlayerStats.Set(StatType.Health, 1, true);
+
         OnCombatStateChanged?.Invoke();
 
         if (ProfileUI.Instance != null)
@@ -725,9 +760,6 @@ public class CombatManager : MonoBehaviour
 
     private void ApplyDefeatPenalties()
     {
-        int healAmount = PlayerStats.Get(StatType.MaxHealth) / 3;
-        PlayerStats.Set(StatType.Health, healAmount);
-
         if (CurrencyManager.Instance != null)
         {
             int currentGold = CurrencyManager.Instance.Get(CurrencyType.Gold);
@@ -804,6 +836,29 @@ public class CombatManager : MonoBehaviour
         return buffUI;
     }
 
+    private void UpdateBuffTimers()
+    {
+        for (int i = activeCombatBuffs.Count - 1; i >= 0; i--)
+        {
+            CombatBuff buff = activeCombatBuffs[i];
+            float timeLeft = buff.endTime - Time.time;
+
+            if (buff.ui != null)
+                buff.ui.UpdateTimer(timeLeft);
+
+            if (timeLeft <= 0f)
+                RemoveBuff(i);
+        }
+    }
+
+    private void RemoveBuff(int index)
+    {
+        if (activeCombatBuffs[index].ui != null)
+            Destroy(activeCombatBuffs[index].ui.gameObject);
+
+        activeCombatBuffs.RemoveAt(index);
+    }
+
     public List<CombatAction> GetAvailableActions()
     {
         return new List<CombatAction>(unlockedActions);
@@ -819,11 +874,6 @@ public class CombatManager : MonoBehaviour
 
         if (!unlockedActions.Contains(action))
             unlockedActions.Add(action);
-    }
-
-    public bool IsPlayerTurn()
-    {
-        return isPlayerTurn && waitingForInput;
     }
 
     private void Log(string message)

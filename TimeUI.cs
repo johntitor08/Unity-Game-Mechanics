@@ -21,12 +21,6 @@ public class TimeUI : MonoBehaviour
     public Sprite eveningIcon;
     public Sprite nightIcon;
 
-    [Header("Phase Colors")]
-    public Color morningColor = new(1f, 0.9f, 0.7f);
-    public Color noonColor = new(1f, 1f, 0.9f);
-    public Color eveningColor = new(1f, 0.6f, 0.4f);
-    public Color nightColor = new(0.4f, 0.4f, 0.7f);
-
     [Header("Display Options")]
     public bool showDayCounter = true;
     public bool showProgressBar = true;
@@ -78,7 +72,6 @@ public class TimeUI : MonoBehaviour
         if (phaseText != null)
         {
             phaseText.text = GetPhaseName(phase);
-            phaseText.color = GetPhaseColor(phase);
 
             if (animateTransitions)
             {
@@ -131,18 +124,6 @@ public class TimeUI : MonoBehaviour
         };
     }
 
-    Color GetPhaseColor(TimePhase phase)
-    {
-        return phase switch
-        {
-            TimePhase.Morning => morningColor,
-            TimePhase.Noon => noonColor,
-            TimePhase.Evening => eveningColor,
-            TimePhase.Night => nightColor,
-            _ => Color.white
-        };
-    }
-
     void AnimateText()
     {
         if (phaseText == null)
@@ -170,7 +151,7 @@ public class TimeUI : MonoBehaviour
     {
         float duration = 0.3f;
         float elapsed = 0f;
-        Vector3 startScale = Vector3.one * 1.5f;
+        Vector3 startScale = Vector3.one * 1.2f;
         Vector3 endScale = Vector3.one;
         phaseText.transform.localScale = startScale;
 

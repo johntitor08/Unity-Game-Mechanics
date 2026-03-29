@@ -5,6 +5,12 @@ using UnityEngine.UI;
 [RequireComponent(typeof(CanvasGroup))]
 public class DamageFlash : MonoBehaviour
 {
+    private static readonly WaitForSeconds _waitForSeconds0_05 = new(0.05f);
+    private Coroutine flashRoutine;
+    private Vector2 originalPosition;
+    private bool isSubscribed = false;
+    private StatsBase subscribedTarget;
+
     [Header("Target Stats")]
     [SerializeField] private StatsBase _statsTarget;
     public StatsBase StatsTarget
@@ -23,8 +29,8 @@ public class DamageFlash : MonoBehaviour
 
     [Header("Flash Settings")]
     public Image flashImage;
-    public Color damageColor = new(1f, 0f, 0f, 0.5f);
-    public Color healColor = new(0f, 1f, 0f, 0.5f);
+    public Color damageColor = new(1f, 0f, 0f, 1f);
+    public Color healColor = new(0f, 1f, 0f, 1f);
     public float flashDuration = 0.2f;
 
     [Header("Shake Settings")]
@@ -36,11 +42,6 @@ public class DamageFlash : MonoBehaviour
     [Header("Health Bar")]
     public Image healthBarFill;
 
-    private Coroutine flashRoutine;
-    private Vector2 originalPosition;
-    private bool isSubscribed = false;
-    private StatsBase subscribedTarget;
-
     void Awake()
     {
         if (_statsTarget == null)
@@ -50,7 +51,7 @@ public class DamageFlash : MonoBehaviour
         }
 
         if (flashImage != null)
-            flashImage.color = new Color(0f, 0f, 0f, 0f);
+            flashImage.color = Color.white;
 
         if (shakeTarget == null && flashImage != null)
             shakeTarget = flashImage.rectTransform;
@@ -80,7 +81,7 @@ public class DamageFlash : MonoBehaviour
         }
 
         if (flashImage != null)
-            flashImage.color = new Color(0f, 0f, 0f, 0f);
+            flashImage.color = Color.white;
     }
 
     void TrySubscribe()
@@ -139,19 +140,21 @@ public class DamageFlash : MonoBehaviour
         if (flashImage == null)
             yield break;
 
+        flashImage.color = Color.white;
+        yield return _waitForSeconds0_05;
+
         float t = 0f;
-        Color start = color;
-        Color end = color;
-        end.a = 0f;
 
         while (t < flashDuration)
         {
             t += Time.deltaTime;
-            flashImage.color = Color.Lerp(start, end, t / flashDuration);
+            Color c = Color.Lerp(Color.white, color, t / flashDuration);
+            c.a = 1f;
+            flashImage.color = c;
             yield return null;
         }
 
-        flashImage.color = end;
+        flashImage.color = Color.white;
     }
 
     IEnumerator Shake()

@@ -34,6 +34,16 @@ public class CombatAction
     [Header("Flee")]
     public bool isFlee = false;
 
+    [Header("Buff")]
+    public bool applyBuff = false;
+    public string buffId;
+    public string buffDisplayName;
+    public PlayerBuffManager.BuffType buffType;
+    public float buffDamageMultiplier = 1f;
+    public float buffDamageReduction = 0f;
+    public float buffDuration = 5f;
+    public Sprite buffIcon;
+
     public int CalculateDamage()
     {
         if (PlayerStats.Instance == null)

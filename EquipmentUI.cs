@@ -153,7 +153,7 @@ public class EquipmentUI : MonoBehaviour
             return;
 
         equipmentInfoPanel.SetActive(true);
-        EquipmentInfoPanel.Instance.ShowPanel(instance, EquipmentInfoPanel.PanelMode.Item);
+        EquipmentInfoPanel.Instance.ShowPanel(instance);
     }
 
     public void OpenDetailPanel(EquipmentInstance instance)
@@ -162,7 +162,7 @@ public class EquipmentUI : MonoBehaviour
             return;
 
         equipmentInfoPanel.SetActive(true);
-        EquipmentInfoPanel.Instance.ShowPanel(instance, EquipmentInfoPanel.PanelMode.Detail);
+        EquipmentInfoPanel.Instance.ShowPanel(instance);
     }
 
     public void OpenItemPanel(EquipmentData data)

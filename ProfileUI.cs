@@ -220,7 +220,7 @@ public class ProfileUI : MonoBehaviour
         if (inst == null)
             return;
 
-        EquipmentInfoPanel.Instance.ShowPanel(inst, EquipmentInfoPanel.PanelMode.Detail);
+        EquipmentInfoPanel.Instance.ShowPanel(inst);
     }
 
     public void RefreshEquipmentSlots()

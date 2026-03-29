@@ -4,10 +4,8 @@ using UnityEngine.UI;
 
 public class EquipmentInfoPanel : MonoBehaviour
 {
-    public enum PanelMode { Detail, Item }
     public static EquipmentInfoPanel Instance;
     private EquipmentInstance currentInstance;
-    private PanelMode currentMode;
 
     [Header("Panel")]
     public GameObject panel;
@@ -28,7 +26,10 @@ public class EquipmentInfoPanel : MonoBehaviour
 
     void Awake()
     {
-        Instance = this;
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(gameObject);
 
         if (panel != null)
             panel.SetActive(false);
@@ -64,7 +65,7 @@ public class EquipmentInfoPanel : MonoBehaviour
             EquipmentManager.Instance.OnEquipmentChanged += OnDataChanged;
 
         if (currentInstance != null)
-            ShowPanel(currentInstance, currentMode);
+            ShowPanel(currentInstance);
     }
 
     void OnDisable()
@@ -79,36 +80,25 @@ public class EquipmentInfoPanel : MonoBehaviour
     void OnDataChanged()
     {
         if (currentInstance != null && panel != null && panel.activeSelf)
-            ShowPanel(currentInstance, currentMode);
+            ShowPanel(currentInstance);
     }
 
-    public void ShowPanel(EquipmentInstance instance, PanelMode mode = PanelMode.Detail)
+    public void ShowPanel(EquipmentInstance instance)
     {
         if (instance == null || instance.baseData == null || EquipmentManager.Instance == null)
             return;
 
         currentInstance = instance;
-        currentMode = mode;
         panel.SetActive(true);
         DisplayEquipment(instance);
         EquipmentInstance slotInst = EquipmentManager.Instance.GetEquipped(instance.baseData.slot);
         bool isEquipped = slotInst != null && slotInst.baseData.itemID == instance.baseData.itemID;
-
-        if (mode == PanelMode.Detail)
-        {
-            DisplayRequirements(instance.baseData);
-            HideComparisonText();
-            ConfigureDetailButtons(isEquipped, instance);
-        }
-        else
-        {
-            HideRequirementsText();
-            DisplayComparison(instance);
-            ConfigureItemButton(isEquipped, instance);
-        }
+        ConfigureButtons(isEquipped, instance);
+        DisplayRequirements(instance.baseData);
+        DisplayComparison(instance);
     }
 
-    public void ShowPanel(EquipmentData data, PanelMode mode = PanelMode.Detail)
+    public void ShowPanel(EquipmentData data)
     {
         if (data == null || EquipmentManager.Instance == null)
             return;
@@ -116,9 +106,9 @@ public class EquipmentInfoPanel : MonoBehaviour
         EquipmentInstance live = EquipmentManager.Instance.GetEquipped(data.slot);
 
         if (live != null && live.baseData.itemID == data.itemID)
-            ShowPanel(live, mode);
+            ShowPanel(live);
         else
-            ShowPanel(new EquipmentInstance(data, 0), mode);
+            ShowPanel(new EquipmentInstance(data, 0));
     }
 
     void DisplayEquipment(EquipmentInstance instance)
@@ -162,12 +152,6 @@ public class EquipmentInfoPanel : MonoBehaviour
         requirementsText.gameObject.SetActive(true);
     }
 
-    void HideRequirementsText()
-    {
-        if (requirementsText != null)
-            requirementsText.gameObject.SetActive(false);
-    }
-
     void DisplayComparison(EquipmentInstance incoming)
     {
         if (comparisonText == null)
@@ -189,12 +173,6 @@ public class EquipmentInfoPanel : MonoBehaviour
         comparisonText.text = text;
     }
 
-    void HideComparisonText()
-    {
-        if (comparisonText != null)
-            comparisonText.gameObject.SetActive(false);
-    }
-
     static string CompareValue(string statName, int current, int newVal)
     {
         if (current == 0 && newVal == 0)
@@ -206,7 +184,7 @@ public class EquipmentInfoPanel : MonoBehaviour
         return $"{statName}: {current} → <color={col}>{newVal} {arrow} {Mathf.Abs(diff)}</color>\n";
     }
 
-    void ConfigureDetailButtons(bool isEquipped, EquipmentInstance instance)
+    void ConfigureButtons(bool isEquipped, EquipmentInstance instance)
     {
         if (equipButton != null)
         {
@@ -218,18 +196,6 @@ public class EquipmentInfoPanel : MonoBehaviour
 
         if (unequipButton != null)
             unequipButton.gameObject.SetActive(isEquipped);
-    }
-
-    void ConfigureItemButton(bool isEquipped, EquipmentInstance instance)
-    {
-        if (unequipButton != null)
-            unequipButton.gameObject.SetActive(false);
-
-        if (equipButton != null)
-        {
-            equipButton.gameObject.SetActive(true);
-            equipButton.interactable = !isEquipped && EquipmentManager.Instance.CanEquip(instance);
-        }
     }
 
     public void Equip()
