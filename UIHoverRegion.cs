@@ -5,33 +5,17 @@ using UnityEngine.U2D;
 public class UIHoverRegion : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
     [Header("References")]
-    public RectTransform rect;
     public SpriteShapeRenderer hoverShape;
-    public LineRenderer outline;
-    public Camera uiCamera;
 
     [Header("Hover Effect")]
     public float maxAlpha = 0.2f;
     public float fadeSpeed = 6f;
-    public float drawSpeed = 3f;
 
     float alpha = 0f;
-    float drawProgress = 0f;
     bool hovering = false;
-    Vector2[] shapePoints;
 
     void Start()
     {
-        var controller = hoverShape.GetComponent<SpriteShapeController>();
-        int count = controller.spline.GetPointCount();
-        shapePoints = new Vector2[count];
-
-        for (int i = 0; i < count; i++)
-            shapePoints[i] = controller.spline.GetPosition(i);
-
-        outline.positionCount = count + 1;
-        outline.useWorldSpace = false;
-        outline.gameObject.SetActive(false);
         SetAlpha(0);
     }
 
@@ -40,22 +24,11 @@ public class UIHoverRegion : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         float target = hovering ? 1f : 0f;
         alpha = Mathf.MoveTowards(alpha, target, Time.deltaTime * fadeSpeed);
         SetAlpha(alpha);
-
-        if (!hovering)
-        {
-            drawProgress = 0;
-            outline.gameObject.SetActive(false);
-            return;
-        }
-
-        drawProgress = Mathf.MoveTowards(drawProgress, 1f, Time.deltaTime * drawSpeed);
-        DrawOutline(drawProgress);
     }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
         hovering = true;
-        outline.gameObject.SetActive(true);
     }
 
     public void OnPointerExit(PointerEventData eventData)
@@ -77,22 +50,5 @@ public class UIHoverRegion : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         Color c = hoverShape.color;
         c.a = a * maxAlpha;
         hoverShape.color = c;
-        outline.startColor = c;
-        outline.endColor = c;
-    }
-
-    void DrawOutline(float t)
-    {
-        int visible = Mathf.FloorToInt(shapePoints.Length * t);
-        bool isClosed = visible >= shapePoints.Length - 1;
-        outline.positionCount = isClosed ? shapePoints.Length + 1 : visible + 1;
-
-        for (int i = 0; i <= visible && i < shapePoints.Length; i++)
-        {
-            outline.SetPosition(i, shapePoints[i]);
-        }
-
-        if (isClosed)
-            outline.SetPosition(shapePoints.Length, outline.GetPosition(0));
     }
 }

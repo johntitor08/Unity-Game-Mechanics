@@ -8,7 +8,9 @@ public class RegionHighlighter : MonoBehaviour
 
     void Update()
     {
-        if (cam == null) return;
+        if (cam == null)
+            return;
+
         Vector3 mousePos = cam.ScreenToWorldPoint(Input.mousePosition);
         mousePos.z = 0;
         RaycastHit2D hit = Physics2D.Raycast(mousePos, Vector2.zero, Mathf.Infinity, mask);
@@ -16,7 +18,7 @@ public class RegionHighlighter : MonoBehaviour
         if (hit.collider != null)
         {
             highlight.SetActive(true);
-            highlight.transform.position = hit.point;
+            highlight.transform.position = hit.collider.bounds.center;
         }
         else
         {

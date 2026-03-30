@@ -57,10 +57,7 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        if (!isActiveAndEnabled)
-            return;
-
-        if (!enableHoverEffect)
+        if (!isActiveAndEnabled || !enableHoverEffect)
             return;
 
         isHovering = true;
@@ -75,10 +72,7 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        if (!isActiveAndEnabled)
-            return;
-
-        if (!enableHoverEffect)
+        if (!isActiveAndEnabled || !enableHoverEffect)
             return;
 
         isHovering = false;
@@ -91,10 +85,7 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (!isActiveAndEnabled)
-            return;
-
-        if (!enableClickEffect)
+        if (!isActiveAndEnabled || !enableClickEffect)
             return;
 
         StopAllCoroutines();
@@ -114,8 +105,7 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            float t = elapsed / duration;
-            transform.localScale = Vector3.Lerp(startScale, endScale, t);
+            transform.localScale = Vector3.Lerp(startScale, endScale, elapsed / duration);
             yield return null;
         }
 
@@ -127,6 +117,7 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         if (gameObject == null)
             yield break;
 
+        bool wasHovering = isHovering;
         Vector3 startScale = transform.localScale;
         Vector3 clickedScale = originalScale * clickScale;
         float elapsed = 0f;
@@ -134,19 +125,17 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         while (elapsed < clickDuration)
         {
             elapsed += Time.deltaTime;
-            float t = elapsed / clickDuration;
-            transform.localScale = Vector3.Lerp(startScale, clickedScale, t);
+            transform.localScale = Vector3.Lerp(startScale, clickedScale, elapsed / clickDuration);
             yield return null;
         }
 
         elapsed = 0f;
-        Vector3 endScale = originalScale * (isHovering ? hoverScale : 1f);
+        Vector3 endScale = originalScale * (wasHovering ? hoverScale : 1f);
 
         while (elapsed < clickDuration)
         {
             elapsed += Time.deltaTime;
-            float t = elapsed / clickDuration;
-            transform.localScale = Vector3.Lerp(clickedScale, endScale, t);
+            transform.localScale = Vector3.Lerp(clickedScale, endScale, elapsed / clickDuration);
             yield return null;
         }
 
@@ -156,9 +145,7 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     void PlaySound(AudioClip clip)
     {
         if (clip != null && Camera.main != null)
-        {
             AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, 0.5f);
-        }
     }
 
     public void ResetVisual()
@@ -168,7 +155,7 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
         if (iconImage != null)
             iconImage.color = originalColor;
-        
+
         isHovering = false;
     }
 }
