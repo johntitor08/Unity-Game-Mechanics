@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 public enum SceneProgress
@@ -14,7 +13,6 @@ public enum SceneProgress
 
 public class SceneEvent : MonoBehaviour
 {
-    private static readonly WaitForSeconds WAIT_HALF_SEC = new(0.5f);
     public static SceneEvent Instance { get; private set; }
     private SceneProgress progress = SceneProgress.Scene1;
     private int currentMapIndex = 0;
@@ -367,42 +365,6 @@ public class SceneEvent : MonoBehaviour
         SetMap(currentMapIndex);
     }
 
-    public void TriggerScene2()
-    {
-        if (Progress != SceneProgress.Scene1)
-            return;
-
-        Progress = SceneProgress.Scene2;
-        StartCoroutine(Scene2Routine());
-    }
-
-    IEnumerator Scene2Routine()
-    {
-        yield return WAIT_HALF_SEC;
-        SetBackground(1);
-        TryStartDialogue(0);
-    }
-
-    public void TriggerScene3()
-    {
-        if (Progress != SceneProgress.Scene2)
-            return;
-
-        Progress = SceneProgress.Scene3;
-        SetBackground(2);
-        TryStartDialogue(1);
-    }
-
-    public void TriggerScene4()
-    {
-        if (Progress != SceneProgress.Scene3)
-            return;
-
-        Progress = SceneProgress.Scene4;
-        SetBackground(3);
-        TryStartDialogue(2);
-    }
-
     void TryStartDialogue(int nodeIndex)
     {
         if (DialogueManager.Instance == null)
@@ -443,10 +405,74 @@ public class SceneEvent : MonoBehaviour
         TryStartDialogue(0);
     }
 
-    public void TriggerCombat()
+    public void TriggerScene2()
     {
-        if (CombatManager.Instance != null && Progress == SceneProgress.Scene4)
-            CombatManager.Instance.StartCombat(enemies[0]);
+        if (Progress != SceneProgress.Scene1)
+            return;
+
+        Progress = SceneProgress.Scene2;
+        SetBackground(1);
+        TryStartDialogue(0);
+    }
+
+    public void TriggerScene3()
+    {
+        if (Progress != SceneProgress.Scene2)
+            return;
+
+        Progress = SceneProgress.Scene3;
+        SetBackground(2);
+        TryStartDialogue(1);
+    }
+
+    public void TriggerScene4()
+    {
+        if (Progress != SceneProgress.Scene3)
+            return;
+
+        Progress = SceneProgress.Scene4;
+        SetBackground(3);
+        TryStartDialogue(2);
+    }
+
+    public void TriggerScene5()
+    {
+        if (Progress != SceneProgress.Scene4)
+            return;
+
+        Progress = SceneProgress.Scene5;
+        SetBackground(4);
+        TryStartDialogue(3);
+    }
+
+    private void StartCombatForScene4()
+    {
+        if (CombatManager.Instance == null)
+            return;
+
+        CombatManager.Instance.OnCombatVictory += HandleScene4CombatVictory;
+        CombatManager.Instance.OnCombatDefeat += HandleScene4CombatDefeat;
+        CombatManager.Instance.StartCombat(enemies[0]);
+    }
+
+    private void HandleScene4CombatVictory()
+    {
+        UnsubscribeSceneCombat();
+        TriggerScene5();
+    }
+
+    private void HandleScene4CombatDefeat()
+    {
+        UnsubscribeSceneCombat();
+    }
+
+    private void UnsubscribeSceneCombat()
+    {
+        if (CombatManager.Instance == null)
+            return;
+
+        CombatManager.Instance.OnCombatVictory -= HandleScene4CombatVictory;
+        CombatManager.Instance.OnCombatDefeat -= HandleScene4CombatDefeat;
     }
 
     void SubscribeDialogue()
@@ -483,7 +509,7 @@ public class SceneEvent : MonoBehaviour
                 break;
 
             case SceneProgress.Scene4:
-                TriggerCombat();
+                StartCombatForScene4();
                 break;
         }
     }

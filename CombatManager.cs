@@ -12,6 +12,8 @@ public class CombatManager : MonoBehaviour
     public event Action OnCombatEnded;
     public event Action OnCombatStateChanged;
     public event Action<bool> OnTurnChanged;
+    public event Action OnCombatVictory;
+    public event Action OnCombatDefeat;
     private PlayerBuffManager PlayerBuffs => PlayerBuffManager.Instance;
     private PlayerStats PlayerStats => PlayerStats.Instance;
     private EquipmentManager Equipment => EquipmentManager.Instance;
@@ -695,6 +697,7 @@ public class CombatManager : MonoBehaviour
         yield return new WaitForSeconds(delay);
         GrantVictoryRewards();
         DropEnemyLoot();
+        OnCombatVictory?.Invoke();
         OnCombatEnded?.Invoke();
         yield return _waitForSeconds2;
         EndCombatInternal();
@@ -707,6 +710,7 @@ public class CombatManager : MonoBehaviour
         ApplyDefeatPenalties();
         int gold = CurrencyManager.Instance != null ? CurrencyManager.Instance.Get(CurrencyType.Gold) : 0;
         Log($"Remaining gold: {gold}");
+        OnCombatDefeat?.Invoke();
         OnCombatEnded?.Invoke();
         yield return _waitForSeconds2;
         EndCombatInternal();
