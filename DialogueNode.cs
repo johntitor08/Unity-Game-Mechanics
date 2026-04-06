@@ -32,12 +32,20 @@ public class DialogueNode : ScriptableObject
     public Sprite backgroundImage;
     public bool fadeToBlack = false;
 
+    [Header("Scene")]
+    public SceneProgress sceneContext = SceneProgress.Scene1;
+
     public bool isFinalNode;
 }
 
 [System.Serializable]
 public class DialogueChoice
 {
+    [Header("Choice Text")]
+    public string choiceText;
+    public DialogueNode nextNode;
+
+    [Header("Conditions")]
     public bool requiresItem;
     public ItemData requiredItem;
     public bool requiresStat;
@@ -46,16 +54,6 @@ public class DialogueChoice
     public bool requiresCurrency;
     public CurrencyType requiredCurrency;
     public int requiredCurrencyAmount;
-    public bool giveReward;
-    public CurrencyReward[] currencyRewards;
-    public ItemData[] itemRewards;
-    public int experienceReward;
-
-    [Header("Choice Text")]
-    public string choiceText;
-    public DialogueNode nextNode;
-
-    [Header("Conditions")]
     public bool requiresFlag;
     public string requiredFlag;
 
@@ -63,6 +61,12 @@ public class DialogueChoice
     public bool consumeItem;
     public bool setFlag;
     public string flagToSet;
+
+    [Header("Rewards")]
+    public bool giveReward;
+    public CurrencyReward[] currencyRewards;
+    public ItemData[] itemRewards;
+    public int experienceReward;
 
     [Header("Visual")]
     public Color choiceColor = Color.black;

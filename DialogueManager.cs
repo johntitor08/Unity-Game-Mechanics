@@ -2,6 +2,7 @@
 using System.Collections;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public enum DialogueState
@@ -16,12 +17,13 @@ public enum DialogueState
 
 public class DialogueManager : MonoBehaviour
 {
-    private static readonly WaitForSeconds WAIT_CLOSE = new(0.25f);
     public static DialogueManager Instance;
     public DialogueState State { get; private set; } = DialogueState.Idle;
     private DialogueNode currentNode;
     private int currentLineIndex;
     private Action onDialogueEnd;
+    private Coroutine autoAdvanceCoroutine;
+    private AudioSource audioSource;
     public event Action<DialogueNode> OnDialogueStart;
     public event Action<DialogueChoice> OnChoiceSelected;
     public event Action<DialogueNode> OnDialogueEnd;
@@ -44,6 +46,7 @@ public class DialogueManager : MonoBehaviour
     public Animator dialoguePanelAnimator;
     public string openTrigger = "Open";
     public string closeTrigger = "Close";
+    public float closeFallbackDuration = 0.25f;
 
     [Header("Audio")]
     public AudioClip dialogueOpenSound;
@@ -60,6 +63,8 @@ public class DialogueManager : MonoBehaviour
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
+        audioSource = gameObject.AddComponent<AudioSource>();
+        audioSource.playOnAwake = false;
 
         if (typewriter != null)
             typewriter.OnTypingComplete += OnTypingFinished;
@@ -70,20 +75,47 @@ public class DialogueManager : MonoBehaviour
         if (State != DialogueState.Typing && State != DialogueState.WaitingInput)
             return;
 
-        if (Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0))
-        {
-            if (State == DialogueState.Typing && typewriter != null && typewriter.IsTyping)
-            {
-                typewriter.Complete(dialogueText);
-                State = DialogueState.WaitingInput;
+        bool clickOverUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+        bool spacePressed = Input.GetKeyDown(KeyCode.Space);
+        bool clickPressed = Input.GetMouseButtonDown(0) && !clickOverUI;
 
-                if (continueButton != null)
-                    continueButton.SetActive(true);
-            }
-            else if (State == DialogueState.WaitingInput)
-            {
-                NextLine();
-            }
+        if (!spacePressed && !clickPressed)
+            return;
+
+        if (State == DialogueState.Typing && typewriter != null && typewriter.IsTyping)
+        {
+            typewriter.Complete(dialogueText);
+        }
+        else if (State == DialogueState.WaitingInput)
+        {
+            NextLine();
+        }
+    }
+
+    void SetupVisuals()
+    {
+        if (currentNode == null)
+        {
+            Debug.LogError("[DialogueManager] SetupVisuals: currentNode is null.");
+            return;
+        }
+
+        if (speakerNameText != null)
+        {
+            speakerNameText.text = currentNode.speakerName ?? "";
+            speakerNameText.color = currentNode.speakerNameColor;
+        }
+
+        if (speakerPortrait != null)
+        {
+            speakerPortrait.sprite = currentNode.speakerPortrait;
+            speakerPortrait.enabled = currentNode.speakerPortrait != null;
+        }
+
+        if (backgroundImage != null)
+        {
+            backgroundImage.sprite = currentNode.backgroundImage;
+            backgroundImage.enabled = currentNode.backgroundImage != null;
         }
     }
 
@@ -93,6 +125,7 @@ public class DialogueManager : MonoBehaviour
             return;
 
         StopAllCoroutines();
+        autoAdvanceCoroutine = null;
         currentNode = startNode;
         currentLineIndex = 0;
         onDialogueEnd = callback;
@@ -109,10 +142,18 @@ public class DialogueManager : MonoBehaviour
         ShowLine();
     }
 
+    public bool IsInDialogue() => State != DialogueState.Idle;
+
     void OnTypingFinished()
     {
         if (State != DialogueState.Typing)
             return;
+
+        if (currentNode != null && currentNode.autoAdvance)
+        {
+            autoAdvanceCoroutine = StartCoroutine(AutoAdvanceRoutine(currentNode.autoAdvanceDelay));
+            return;
+        }
 
         State = DialogueState.WaitingInput;
 
@@ -120,9 +161,17 @@ public class DialogueManager : MonoBehaviour
             continueButton.SetActive(true);
     }
 
+    IEnumerator AutoAdvanceRoutine(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        autoAdvanceCoroutine = null;
+        NextLine();
+    }
+
     void ShowLine()
     {
-        if (currentNode == null) return;
+        if (currentNode == null)
+            return;
 
         if (currentLineIndex >= currentNode.lines.Length)
         {
@@ -144,10 +193,18 @@ public class DialogueManager : MonoBehaviour
         else
         {
             dialogueText.text = line;
-            State = DialogueState.WaitingInput;
 
-            if (continueButton != null)
-                continueButton.SetActive(true);
+            if (currentNode.autoAdvance)
+            {
+                autoAdvanceCoroutine = StartCoroutine(AutoAdvanceRoutine(currentNode.autoAdvanceDelay));
+            }
+            else
+            {
+                State = DialogueState.WaitingInput;
+
+                if (continueButton != null)
+                    continueButton.SetActive(true);
+            }
         }
     }
 
@@ -155,6 +212,12 @@ public class DialogueManager : MonoBehaviour
     {
         if (State != DialogueState.WaitingInput)
             return;
+
+        if (autoAdvanceCoroutine != null)
+        {
+            StopCoroutine(autoAdvanceCoroutine);
+            autoAdvanceCoroutine = null;
+        }
 
         currentLineIndex++;
 
@@ -171,27 +234,36 @@ public class DialogueManager : MonoBehaviour
     {
         ClearChoices();
 
-        if (currentNode.choices == null || currentNode.choices.Length == 0)
+        if (currentNode == null || currentNode.choices == null || currentNode.choices.Length == 0)
         {
             EndDialogue();
             return;
         }
 
         State = DialogueState.Choices;
-        float panelHeight = currentNode.choices.Length * 100f;
-        RectTransform panelRect = choicesPanel.GetComponent<RectTransform>();
-        panelRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, panelHeight);
-        RectTransform containerRect = choicesContainer.GetComponent<RectTransform>();
-        containerRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, panelHeight);
 
-        foreach (var choice in currentNode.choices)
+        if (choicesPanel != null && choicesContainer != null)
         {
-            Button btn = Instantiate(choiceButtonPrefab, choicesContainer.transform);
-            btn.GetComponentInChildren<TextMeshProUGUI>().text = choice.choiceText;
-            btn.onClick.AddListener(() => SelectChoice(choice));
-        }
+            RectTransform panelRect = choicesPanel.GetComponent<RectTransform>();
+            RectTransform containerRect = choicesContainer.GetComponent<RectTransform>();
 
-        choicesPanel.SetActive(true);
+            if (panelRect != null && containerRect != null)
+            {
+                int buttonHeight = (int)(choiceButtonPrefab != null ? ((RectTransform)choiceButtonPrefab.transform).rect.height : 100);
+                int panelHeight = currentNode.choices.Length * (buttonHeight + 25);
+                panelRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, panelHeight);
+                containerRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, panelHeight);
+            }
+
+            foreach (var choice in currentNode.choices)
+            {
+                Button btn = Instantiate(choiceButtonPrefab, choicesContainer);
+                btn.GetComponentInChildren<TextMeshProUGUI>().text = choice.choiceText;
+                btn.onClick.AddListener(() => SelectChoice(choice));
+            }
+
+            choicesPanel.SetActive(true);
+        }
     }
 
     void SelectChoice(DialogueChoice choice)
@@ -199,7 +271,9 @@ public class DialogueManager : MonoBehaviour
         if (State != DialogueState.Choices)
             return;
 
-        choicesPanel.SetActive(false);
+        if (choicesPanel != null)
+            choicesPanel.SetActive(false);
+
         ClearChoices();
         PlaySound(choiceSelectSound);
         OnChoiceSelected?.Invoke(choice);
@@ -225,13 +299,23 @@ public class DialogueManager : MonoBehaviour
             return;
 
         State = DialogueState.Closing;
+
+        if (autoAdvanceCoroutine != null)
+        {
+            StopCoroutine(autoAdvanceCoroutine);
+            autoAdvanceCoroutine = null;
+        }
+
         DialogueNode endedNode = currentNode;
 
         if (currentNode != null)
             currentNode.onExit?.Invoke();
 
         currentNode = null;
-        dialogueText.text = "";
+
+        if (dialogueText != null)
+            dialogueText.text = "";
+
         ClearChoices();
         PlaySound(dialogueCloseSound);
 
@@ -243,66 +327,58 @@ public class DialogueManager : MonoBehaviour
 
     IEnumerator FinishDialogue(DialogueNode endedNode)
     {
-        yield return WAIT_CLOSE;
-        dialoguePanel.SetActive(false);
+        float waitTime = closeFallbackDuration;
+
+        if (dialoguePanelAnimator != null)
+        {
+            yield return null;
+            AnimatorStateInfo info = dialoguePanelAnimator.GetCurrentAnimatorStateInfo(0);
+            float clipLength = info.length;
+
+            if (clipLength > 0f)
+                waitTime = clipLength;
+        }
+
+        yield return new WaitForSeconds(waitTime);
+
+        if (dialoguePanel != null)
+            dialoguePanel.SetActive(false);
+
         State = DialogueState.Idle;
         OnDialogueEnd?.Invoke(endedNode);
         onDialogueEnd?.Invoke();
     }
 
-    void SetupVisuals()
-    {
-        if (currentNode == null)
-        {
-            Debug.LogError("SetupVisuals failed: currentNode is NULL");
-            return;
-        }
-
-        if (speakerNameText != null)
-        {
-            speakerNameText.text = currentNode.speakerName ?? "";
-            speakerNameText.color = currentNode.speakerNameColor;
-        }
-
-        if (speakerPortrait != null)
-        {
-            speakerPortrait.sprite = currentNode.speakerPortrait;
-            speakerPortrait.enabled = currentNode.speakerPortrait != null;
-        }
-
-        if (backgroundImage != null)
-        {
-            backgroundImage.sprite = currentNode.backgroundImage;
-            backgroundImage.enabled = currentNode.backgroundImage != null;
-        }
-    }
-
     void ClearChoices()
     {
-        foreach (Transform c in choicesContainer)
-            Destroy(c.gameObject);
+        if (choicesContainer == null)
+            return;
+
+        foreach (Transform child in choicesContainer)
+            Destroy(child.gameObject);
     }
 
     string ParseLine()
     {
+        if (currentNode == null || currentNode.lines == null || currentLineIndex < 0 || currentLineIndex >= currentNode.lines.Length)
+        {
+            Debug.LogWarning("[DialogueManager] ParseLine called with invalid index.");
+            return "";
+        }
+
         string line = currentNode.lines[currentLineIndex];
 
         if (ProfileManager.Instance != null)
-            line = line.Replace("{playerName}",
-                ProfileManager.Instance.profile.playerName);
+            line = line.Replace("{playerName}", ProfileManager.Instance.profile.playerName);
 
         return line;
     }
 
     void PlaySound(AudioClip clip)
     {
-        if (clip != null && Camera.main != null)
-            AudioSource.PlayClipAtPoint(clip,
-                Camera.main.transform.position, 0.5f);
-    }
+        if (clip == null || audioSource == null)
+            return;
 
-    public bool IsInDialogue()
-    {
-        return State != DialogueState.Idle;
+        audioSource.PlayOneShot(clip, 0.5f);
     }
 }

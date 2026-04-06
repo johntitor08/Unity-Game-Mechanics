@@ -7,7 +7,9 @@ public enum SceneProgress
     Scene1,
     Scene2,
     Scene3,
-    Scene4
+    Scene4,
+    Scene5,
+    Scene6,
 }
 
 public class SceneEvent : MonoBehaviour
@@ -62,10 +64,19 @@ public class SceneEvent : MonoBehaviour
     public GameObject gymIcon;
     public GameObject officeIcon;
     public GameObject churchIcon;
+    public GameObject townIcon;
     public GameObject libraryIcon;
     public GameObject dungeonIcon;
     public GameObject castleIcon;
     public GameObject arenaIcon;
+
+    [Header("House Icons")]
+    public GameObject livingRoomIcon;
+    public GameObject bedroomIcon;
+    public GameObject tvRoomIcon;
+    public GameObject kitchenIcon;
+    public GameObject bathroomIcon;
+    public GameObject gardenIcon;
 
     [Header("UI Panels")]
     public GameObject profilePanel;
@@ -75,6 +86,7 @@ public class SceneEvent : MonoBehaviour
     public GameObject combatMapPanel;
     public GameObject equipmentPanel;
     public GameObject coinPanel;
+    public GameObject houseIconsPanel;
 
     [Header("UI Maps")]
     public Image mapImage;
@@ -93,7 +105,6 @@ public class SceneEvent : MonoBehaviour
         }
 
         Instance = this;
-        DontDestroyOnLoad(gameObject);
 
         if (itemDatabase != null)
             itemDatabase.SetInstance();
@@ -109,6 +120,23 @@ public class SceneEvent : MonoBehaviour
 
         SetupIconButtons();
         HideAllPanels();
+        SubscribeDialogue();
+    }
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.M))
+            TogglePanel(mapPanel, "Map");
+    }
+
+    void OnEnable()
+    {
+        SubscribeDialogue();
+    }
+
+    void OnDisable()
+    {
+        UnsubscribeDialogue();
     }
 
     void SetupIconButtons()
@@ -129,41 +157,41 @@ public class SceneEvent : MonoBehaviour
             coinButton.GetComponent<Button>().onClick.AddListener(() => TogglePanel(coinPanel, "Coin"));
 
         if (closeMapButton != null)
-            closeMapButton.GetComponent<Button>().onClick.AddListener(() => HideAllPanels());
-
-        if (homeIcon != null)
-            homeIcon.SetActive(false);
+            closeMapButton.GetComponent<Button>().onClick.AddListener(HideAllPanels);
 
         if (marketIcon != null)
-            marketIcon.SetActive(false);
+        {
+            marketIcon.GetComponent<Button>().onClick.AddListener(() =>
+            {
+                if (MarketUI.Instance != null)
+                    MarketUI.Instance.OpenMarket();
+            });
 
-        if (gymIcon != null)
-            gymIcon.SetActive(false);
+            marketIcon.transform.parent.parent.gameObject.SetActive(false);
+        }
 
-        if (officeIcon != null)
-            officeIcon.SetActive(false);
-
-        if (churchIcon != null)
-            churchIcon.SetActive(false);
-
-        if (libraryIcon != null)
-            libraryIcon.SetActive(false);
-
-        if (dungeonIcon != null)
-            dungeonIcon.SetActive(false);
-
-        if (castleIcon != null)
-            castleIcon.SetActive(false);
-
-        if (arenaIcon != null)
-            arenaIcon.SetActive(false);
+        SetActive(homeIcon, false);
+        SetActive(gymIcon, false);
+        SetActive(officeIcon, false);
+        SetActive(churchIcon, false);
+        SetActive(townIcon, false);
+        SetActive(livingRoomIcon, false);
+        SetActive(bedroomIcon, false);
+        SetActive(tvRoomIcon, false);
+        SetActive(kitchenIcon, false);
+        SetActive(bathroomIcon, false);
+        SetActive(gardenIcon, false);
+        SetActive(libraryIcon, false);
+        SetActive(dungeonIcon, false);
+        SetActive(castleIcon, false);
+        SetActive(arenaIcon, false);
     }
 
     void TogglePanel(GameObject panel, string panelName)
     {
         if (panel == null)
         {
-            Debug.LogWarning($"{panelName} panel not found!");
+            Debug.LogWarning($"[SceneEvent] {panelName} panel reference is null.");
             return;
         }
 
@@ -178,14 +206,18 @@ public class SceneEvent : MonoBehaviour
             SetMap(currentMapIndex);
     }
 
+    public void ToggleInventoryInCombat()
+    {
+        if (inventoryPanel != null)
+            inventoryPanel.SetActive(!inventoryPanel.activeSelf);
+    }
+
     public void OpenProfile()
     {
         OpenPanel(profilePanel, "Profile");
 
         if (ProfileUI.Instance != null)
-        {
             ProfileUI.Instance.RefreshAll();
-        }
     }
 
     public void OpenInventory()
@@ -193,19 +225,23 @@ public class SceneEvent : MonoBehaviour
         OpenPanel(inventoryPanel, "Inventory");
 
         if (ProfileUI.Instance != null)
-        {
             ProfileUI.Instance.RefreshAll();
-        }
     }
 
     public void OpenShop()
     {
-        OpenPanel(shopPanel, "Shop");
+        if (MarketUI.Instance != null)
+        {
+            HideAllPanels();
+            MarketUI.Instance.OpenShop();
+        }
+        else
+        {
+            OpenPanel(shopPanel, "Shop");
+        }
 
         if (ProfileUI.Instance != null)
-        {
             ProfileUI.Instance.RefreshAll();
-        }
     }
 
     public void OpenMap()
@@ -213,9 +249,7 @@ public class SceneEvent : MonoBehaviour
         OpenPanel(mapPanel, "Map");
 
         if (ProfileUI.Instance != null)
-        {
             ProfileUI.Instance.RefreshAll();
-        }
     }
 
     public void OpenCombat()
@@ -223,9 +257,7 @@ public class SceneEvent : MonoBehaviour
         OpenPanel(combatMapPanel, "Combat");
 
         if (ProfileUI.Instance != null)
-        {
             ProfileUI.Instance.RefreshAll();
-        }
     }
 
     public void OpenEquipment()
@@ -233,9 +265,7 @@ public class SceneEvent : MonoBehaviour
         OpenPanel(equipmentPanel, "Equipment");
 
         if (ProfileUI.Instance != null)
-        {
             ProfileUI.Instance.RefreshAll();
-        }
     }
 
     public void OpenCoin()
@@ -243,25 +273,98 @@ public class SceneEvent : MonoBehaviour
         OpenPanel(coinPanel, "Coin");
 
         if (ProfileUI.Instance != null)
-        {
             ProfileUI.Instance.RefreshAll();
-        }
     }
 
     void OpenPanel(GameObject panel, string panelName)
     {
         if (panel == null)
         {
-            Debug.LogWarning($"{panelName} panel not found!");
+            Debug.LogWarning($"[SceneEvent] {panelName} panel reference is null.");
             return;
         }
 
         if (closeOtherPanelsOnOpen && !allowMultiplePanels)
-        {
             HideAllPanels();
-        }
 
         panel.SetActive(true);
+    }
+
+    public void HideAllPanels()
+    {
+        SetActive(profilePanel, false);
+        SetActive(inventoryPanel, false);
+
+        if (MarketUI.Instance != null)
+            MarketUI.Instance.CloseAll();
+        else
+            SetActive(shopPanel, false);
+
+        SetActive(mapPanel, false);
+        SetActive(combatMapPanel, false);
+        SetActive(equipmentPanel, false);
+        SetActive(coinPanel, false);
+    }
+
+    public void SetCharacter(int index)
+    {
+        if (charImage != null && index >= 0 && index < chars.Length && chars[index] != null)
+            charImage.sprite = chars[index];
+    }
+
+    public void SetBackground(int index)
+    {
+        if (backgroundImage != null && index >= 0 && index < bgs.Length && bgs[index] != null)
+            backgroundImage.sprite = bgs[index];
+
+        SetActive(hoverEffect, index == 0);
+        bool isHouse = index == 11 || index == 13 || index == 14 || index == 15;
+        SetActive(houseIconsPanel, isHouse);
+        SetActive(livingRoomIcon, isHouse);
+        SetActive(bedroomIcon, isHouse);
+        SetActive(tvRoomIcon, isHouse);
+        SetActive(kitchenIcon, isHouse);
+        SetActive(bathroomIcon, isHouse);
+        SetActive(gardenIcon, isHouse);
+    }
+
+    public void SetMap(int index)
+    {
+        if (mapImage == null || index < 0 || index >= maps.Length || maps[index] == null)
+            return;
+
+        mapImage.sprite = maps[index];
+        bool isModern = index == 0;
+        bool isFantasy = index == 1;
+        bool isCombat = index == 2;
+        SetActive(homeIcon, isModern);
+        SetActive(gymIcon, isModern);
+        SetActive(officeIcon, isModern);
+        SetActive(churchIcon, isModern);
+
+        if (marketIcon != null)
+            marketIcon.transform.parent.parent.gameObject.SetActive(isModern);
+
+        SetActive(townIcon, isFantasy);
+        SetActive(libraryIcon, isFantasy);
+        SetActive(dungeonIcon, isFantasy);
+        SetActive(castleIcon, isFantasy);
+        SetActive(arenaIcon, isFantasy);
+
+        if (combatIcon != null)
+            combatIcon.transform.parent.parent.gameObject.SetActive(isCombat);
+    }
+
+    public void NextMap()
+    {
+        currentMapIndex = (currentMapIndex + 1) % maps.Length;
+        SetMap(currentMapIndex);
+    }
+
+    public void PreviousMap()
+    {
+        currentMapIndex = (currentMapIndex - 1 + maps.Length) % maps.Length;
+        SetMap(currentMapIndex);
     }
 
     public void TriggerScene2()
@@ -277,11 +380,7 @@ public class SceneEvent : MonoBehaviour
     {
         yield return WAIT_HALF_SEC;
         SetBackground(1);
-
-        if (sceneStartDialogueNodes[0] != null && DialogueManager.Instance != null)
-        {
-            DialogueManager.Instance.StartDialogue(sceneStartDialogueNodes[0]);
-        }
+        TryStartDialogue(0);
     }
 
     public void TriggerScene3()
@@ -291,11 +390,7 @@ public class SceneEvent : MonoBehaviour
 
         Progress = SceneProgress.Scene3;
         SetBackground(2);
-
-        if (sceneStartDialogueNodes[1] != null && DialogueManager.Instance != null)
-        {
-            DialogueManager.Instance.StartDialogue(sceneStartDialogueNodes[1]);
-        }
+        TryStartDialogue(1);
     }
 
     public void TriggerScene4()
@@ -305,19 +400,33 @@ public class SceneEvent : MonoBehaviour
 
         Progress = SceneProgress.Scene4;
         SetBackground(3);
+        TryStartDialogue(2);
+    }
 
-        if (sceneStartDialogueNodes[2] != null && DialogueManager.Instance != null)
+    void TryStartDialogue(int nodeIndex)
+    {
+        if (DialogueManager.Instance == null)
         {
-            DialogueManager.Instance.StartDialogue(sceneStartDialogueNodes[2]);
+            Debug.LogWarning("[SceneEvent] TryStartDialogue: DialogueManager.Instance is null.");
+            return;
         }
+
+        if (sceneStartDialogueNodes == null || nodeIndex >= sceneStartDialogueNodes.Length)
+        {
+            Debug.LogWarning($"[SceneEvent] TryStartDialogue: no node at index {nodeIndex}.");
+            return;
+        }
+
+        DialogueNode node = sceneStartDialogueNodes[nodeIndex];
+
+        if (node != null)
+            DialogueManager.Instance.StartDialogue(node);
     }
 
     public void SaveSceneProgress()
     {
         if (SaveSystem.CachedData != null)
-        {
             SaveSystem.CachedData.sceneProgress = (int)Progress;
-        }
     }
 
     public void ResetSceneProgress()
@@ -331,11 +440,7 @@ public class SceneEvent : MonoBehaviour
     {
         Progress = SceneProgress.Scene1;
         SetBackground(0);
-
-        if (sceneStartDialogueNodes[0] != null && DialogueManager.Instance != null)
-        {
-            DialogueManager.Instance.StartDialogue(sceneStartDialogueNodes[0]);
-        }
+        TryStartDialogue(0);
     }
 
     public void TriggerCombat()
@@ -344,62 +449,48 @@ public class SceneEvent : MonoBehaviour
             CombatManager.Instance.StartCombat(enemies[0]);
     }
 
-    void OnEnable()
-    {
-        SubscribeDialogue();
-    }
-
-    void OnDisable()
-    {
-        UnsubscribeDialogue();
-    }
-
     void SubscribeDialogue()
     {
-        if (subscribed)
+        if (subscribed || DialogueManager.Instance == null)
             return;
 
-        if (DialogueManager.Instance != null)
-        {
-            DialogueManager.Instance.OnDialogueEnd += HandleDialogueEnd;
-            subscribed = true;
-        }
+        DialogueManager.Instance.OnDialogueEnd += HandleDialogueEnd;
+        subscribed = true;
     }
 
     void UnsubscribeDialogue()
     {
-        if (!subscribed)
+        if (!subscribed || DialogueManager.Instance == null)
             return;
 
-        if (DialogueManager.Instance != null)
-        {
-            DialogueManager.Instance.OnDialogueEnd -= HandleDialogueEnd;
-            subscribed = false;
-        }
+        DialogueManager.Instance.OnDialogueEnd -= HandleDialogueEnd;
+        subscribed = false;
     }
 
     void HandleDialogueEnd(DialogueNode endedNode)
     {
-        if (endedNode == null)
+        if (endedNode == null || !endedNode.isFinalNode)
             return;
 
-        if (endedNode.name.Contains("S2") && endedNode.isFinalNode)
+        switch (endedNode.sceneContext)
         {
-            TriggerScene3();
-        }
-        else if (endedNode.name.Contains("S3") && endedNode.isFinalNode)
-        {
-            TriggerScene4();
-        }
-        else if (endedNode.name.Contains("S4") && endedNode.isFinalNode)
-        {
-            TriggerCombat();
+            case SceneProgress.Scene2:
+                TriggerScene3();
+                break;
+
+            case SceneProgress.Scene3:
+                TriggerScene4();
+                break;
+
+            case SceneProgress.Scene4:
+                TriggerCombat();
+                break;
         }
     }
 
-    public void ApplySceneProgress(SceneProgress progress)
+    public void ApplySceneProgress(SceneProgress targetProgress)
     {
-        Progress = progress;
+        Progress = targetProgress;
 
         switch (Progress)
         {
@@ -421,95 +512,9 @@ public class SceneEvent : MonoBehaviour
         }
     }
 
-    public void SetCharacter(int index)
+    static void SetActive(GameObject go, bool active)
     {
-        if (charImage != null && index < chars.Length && chars[index] != null)
-            charImage.sprite = chars[index];
-    }
-
-    public void SetBackground(int index)
-    {
-        if (backgroundImage != null && index < bgs.Length && bgs[index] != null)
-            backgroundImage.sprite = bgs[index];
-
-        if (hoverEffect != null)
-            hoverEffect.SetActive(index == 0);
-    }
-
-    public void HideAllPanels()
-    {
-        if (profilePanel != null)
-            profilePanel.SetActive(false);
-
-        if (inventoryPanel != null)
-            inventoryPanel.SetActive(false);
-
-        if (shopPanel != null)
-            shopPanel.SetActive(false);
-
-        if (mapPanel != null)
-            mapPanel.SetActive(false);
-
-        if (combatMapPanel != null)
-            combatMapPanel.SetActive(false);
-
-        if (equipmentPanel != null)
-            equipmentPanel.SetActive(false);
-
-        if (coinPanel != null)
-            coinPanel.SetActive(false);
-    }
-
-    public void SetMap(int index)
-    {
-        if (mapImage == null || maps[index] == null)
-            return;
-
-        mapImage.sprite = maps[index];
-        bool isModern = index == 0;
-        bool isFantasy = index == 1;
-        bool isCombat = index == 2;
-
-        if (homeIcon != null)
-            homeIcon.SetActive(isModern);
-
-        if (marketIcon != null)
-            marketIcon.SetActive(isModern);
-
-        if (gymIcon != null)
-            gymIcon.SetActive(isModern);
-
-        if (officeIcon != null)
-            officeIcon.SetActive(isModern);
-
-        if (churchIcon != null)
-            churchIcon.SetActive(isModern);
-
-        if (libraryIcon != null)
-            libraryIcon.SetActive(isFantasy);
-
-        if (dungeonIcon != null)
-            dungeonIcon.SetActive(isFantasy);
-
-        if (castleIcon != null)
-            castleIcon.SetActive(isFantasy);
-
-        if (arenaIcon != null)
-            arenaIcon.SetActive(isFantasy);
-
-        if (combatIcon != null)
-            combatIcon.transform.parent.parent.gameObject.SetActive(isCombat);
-    }
-
-    public void NextMap()
-    {
-        currentMapIndex = (currentMapIndex + 1) % maps.Length;
-        SetMap(currentMapIndex);
-    }
-
-    public void PreviousMap()
-    {
-        currentMapIndex = (currentMapIndex - 1 + maps.Length) % maps.Length;
-        SetMap(currentMapIndex);
+        if (go != null)
+            go.SetActive(active);
     }
 }
