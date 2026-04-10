@@ -370,7 +370,7 @@ public class SceneEvent : MonoBehaviour
         SetMap(currentMapIndex);
     }
 
-        public void SubscribeDialogue()
+    public void SubscribeDialogue()
     {
         if (subscribed || DialogueManager.Instance == null)
             return;
@@ -449,7 +449,9 @@ public class SceneEvent : MonoBehaviour
                 break;
 
             case SceneProgress.Scene5:
-                TriggerScene6();
+                if (endedNode == sceneStartDialogueNodes[4])
+                    TriggerScene6();
+
                 break;
         }
     }
