@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using UnityEngine;
 using UnityEngine.UI;
 
 public enum SceneProgress
@@ -23,13 +24,14 @@ public class SceneEvent : MonoBehaviour
     public SceneProgress Progress
     {
         get => progress;
+
         private set
         {
             if (progress == value)
                 return;
 
             progress = value;
-            SaveSceneProgress();
+            SaveSystem.SaveGame();
         }
     }
 
@@ -110,15 +112,18 @@ public class SceneEvent : MonoBehaviour
 
     void Start()
     {
-        SetBackground(0);
-        SetCharacter(0);
-
-        if (SaveSystem.CachedData != null)
-            ApplySceneProgress((SceneProgress)SaveSystem.CachedData.sceneProgress);
+        if (!SaveSystem.IsLoading)
+        {
+            SetBackground(0);
+            SetCharacter(0);
+        }
 
         SetupIconButtons();
         HideAllPanels();
         SubscribeDialogue();
+
+        if (hoverEffect != null)
+            hoverEffect.GetComponent<UIHoverRegion>().OnRegionClicked += TriggerScene2;
     }
 
     void Update()
@@ -365,6 +370,26 @@ public class SceneEvent : MonoBehaviour
         SetMap(currentMapIndex);
     }
 
+        public void SubscribeDialogue()
+    {
+        if (subscribed || DialogueManager.Instance == null)
+            return;
+
+        DialogueManager.Instance.OnDialogueEnd += HandleDialogueEnd;
+        DialogueManager.Instance.OnLineShown += HandleLineShown;
+        subscribed = true;
+    }
+
+    public void UnsubscribeDialogue()
+    {
+        if (!subscribed || DialogueManager.Instance == null)
+            return;
+
+        DialogueManager.Instance.OnDialogueEnd -= HandleDialogueEnd;
+        DialogueManager.Instance.OnLineShown -= HandleLineShown;
+        subscribed = false;
+    }
+
     void TryStartDialogue(int nodeIndex)
     {
         if (DialogueManager.Instance == null)
@@ -385,10 +410,95 @@ public class SceneEvent : MonoBehaviour
             DialogueManager.Instance.StartDialogue(node);
     }
 
-    public void SaveSceneProgress()
+    public IEnumerator StartDialogueAfterLoad(int nodeIndex)
     {
-        if (SaveSystem.CachedData != null)
-            SaveSystem.CachedData.sceneProgress = (int)Progress;
+        yield return null;
+
+        if (sceneStartDialogueNodes == null || nodeIndex >= sceneStartDialogueNodes.Length)
+            yield break;
+
+        if (DialogueManager.Instance == null)
+        {
+            Debug.LogWarning("[SceneEvent] StartDialogueAfterLoad: DialogueManager is null.");
+            yield break;
+        }
+
+        DialogueNode node = sceneStartDialogueNodes[nodeIndex];
+
+        if (node != null)
+            DialogueManager.Instance.StartDialogue(node);
+    }
+
+    void HandleDialogueEnd(DialogueNode endedNode)
+    {
+        if (endedNode == null || !endedNode.isFinalNode)
+            return;
+
+        switch (endedNode.sceneContext)
+        {
+            case SceneProgress.Scene2:
+                TriggerScene3();
+                break;
+
+            case SceneProgress.Scene3:
+                TriggerScene4();
+                break;
+
+            case SceneProgress.Scene4:
+                StartCombatForScene4();
+                break;
+
+            case SceneProgress.Scene5:
+                TriggerScene6();
+                break;
+        }
+    }
+
+    void HandleLineShown(DialogueNode node, int lineIndex)
+    {
+        if (node == sceneStartDialogueNodes[0] && lineIndex == 1)
+            SetCharacter(8);
+
+        if (node == sceneStartDialogueNodes[3] && lineIndex == 0)
+            SetCharacter(14);
+    }
+
+    public void ApplySceneProgress(SceneProgress targetProgress)
+    {
+        progress = targetProgress;
+
+        switch (progress)
+        {
+            case SceneProgress.Scene1:
+                SetBackground(0);
+                SetCharacter(0);
+                break;
+
+            case SceneProgress.Scene2:
+                SetBackground(1);
+                SetCharacter(8);
+                break;
+
+            case SceneProgress.Scene3:
+                SetBackground(2);
+                SetCharacter(8);
+                break;
+
+            case SceneProgress.Scene4:
+                SetBackground(3);
+                SetCharacter(14);
+                break;
+
+            case SceneProgress.Scene5:
+                SetBackground(3);
+                SetCharacter(8);
+                break;
+
+            case SceneProgress.Scene6:
+                SetBackground(4);
+                SetCharacter(8);
+                break;
+        }
     }
 
     public void ResetSceneProgress()
@@ -396,13 +506,13 @@ public class SceneEvent : MonoBehaviour
         Progress = SceneProgress.Scene1;
         SetBackground(0);
         SetCharacter(0);
+        TryStartDialogue(0);
     }
 
-    public void RestartSceneProgress()
+    static void SetActive(GameObject go, bool active)
     {
-        Progress = SceneProgress.Scene1;
-        SetBackground(0);
-        TryStartDialogue(0);
+        if (go != null)
+            go.SetActive(active);
     }
 
     public void TriggerScene2()
@@ -412,7 +522,7 @@ public class SceneEvent : MonoBehaviour
 
         Progress = SceneProgress.Scene2;
         SetBackground(1);
-        TryStartDialogue(0);
+        TryStartDialogue(1);
     }
 
     public void TriggerScene3()
@@ -422,7 +532,7 @@ public class SceneEvent : MonoBehaviour
 
         Progress = SceneProgress.Scene3;
         SetBackground(2);
-        TryStartDialogue(1);
+        TryStartDialogue(2);
     }
 
     public void TriggerScene4()
@@ -432,16 +542,6 @@ public class SceneEvent : MonoBehaviour
 
         Progress = SceneProgress.Scene4;
         SetBackground(3);
-        TryStartDialogue(2);
-    }
-
-    public void TriggerScene5()
-    {
-        if (Progress != SceneProgress.Scene4)
-            return;
-
-        Progress = SceneProgress.Scene5;
-        SetBackground(4);
         TryStartDialogue(3);
     }
 
@@ -475,72 +575,23 @@ public class SceneEvent : MonoBehaviour
         CombatManager.Instance.OnCombatDefeat -= HandleScene4CombatDefeat;
     }
 
-    void SubscribeDialogue()
+    public void TriggerScene5()
     {
-        if (subscribed || DialogueManager.Instance == null)
+        if (Progress != SceneProgress.Scene4)
             return;
 
-        DialogueManager.Instance.OnDialogueEnd += HandleDialogueEnd;
-        subscribed = true;
+        Progress = SceneProgress.Scene5;
+        SetCharacter(8);
+        TryStartDialogue(4);
     }
 
-    void UnsubscribeDialogue()
+    public void TriggerScene6()
     {
-        if (!subscribed || DialogueManager.Instance == null)
+        if (Progress != SceneProgress.Scene5)
             return;
 
-        DialogueManager.Instance.OnDialogueEnd -= HandleDialogueEnd;
-        subscribed = false;
-    }
-
-    void HandleDialogueEnd(DialogueNode endedNode)
-    {
-        if (endedNode == null || !endedNode.isFinalNode)
-            return;
-
-        switch (endedNode.sceneContext)
-        {
-            case SceneProgress.Scene2:
-                TriggerScene3();
-                break;
-
-            case SceneProgress.Scene3:
-                TriggerScene4();
-                break;
-
-            case SceneProgress.Scene4:
-                StartCombatForScene4();
-                break;
-        }
-    }
-
-    public void ApplySceneProgress(SceneProgress targetProgress)
-    {
-        Progress = targetProgress;
-
-        switch (Progress)
-        {
-            case SceneProgress.Scene1:
-                SetBackground(0);
-                break;
-
-            case SceneProgress.Scene2:
-                SetBackground(1);
-                break;
-
-            case SceneProgress.Scene3:
-                SetBackground(2);
-                break;
-
-            case SceneProgress.Scene4:
-                SetBackground(3);
-                break;
-        }
-    }
-
-    static void SetActive(GameObject go, bool active)
-    {
-        if (go != null)
-            go.SetActive(active);
+        Progress = SceneProgress.Scene6;
+        SetBackground(4);
+        TryStartDialogue(5);
     }
 }

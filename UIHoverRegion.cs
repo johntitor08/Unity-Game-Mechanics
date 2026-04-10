@@ -1,18 +1,16 @@
+using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.U2D;
 
 public class UIHoverRegion : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
-    [Header("References")]
     public SpriteShapeRenderer hoverShape;
-
-    [Header("Hover Effect")]
     public float maxAlpha = 0.2f;
     public float fadeSpeed = 6f;
-
     float alpha = 0f;
     bool hovering = false;
+    public event Action OnRegionClicked;
 
     void Start()
     {
@@ -41,8 +39,7 @@ public class UIHoverRegion : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         if (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue())
             return;
 
-        if (SceneEvent.Instance != null && SceneEvent.Instance.Progress == SceneProgress.Scene1)
-            SceneEvent.Instance.TriggerScene2();
+        OnRegionClicked?.Invoke();
     }
 
     void SetAlpha(float a)

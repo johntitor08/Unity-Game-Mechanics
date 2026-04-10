@@ -27,6 +27,7 @@ public class DialogueManager : MonoBehaviour
     public event Action<DialogueNode> OnDialogueStart;
     public event Action<DialogueChoice> OnChoiceSelected;
     public event Action<DialogueNode> OnDialogueEnd;
+    public event Action<DialogueNode, int> OnLineShown;
 
     [Header("UI")]
     public GameObject dialoguePanel;
@@ -179,6 +180,7 @@ public class DialogueManager : MonoBehaviour
             return;
         }
 
+        OnLineShown?.Invoke(currentNode, currentLineIndex);
         State = DialogueState.Typing;
 
         if (continueButton != null)

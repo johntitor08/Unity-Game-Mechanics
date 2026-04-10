@@ -26,16 +26,13 @@ public static class SaveSystem
 
         SaveData data = new();
 
-        if (InventoryManager.Instance != null)
+        if (ProfileManager.Instance != null)
         {
-            data.inventoryKeys.Clear();
-            data.inventoryCounts.Clear();
-
-            foreach (var kv in InventoryManager.Instance.GetRawStock())
-            {
-                data.inventoryKeys.Add(kv.Key);
-                data.inventoryCounts.Add(kv.Value);
-            }
+            var p = ProfileManager.Instance.profile;
+            data.playerName = p.playerName;
+            data.playerLevel = p.level;
+            data.playerExperience = p.experience;
+            data.playerExperienceToNext = p.experienceToNextLevel;
         }
 
         data.currentScene = SceneManager.GetActiveScene().name;
@@ -53,34 +50,15 @@ public static class SaveSystem
         if (TimeUI.Instance != null)
             data.currentDay = TimeUI.Instance.GetCurrentDay();
 
-        if (PlayerStats.Instance != null)
+        if (InventoryManager.Instance != null)
         {
-            data.statTypes.Clear(); data.statValues.Clear();
+            data.inventoryKeys.Clear();
+            data.inventoryCounts.Clear();
 
-            foreach (var s in PlayerStats.Instance.stats)
+            foreach (var kv in InventoryManager.Instance.GetRawStock())
             {
-                data.statTypes.Add(s.type);
-                data.statValues.Add(s.currentValue);
-            }
-        }
-
-        if (ProfileManager.Instance != null)
-        {
-            var p = ProfileManager.Instance.profile;
-            data.playerName = p.playerName;
-            data.playerLevel = p.level;
-            data.playerExperience = p.experience;
-            data.playerExperienceToNext = p.experienceToNextLevel;
-        }
-
-        if (ShopManager.Instance != null)
-        {
-            data.shopStockIDs.Clear(); data.shopStockAmounts.Clear();
-
-            foreach (var s in ShopManager.Instance.GetStockDataForSave())
-            {
-                data.shopStockIDs.Add(s.itemID);
-                data.shopStockAmounts.Add(s.amount);
+                data.inventoryKeys.Add(kv.Key);
+                data.inventoryCounts.Add(kv.Value);
             }
         }
 
@@ -106,6 +84,17 @@ public static class SaveSystem
             {
                 data.currencyTypes.Add(c.Key);
                 data.currencyAmounts.Add(c.Value);
+            }
+        }
+
+        if (ShopManager.Instance != null)
+        {
+            data.shopStockIDs.Clear(); data.shopStockAmounts.Clear();
+
+            foreach (var s in ShopManager.Instance.GetStockDataForSave())
+            {
+                data.shopStockIDs.Add(s.itemID);
+                data.shopStockAmounts.Add(s.amount);
             }
         }
 
@@ -148,6 +137,17 @@ public static class SaveSystem
                 data.trackedQuests = QuestTrackerUI.Instance.GetTrackedQuests();
         }
 
+        if (PlayerStats.Instance != null)
+        {
+            data.statTypes.Clear(); data.statValues.Clear();
+
+            foreach (var s in PlayerStats.Instance.stats)
+            {
+                data.statTypes.Add(s.type);
+                data.statValues.Add(s.currentValue);
+            }
+        }
+
         File.WriteAllText(SavePath, JsonUtility.ToJson(data, true));
     }
 
@@ -157,6 +157,7 @@ public static class SaveSystem
             return;
 
         CachedData = JsonUtility.FromJson<SaveData>(File.ReadAllText(SavePath));
+        IsLoading = true;
         SceneManager.sceneLoaded += OnSceneLoaded;
         SceneManager.LoadScene(CachedData.currentScene);
 
@@ -174,13 +175,18 @@ public static class SaveSystem
 
     static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        if (CachedData != null)
-        {
-            ApplyLoadedData(CachedData);
-            CachedData = null;
-        }
-
         SceneManager.sceneLoaded -= OnSceneLoaded;
+
+        if (CachedData != null && SceneEvent.Instance != null)
+            SceneEvent.Instance.StartCoroutine(DelayedApply(CachedData));
+
+        CachedData = null;
+    }
+
+    static System.Collections.IEnumerator DelayedApply(SaveData data)
+    {
+        yield return null;
+        ApplyLoadedData(data);
     }
 
     public static void ApplyLoadedData(SaveData data)
@@ -189,6 +195,34 @@ public static class SaveSystem
             return;
 
         IsLoading = true;
+
+        if (ProfileManager.Instance != null)
+            ProfileManager.Instance.ApplyLoadedProfile(new PlayerProfile
+            {
+                playerName = data.playerName,
+                level = data.playerLevel,
+                experience = data.playerExperience,
+                experienceToNextLevel = data.playerExperienceToNext,
+                profileIconID = "default"
+            });
+
+        StoryFlags.Load(data.storyFlags);
+
+        if (SceneEvent.Instance != null)
+        {
+            SceneEvent.Instance.UnsubscribeDialogue();
+            SceneEvent.Instance.SubscribeDialogue();
+            SceneEvent.Instance.ApplySceneProgress((SceneProgress)data.sceneProgress);
+        }
+
+        if (TimePhaseManager.Instance != null)
+        {
+            TimePhaseManager.Instance.SetPhase(data.currentTimePhase);
+            TimePhaseManager.Instance.SetPhaseProgress(data.phaseProgress);
+        }
+
+        if (TimeUI.Instance != null)
+            TimeUI.Instance.SetDay(data.currentDay);
 
         if (InventoryManager.Instance != null)
         {
@@ -227,37 +261,6 @@ public static class SaveSystem
             }
         }
 
-        StoryFlags.Load(data.storyFlags);
-
-        if (SceneEvent.Instance != null)
-            SceneEvent.Instance.ApplySceneProgress((SceneProgress)data.sceneProgress);
-
-        if (TimePhaseManager.Instance != null)
-        {
-            TimePhaseManager.Instance.SetPhase(data.currentTimePhase);
-            TimePhaseManager.Instance.SetPhaseProgress(data.phaseProgress);
-        }
-
-        if (TimeUI.Instance != null)
-            TimeUI.Instance.SetDay(data.currentDay);
-
-        if (PlayerStats.Instance != null)
-            for (int i = 0; i < data.statTypes.Count; i++)
-                PlayerStats.Instance.Set(data.statTypes[i], data.statValues[i], true);
-
-        if (ProfileManager.Instance != null)
-            ProfileManager.Instance.ApplyLoadedProfile(new PlayerProfile
-            {
-                playerName = data.playerName,
-                level = data.playerLevel,
-                experience = data.playerExperience,
-                experienceToNextLevel = data.playerExperienceToNext,
-                profileIconID = "default"
-            });
-
-        if (ShopManager.Instance != null)
-            ShopManager.Instance.ApplyLoadedStock(data.shopStockIDs, data.shopStockAmounts);
-
         if (EquipmentManager.Instance != null)
         {
             foreach (EquipmentSlot slot in System.Enum.GetValues(typeof(EquipmentSlot)))
@@ -278,6 +281,9 @@ public static class SaveSystem
         if (CurrencyManager.Instance != null)
             for (int i = 0; i < data.currencyTypes.Count; i++)
                 CurrencyManager.Instance.Set(data.currencyTypes[i], data.currencyAmounts[i]);
+
+        if (ShopManager.Instance != null)
+            ShopManager.Instance.ApplyLoadedStock(data.shopStockIDs, data.shopStockAmounts);
 
         if (ScenarioManager.Instance != null)
             ScenarioManager.Instance.SetCompletedScenarios(new HashSet<string>(data.completedScenarios));
@@ -305,9 +311,30 @@ public static class SaveSystem
                     QuestTrackerUI.Instance.TrackQuest(id);
         }
 
-        if (ProfileManager.Instance != null)
+        if (PlayerStats.Instance != null)
+            for (int i = 0; i < data.statTypes.Count; i++)
+                PlayerStats.Instance.Set(data.statTypes[i], data.statValues[i], true);
+
+        if (ProfileUI.Instance != null)
             ProfileUI.Instance.RefreshAll();
 
+        int sceneDialogueIndex = data.sceneProgress;
+
+        if (DialogueManager.Instance != null)
+            DialogueManager.Instance.StartCoroutine(ClearAndStartDialogue(sceneDialogueIndex));
+        else if (SceneEvent.Instance != null)
+            SceneEvent.Instance.StartCoroutine(ClearAndStartDialogue(sceneDialogueIndex));
+        else
+            IsLoading = false;
+    }
+
+    static System.Collections.IEnumerator ClearAndStartDialogue(int sceneDialogueIndex)
+    {
         IsLoading = false;
+        yield return null;
+
+        if (SceneEvent.Instance != null)
+            yield return SceneEvent.Instance.StartCoroutine(
+                SceneEvent.Instance.StartDialogueAfterLoad(sceneDialogueIndex));
     }
 }
