@@ -12,7 +12,7 @@ public enum SceneProgress
     Scene6,
 }
 
-public class SceneEvent : MonoBehaviour
+public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 {
     public static SceneEvent Instance { get; private set; }
     private SceneProgress progress = SceneProgress.Scene1;
@@ -35,9 +35,6 @@ public class SceneEvent : MonoBehaviour
         }
     }
 
-    [Header("Dialogues")]
-    public DialogueNode[] sceneStartDialogueNodes;
-
     [Header("Backgrounds")]
     public Image backgroundImage;
     public Sprite[] bgs;
@@ -46,8 +43,27 @@ public class SceneEvent : MonoBehaviour
     public Image charImage;
     public Sprite[] chars;
 
+    [Header("Dialogues")]
+    public DialogueNode[] sceneStartDialogueNodes;
+
     [Header("Enemies")]
     public EnemyData[] enemies;
+
+    [Header("UI Panels")]
+    public GameObject timePanel;
+    public GameObject iconPanel;
+    public GameObject profilePanel;
+    public GameObject inventoryPanel;
+    public GameObject shopPanel;
+    public GameObject mapPanel;
+    public GameObject combatMapPanel;
+    public GameObject equipmentPanel;
+    public GameObject coinPanel;
+    public GameObject houseIconsPanel;
+
+    [Header("UI Maps")]
+    public Image mapImage;
+    public Sprite[] maps;
 
     [Header("UI Icons")]
     public GameObject saveIcon;
@@ -78,19 +94,17 @@ public class SceneEvent : MonoBehaviour
     public GameObject bathroomIcon;
     public GameObject gardenIcon;
 
-    [Header("UI Panels")]
-    public GameObject profilePanel;
-    public GameObject inventoryPanel;
-    public GameObject shopPanel;
-    public GameObject mapPanel;
-    public GameObject combatMapPanel;
-    public GameObject equipmentPanel;
-    public GameObject coinPanel;
-    public GameObject houseIconsPanel;
-
-    [Header("UI Maps")]
-    public Image mapImage;
-    public Sprite[] maps;
+    [Header("Animation")]
+    public Animator timePanelAnimator;
+    public Animator iconPanelAnimator;
+    public Animator dialoguePanelAnimator;
+    public string timePanelOpenTrigger = "TimePanelOpened";
+    public string timePanelCloseTrigger = "TimePanelClosed";
+    public string iconPanelOpenTrigger = "IconPanelOpened";
+    public string iconPanelCloseTrigger = "IconPanelClosed";
+    public string dialoguePanelOpenTrigger = "DialoguePanelOpened";
+    public string dialoguePanelCloseTrigger = "DialoguePanelClosed";
+    public float dialogueCloseFallbackDuration = 0.25f;
 
     [Header("Icon Settings")]
     public bool closeOtherPanelsOnOpen = true;
@@ -112,6 +126,9 @@ public class SceneEvent : MonoBehaviour
 
     void Start()
     {
+        if (DialogueManager.Instance != null)
+            DialogueManager.Instance.PanelAnimator = this;
+
         if (!SaveSystem.IsLoading)
         {
             SetBackground(0);
@@ -375,6 +392,7 @@ public class SceneEvent : MonoBehaviour
         if (subscribed || DialogueManager.Instance == null)
             return;
 
+        DialogueManager.Instance.OnDialogueStart += HandleDialogueStart;
         DialogueManager.Instance.OnDialogueEnd += HandleDialogueEnd;
         DialogueManager.Instance.OnLineShown += HandleLineShown;
         subscribed = true;
@@ -385,6 +403,7 @@ public class SceneEvent : MonoBehaviour
         if (!subscribed || DialogueManager.Instance == null)
             return;
 
+        DialogueManager.Instance.OnDialogueStart -= HandleDialogueStart;
         DialogueManager.Instance.OnDialogueEnd -= HandleDialogueEnd;
         DialogueManager.Instance.OnLineShown -= HandleLineShown;
         subscribed = false;
@@ -429,8 +448,23 @@ public class SceneEvent : MonoBehaviour
             DialogueManager.Instance.StartDialogue(node);
     }
 
+    void HandleDialogueStart(DialogueNode node)
+    {
+        if (timePanelAnimator != null)
+            timePanelAnimator.SetTrigger(timePanelCloseTrigger);
+
+        if (iconPanelAnimator != null)
+            iconPanelAnimator.SetTrigger(iconPanelCloseTrigger);
+    }
+
     void HandleDialogueEnd(DialogueNode endedNode)
     {
+        if (timePanelAnimator != null)
+            timePanelAnimator.SetTrigger(timePanelOpenTrigger);
+
+        if (iconPanelAnimator != null)
+            iconPanelAnimator.SetTrigger(iconPanelOpenTrigger);
+
         if (endedNode == null || !endedNode.isFinalNode)
             return;
 
@@ -451,9 +485,33 @@ public class SceneEvent : MonoBehaviour
             case SceneProgress.Scene5:
                 if (endedNode == sceneStartDialogueNodes[4])
                     TriggerScene6();
-
                 break;
         }
+    }
+
+    public void OpenDialoguePanel()
+    {
+        if (dialoguePanelAnimator != null)
+            dialoguePanelAnimator.SetTrigger(dialoguePanelOpenTrigger);
+    }
+
+    public void CloseDialoguePanel()
+    {
+        if (dialoguePanelAnimator != null)
+            dialoguePanelAnimator.SetTrigger(dialoguePanelCloseTrigger);
+    }
+
+    public float DialogueCloseAnimationDuration()
+    {
+        if (dialoguePanelAnimator != null)
+        {
+            AnimatorStateInfo info = dialoguePanelAnimator.GetCurrentAnimatorStateInfo(0);
+
+            if (info.length > 0f)
+                return info.length;
+        }
+
+        return dialogueCloseFallbackDuration;
     }
 
     void HandleLineShown(DialogueNode node, int lineIndex)

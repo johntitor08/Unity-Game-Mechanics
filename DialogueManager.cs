@@ -15,6 +15,7 @@ public enum DialogueState
     Closing
 }
 
+[RequireComponent(typeof(IDialoguePanelAnimator))]
 public class DialogueManager : MonoBehaviour
 {
     public static DialogueManager Instance;
@@ -28,6 +29,7 @@ public class DialogueManager : MonoBehaviour
     public event Action<DialogueChoice> OnChoiceSelected;
     public event Action<DialogueNode> OnDialogueEnd;
     public event Action<DialogueNode, int> OnLineShown;
+    public IDialoguePanelAnimator PanelAnimator { get; set; }
 
     [Header("UI")]
     public GameObject dialoguePanel;
@@ -42,12 +44,6 @@ public class DialogueManager : MonoBehaviour
 
     [Header("Typewriter")]
     public Typewriter typewriter;
-
-    [Header("Animation")]
-    public Animator dialoguePanelAnimator;
-    public string openTrigger = "Open";
-    public string closeTrigger = "Close";
-    public float closeFallbackDuration = 0.25f;
 
     [Header("Audio")]
     public AudioClip dialogueOpenSound;
@@ -69,6 +65,8 @@ public class DialogueManager : MonoBehaviour
 
         if (typewriter != null)
             typewriter.OnTypingComplete += OnTypingFinished;
+
+        PanelAnimator ??= GetComponent<IDialoguePanelAnimator>();
     }
 
     void Update()
@@ -76,21 +74,16 @@ public class DialogueManager : MonoBehaviour
         if (State != DialogueState.Typing && State != DialogueState.WaitingInput)
             return;
 
-        bool clickOverUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
-        bool spacePressed = Input.GetKeyDown(KeyCode.Space);
-        bool clickPressed = Input.GetMouseButtonDown(0) && !clickOverUI;
+        bool overUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+        bool advance = Input.GetKeyDown(KeyCode.Space) || (Input.GetMouseButtonDown(0) && !overUI);
 
-        if (!spacePressed && !clickPressed)
+        if (!advance)
             return;
 
         if (State == DialogueState.Typing && typewriter != null && typewriter.IsTyping)
-        {
             typewriter.Complete(dialogueText);
-        }
         else if (State == DialogueState.WaitingInput)
-        {
             NextLine();
-        }
     }
 
     void SetupVisuals()
@@ -130,11 +123,9 @@ public class DialogueManager : MonoBehaviour
         currentNode = startNode;
         currentLineIndex = 0;
         onDialogueEnd = callback;
+        State = DialogueState.Opening;
         dialoguePanel.SetActive(true);
-
-        if (dialoguePanelAnimator != null)
-            dialoguePanelAnimator.SetTrigger(openTrigger);
-
+        PanelAnimator?.OpenDialoguePanel();
         PlaySound(dialogueOpenSound);
         currentNode.onEnter?.Invoke();
         OnDialogueStart?.Invoke(currentNode);
@@ -144,30 +135,6 @@ public class DialogueManager : MonoBehaviour
     }
 
     public bool IsInDialogue() => State != DialogueState.Idle;
-
-    void OnTypingFinished()
-    {
-        if (State != DialogueState.Typing)
-            return;
-
-        if (currentNode != null && currentNode.autoAdvance)
-        {
-            autoAdvanceCoroutine = StartCoroutine(AutoAdvanceRoutine(currentNode.autoAdvanceDelay));
-            return;
-        }
-
-        State = DialogueState.WaitingInput;
-
-        if (continueButton != null)
-            continueButton.SetActive(true);
-    }
-
-    IEnumerator AutoAdvanceRoutine(float delay)
-    {
-        yield return new WaitForSeconds(delay);
-        autoAdvanceCoroutine = null;
-        NextLine();
-    }
 
     void ShowLine()
     {
@@ -197,17 +164,39 @@ public class DialogueManager : MonoBehaviour
             dialogueText.text = line;
 
             if (currentNode.autoAdvance)
-            {
                 autoAdvanceCoroutine = StartCoroutine(AutoAdvanceRoutine(currentNode.autoAdvanceDelay));
-            }
             else
-            {
-                State = DialogueState.WaitingInput;
-
-                if (continueButton != null)
-                    continueButton.SetActive(true);
-            }
+                FinishTyping();
         }
+    }
+
+    void FinishTyping()
+    {
+        State = DialogueState.WaitingInput;
+
+        if (continueButton != null)
+            continueButton.SetActive(true);
+    }
+
+    void OnTypingFinished()
+    {
+        if (State != DialogueState.Typing)
+            return;
+
+        if (currentNode != null && currentNode.autoAdvance)
+        {
+            autoAdvanceCoroutine = StartCoroutine(AutoAdvanceRoutine(currentNode.autoAdvanceDelay));
+            return;
+        }
+
+        FinishTyping();
+    }
+
+    IEnumerator AutoAdvanceRoutine(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        autoAdvanceCoroutine = null;
+        NextLine();
     }
 
     void NextLine()
@@ -222,13 +211,6 @@ public class DialogueManager : MonoBehaviour
         }
 
         currentLineIndex++;
-
-        if (currentNode != null && currentLineIndex >= currentNode.lines.Length)
-        {
-            ShowChoicesOrEnd();
-            return;
-        }
-
         ShowLine();
     }
 
@@ -244,28 +226,32 @@ public class DialogueManager : MonoBehaviour
 
         State = DialogueState.Choices;
 
-        if (choicesPanel != null && choicesContainer != null)
+        if (choicesPanel == null || choicesContainer == null || choiceButtonPrefab == null)
         {
-            RectTransform panelRect = choicesPanel.GetComponent<RectTransform>();
-            RectTransform containerRect = choicesContainer.GetComponent<RectTransform>();
-
-            if (panelRect != null && containerRect != null)
-            {
-                int buttonHeight = (int)(choiceButtonPrefab != null ? ((RectTransform)choiceButtonPrefab.transform).rect.height : 100);
-                int panelHeight = currentNode.choices.Length * (buttonHeight + 25);
-                panelRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, panelHeight);
-                containerRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, panelHeight);
-            }
-
-            foreach (var choice in currentNode.choices)
-            {
-                Button btn = Instantiate(choiceButtonPrefab, choicesContainer);
-                btn.GetComponentInChildren<TextMeshProUGUI>().text = choice.choiceText;
-                btn.onClick.AddListener(() => SelectChoice(choice));
-            }
-
-            choicesPanel.SetActive(true);
+            Debug.LogWarning("[DialogueManager] Choices UI references incomplete.");
+            EndDialogue();
+            return;
         }
+
+        var panelRect = choicesPanel.GetComponent<RectTransform>();
+        var containerRect = choicesContainer.GetComponent<RectTransform>();
+
+        if (panelRect != null && containerRect != null)
+        {
+            int buttonHeight = (int)((RectTransform)choiceButtonPrefab.transform).rect.height;
+            int panelHeight = currentNode.choices.Length * (buttonHeight + 25);
+            panelRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, panelHeight);
+            containerRect.sizeDelta = new Vector2(containerRect.sizeDelta.x, panelHeight);
+        }
+
+        foreach (var choice in currentNode.choices)
+        {
+            Button btn = Instantiate(choiceButtonPrefab, choicesContainer);
+            btn.GetComponentInChildren<TextMeshProUGUI>().text = choice.choiceText;
+            btn.onClick.AddListener(() => SelectChoice(choice));
+        }
+
+        choicesPanel.SetActive(true);
     }
 
     void SelectChoice(DialogueChoice choice)
@@ -310,8 +296,8 @@ public class DialogueManager : MonoBehaviour
 
         DialogueNode endedNode = currentNode;
 
-        if (currentNode != null)
-            currentNode.onExit?.Invoke();
+        if (endedNode != null)
+            endedNode.onExit?.Invoke();
 
         currentNode = null;
 
@@ -320,28 +306,20 @@ public class DialogueManager : MonoBehaviour
 
         ClearChoices();
         PlaySound(dialogueCloseSound);
+        float closeDuration = 0.25f;
 
-        if (dialoguePanelAnimator != null)
-            dialoguePanelAnimator.SetTrigger(closeTrigger);
-
-        StartCoroutine(FinishDialogue(endedNode));
-    }
-
-    IEnumerator FinishDialogue(DialogueNode endedNode)
-    {
-        float waitTime = closeFallbackDuration;
-
-        if (dialoguePanelAnimator != null)
+        if (PanelAnimator != null)
         {
-            yield return null;
-            AnimatorStateInfo info = dialoguePanelAnimator.GetCurrentAnimatorStateInfo(0);
-            float clipLength = info.length;
-
-            if (clipLength > 0f)
-                waitTime = clipLength;
+            PanelAnimator.CloseDialoguePanel();
+            closeDuration = PanelAnimator.DialogueCloseAnimationDuration();
         }
 
-        yield return new WaitForSeconds(waitTime);
+        StartCoroutine(FinishDialogue(endedNode, closeDuration));
+    }
+
+    IEnumerator FinishDialogue(DialogueNode endedNode, float closeDuration)
+    {
+        yield return new WaitForSeconds(closeDuration);
 
         if (dialoguePanel != null)
             dialoguePanel.SetActive(false);
@@ -383,4 +361,11 @@ public class DialogueManager : MonoBehaviour
 
         audioSource.PlayOneShot(clip, 0.5f);
     }
+}
+
+public interface IDialoguePanelAnimator
+{
+    void OpenDialoguePanel();
+    void CloseDialoguePanel();
+    float DialogueCloseAnimationDuration();
 }
