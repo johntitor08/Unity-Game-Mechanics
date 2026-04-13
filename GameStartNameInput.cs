@@ -201,6 +201,7 @@ public class GameStartNameInput : MonoBehaviour
             if (nameInputPanel != null)
                 nameInputPanel.SetActive(false);
 
+            InitializeGame();
             return;
         }
 
@@ -384,7 +385,8 @@ public class GameStartNameInput : MonoBehaviour
 
     void OnRandomNameClicked()
     {
-        if (randomNames.Length == 0) return;
+        if (randomNames.Length == 0)
+            return;
 
         string randomName = randomNames[Random.Range(0, randomNames.Length)];
 
@@ -396,7 +398,9 @@ public class GameStartNameInput : MonoBehaviour
 
     void StartGame(string playerName)
     {
-        if (hasStarted) return;
+        if (hasStarted)
+            return;
+
         hasStarted = true;
 
         if (ProfileManager.Instance != null)
