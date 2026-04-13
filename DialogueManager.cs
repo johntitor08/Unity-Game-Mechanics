@@ -2,7 +2,6 @@
 using System.Collections;
 using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public enum DialogueState
@@ -74,8 +73,7 @@ public class DialogueManager : MonoBehaviour
         if (State != DialogueState.Typing && State != DialogueState.WaitingInput)
             return;
 
-        bool overUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
-        bool advance = Input.GetKeyDown(KeyCode.Space) || (Input.GetMouseButtonDown(0) && !overUI);
+        bool advance = Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0);
 
         if (!advance)
             return;
@@ -306,20 +304,16 @@ public class DialogueManager : MonoBehaviour
 
         ClearChoices();
         PlaySound(dialogueCloseSound);
-        float closeDuration = 0.25f;
-
-        if (PanelAnimator != null)
-        {
-            PanelAnimator.CloseDialoguePanel();
-            closeDuration = PanelAnimator.DialogueCloseAnimationDuration();
-        }
-
-        StartCoroutine(FinishDialogue(endedNode, closeDuration));
+        PanelAnimator?.CloseDialoguePanel();
+        StartCoroutine(FinishDialogue(endedNode));
     }
 
-    IEnumerator FinishDialogue(DialogueNode endedNode, float closeDuration)
+    IEnumerator FinishDialogue(DialogueNode endedNode)
     {
-        yield return new WaitForSeconds(closeDuration);
+        float closeDuration = PanelAnimator != null ? PanelAnimator.DialogueCloseAnimationDuration() : 0.25f;
+
+        if (closeDuration > 0)
+            yield return new WaitForSeconds(closeDuration);
 
         if (dialoguePanel != null)
             dialoguePanel.SetActive(false);

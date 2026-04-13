@@ -225,16 +225,13 @@ public class GameStartNameInput : MonoBehaviour
 
     void OnNameChanged(string newName)
     {
-        // Update character count
         if (characterCountText != null)
         {
             characterCountText.text = $"{newName.Length} / {maxNameLength}";
         }
 
-        // Validate name
         bool isValid = ValidateName(newName, out string errorMessage);
 
-        // Update error message
         if (errorMessageText != null)
         {
             if (!isValid && newName.Length > 0)
@@ -248,13 +245,11 @@ public class GameStartNameInput : MonoBehaviour
             }
         }
 
-        // Update confirm button
         if (confirmButton != null)
         {
             confirmButton.interactable = isValid && typewriterFinished;
         }
 
-        // Play typing sound
         if (typeSound != null && newName.Length > 0)
         {
             PlaySound(typeSound);
@@ -265,49 +260,42 @@ public class GameStartNameInput : MonoBehaviour
     {
         errorMessage = "";
 
-        // Check if empty
         if (string.IsNullOrWhiteSpace(name))
         {
             errorMessage = "Ýsim boþ olamaz!";
             return false;
         }
 
-        // Check minimum length
         if (name.Length < minNameLength)
         {
             errorMessage = $"Ýsim en az {minNameLength} karakter olmalý!";
             return false;
         }
 
-        // Check maximum length
         if (name.Length > maxNameLength)
         {
             errorMessage = $"Ýsim en fazla {maxNameLength} karakter olabilir!";
             return false;
         }
 
-        // Check for spaces
         if (!allowSpaces && name.Contains(" "))
         {
             errorMessage = "Ýsimde boþluk kullanýlamaz!";
             return false;
         }
 
-        // Check for numbers
         if (!allowNumbers && ContainsNumbers(name))
         {
             errorMessage = "Ýsimde sayý kullanýlamaz!";
             return false;
         }
 
-        // Check for special characters
         if (!allowSpecialCharacters && ContainsSpecialCharacters(name))
         {
             errorMessage = "Ýsimde özel karakter kullanýlamaz!";
             return false;
         }
 
-        // Check for profanity (optional)
         if (IsProfane(name))
         {
             errorMessage = "Lütfen uygun bir isim seçin!";
@@ -324,6 +312,7 @@ public class GameStartNameInput : MonoBehaviour
             if (char.IsDigit(c))
                 return true;
         }
+
         return false;
     }
 
@@ -334,15 +323,15 @@ public class GameStartNameInput : MonoBehaviour
             if (!char.IsLetterOrDigit(c) && c != ' ' && c != '_')
                 return true;
         }
+
         return false;
     }
 
     bool IsProfane(string text)
     {
-        // Add profanity filter here if needed
-        string[] badWords = { }; // Add words to filter
-
+        string[] badWords = { };
         string lowerText = text.ToLower();
+
         foreach (string badWord in badWords)
         {
             if (lowerText.Contains(badWord.ToLower()))
@@ -362,10 +351,7 @@ public class GameStartNameInput : MonoBehaviour
 
     void TryConfirm()
     {
-        if (!typewriterFinished)
-            return;
-
-        if (nameInputField == null)
+        if (!typewriterFinished || nameInputField == null)
             return;
 
         string playerName = nameInputField.text.Trim();
@@ -447,7 +433,6 @@ public class GameStartNameInput : MonoBehaviour
 
     void CompleteStart()
     {
-        // Animate panel out
         if (panelAnimator != null)
         {
             panelAnimator.SetTrigger("FadeOut");
@@ -467,32 +452,38 @@ public class GameStartNameInput : MonoBehaviour
 
     void FinalizeStart()
     {
-        // Hide name input panel
         if (nameInputPanel != null)
             nameInputPanel.SetActive(false);
 
-        // Initialize game systems
         InitializeGame();
     }
 
     void InitializeGame()
     {
-        // Initialize player stats
         if (PlayerStats.Instance != null)
         {
             PlayerStats.Instance.FullRestore();
-        }
-
-        // Set starting currency
-        if (ProfileManager.Instance != null)
-        {
-            // Already has starting currency from profile
         }
 
         if (DialogueManager.Instance != null && startDialogueNode != null)
         {
             DialogueManager.Instance.StartDialogue(startDialogueNode);
         }
+
+        if (ProfileUI.Instance != null)
+            ProfileUI.Instance.OnGameStarted();
+
+        if (InventoryUI.Instance != null)
+            InventoryUI.Instance.OnGameStarted();
+
+        if (EquipmentUI.Instance != null)
+            EquipmentUI.Instance.OnGameStarted();
+
+        if (MarketUI.Instance != null)
+            MarketUI.Instance.OnGameStarted();
+
+        if (CurrencyUI.Instance != null)
+            CurrencyUI.Instance.OnGameStarted();
     }
 
     void ShowError(string message)
@@ -550,7 +541,6 @@ public class GameStartNameInput : MonoBehaviour
         }
     }
 
-    // Public method to reset and show name input again
     public void ShowNameInput()
     {
         hasStarted = false;

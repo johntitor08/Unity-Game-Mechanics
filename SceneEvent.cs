@@ -207,29 +207,21 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetActive(arenaIcon, false);
     }
 
-    void TogglePanel(GameObject panel, string panelName)
+    void OpenPanel(GameObject panel, string panelName)
     {
+        if (IsInDialogue())
+            return;
+
         if (panel == null)
         {
             Debug.LogWarning($"[SceneEvent] {panelName} panel reference is null.");
             return;
         }
 
-        bool isActive = panel.activeSelf;
-
-        if (closeOtherPanelsOnOpen && !allowMultiplePanels && !isActive)
+        if (closeOtherPanelsOnOpen && !allowMultiplePanels)
             HideAllPanels();
 
-        panel.SetActive(!isActive);
-
-        if (!isActive && panelName == "Map")
-            SetMap(currentMapIndex);
-    }
-
-    public void ToggleInventoryInCombat()
-    {
-        if (inventoryPanel != null)
-            inventoryPanel.SetActive(!inventoryPanel.activeSelf);
+        panel.SetActive(true);
     }
 
     public void OpenProfile()
@@ -296,20 +288,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             ProfileUI.Instance.RefreshAll();
     }
 
-    void OpenPanel(GameObject panel, string panelName)
-    {
-        if (panel == null)
-        {
-            Debug.LogWarning($"[SceneEvent] {panelName} panel reference is null.");
-            return;
-        }
-
-        if (closeOtherPanelsOnOpen && !allowMultiplePanels)
-            HideAllPanels();
-
-        panel.SetActive(true);
-    }
-
     public void HideAllPanels()
     {
         SetActive(profilePanel, false);
@@ -324,6 +302,34 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetActive(combatMapPanel, false);
         SetActive(equipmentPanel, false);
         SetActive(coinPanel, false);
+    }
+
+    void TogglePanel(GameObject panel, string panelName)
+    {
+        if (IsInDialogue())
+            return;
+
+        if (panel == null)
+        {
+            Debug.LogWarning($"[SceneEvent] {panelName} panel reference is null.");
+            return;
+        }
+
+        bool isActive = panel.activeSelf;
+
+        if (closeOtherPanelsOnOpen && !allowMultiplePanels && !isActive)
+            HideAllPanels();
+
+        panel.SetActive(!isActive);
+
+        if (!isActive && panelName == "Map")
+            SetMap(currentMapIndex);
+    }
+
+    public void ToggleInventoryInCombat()
+    {
+        if (inventoryPanel != null)
+            inventoryPanel.SetActive(!inventoryPanel.activeSelf);
     }
 
     public void SetCharacter(int index)
@@ -457,6 +463,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             iconPanelAnimator.SetTrigger(iconPanelCloseTrigger);
     }
 
+    bool IsInDialogue() => DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue();
+
     void HandleDialogueEnd(DialogueNode endedNode)
     {
         if (timePanelAnimator != null)
@@ -485,6 +493,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             case SceneProgress.Scene5:
                 if (endedNode == sceneStartDialogueNodes[4])
                     TriggerScene6();
+
                 break;
         }
     }
@@ -624,6 +633,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     private void HandleScene4CombatDefeat()
     {
         UnsubscribeSceneCombat();
+        SetCharacter(8);
     }
 
     private void UnsubscribeSceneCombat()

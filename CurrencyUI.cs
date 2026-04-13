@@ -1,14 +1,16 @@
-using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
 using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
 
 public class CurrencyUI : MonoBehaviour
 {
     public static CurrencyUI Instance;
     private readonly Dictionary<CurrencyType, Coroutine> animationCoroutines = new();
     private readonly Dictionary<CurrencyType, CurrencyDisplay> displayDict = new();
+    public GameObject panel;
     private bool _subscribed;
+    private bool gameStarted = false;
 
     [Header("Currency Displays")]
     public List<CurrencyDisplay> currencyDisplays = new();
@@ -42,6 +44,15 @@ public class CurrencyUI : MonoBehaviour
         Subscribe();
     }
 
+    private void Update()
+    {
+        if (!gameStarted)
+            return;
+
+        if (Input.GetKeyDown(KeyCode.C))
+            panel.SetActive(!panel.activeSelf);
+    }
+
     void OnEnable()
     {
         if (_subscribed)
@@ -69,6 +80,11 @@ public class CurrencyUI : MonoBehaviour
             return;
 
         CurrencyManager.Instance.OnCurrencyChanged -= OnCurrencyChanged;
+    }
+
+    public void OnGameStarted()
+    {
+        gameStarted = true;
     }
 
     void OnCurrencyChanged(CurrencyType type, int oldAmount, int newAmount)

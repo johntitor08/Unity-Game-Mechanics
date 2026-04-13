@@ -22,6 +22,7 @@ public class ProfileManager : MonoBehaviour
     public event Action<PlayerProfile> OnLevelUp;
     public event Action<PlayerProfile> OnCurrencyChanged;
     public static event Action OnReady;
+    public bool IsLoaded { get; private set; }
 
     void Awake()
     {
@@ -123,6 +124,7 @@ public class ProfileManager : MonoBehaviour
         profile.unlockedIconIDs = saved.unlockedIconIDs;
         OnCurrencyChanged?.Invoke(profile);
         OnProfileChanged?.Invoke(profile);
+        IsLoaded = true;
     }
 
     public bool PurchaseIcon(string iconID, int cost)

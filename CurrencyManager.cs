@@ -102,10 +102,7 @@ public class CurrencyManager : MonoBehaviour
 
         foreach (var kvp in amounts)
         {
-            if (!currencyDict.TryGetValue(kvp.Key, out var currency))
-                continue;
-
-            if (kvp.Value <= 0)
+            if (!currencyDict.TryGetValue(kvp.Key, out var currency) || kvp.Value <= 0)
                 continue;
 
             int old = currency.amount;

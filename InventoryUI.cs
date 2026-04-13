@@ -5,6 +5,7 @@ public class InventoryUI : MonoBehaviour
 {
     public static InventoryUI Instance;
     private readonly List<ItemSlot> slots = new();
+    private bool gameStarted = false;
 
     [Header("UI")]
     public GameObject panel;
@@ -15,6 +16,9 @@ public class InventoryUI : MonoBehaviour
 
     void Update()
     {
+        if (!gameStarted)
+            return;
+
         if (Input.GetKeyDown(KeyCode.I))
             panel.SetActive(!panel.activeSelf);
     }
@@ -41,6 +45,11 @@ public class InventoryUI : MonoBehaviour
         InventoryManager.Instance.OnInventoryChanged -= Refresh;
         InventoryManager.Instance.OnInventoryChanged += Refresh;
         Refresh();
+    }
+
+    public void OnGameStarted()
+    {
+        gameStarted = true;
     }
 
     void Refresh()

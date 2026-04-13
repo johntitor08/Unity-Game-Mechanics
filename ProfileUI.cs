@@ -11,6 +11,7 @@ public class ProfileUI : MonoBehaviour
     private readonly int[] pendingStatIncreases = new int[6];
     private readonly Dictionary<StatType, Vector3> _originalTextScales = new();
     private readonly Dictionary<StatType, Coroutine> _pulseCoroutines = new();
+    private bool gameStarted = false;
 
     [Header("Panel")]
     public GameObject profilePanel;
@@ -99,6 +100,20 @@ public class ProfileUI : MonoBehaviour
         Instance = this;
     }
 
+    void Update()
+    {
+        if (!gameStarted)
+            return;
+
+        if (Input.GetKeyDown(toggleKey) && profilePanel != null)
+        {
+            profilePanel.SetActive(!profilePanel.activeSelf);
+
+            if (profilePanel.activeSelf)
+                RefreshAll();
+        }
+    }
+
     void OnEnable()
     {
         if (ProfileManager.Instance != null)
@@ -174,15 +189,9 @@ public class ProfileUI : MonoBehaviour
         System.Array.Clear(pendingStatIncreases, 0, pendingStatIncreases.Length);
     }
 
-    void Update()
+    public void OnGameStarted()
     {
-        if (Input.GetKeyDown(toggleKey) && profilePanel != null)
-        {
-            profilePanel.SetActive(!profilePanel.activeSelf);
-
-            if (profilePanel.activeSelf)
-                RefreshAll();
-        }
+        gameStarted = true;
     }
 
     (Button btn, Image icon, EquipmentSlot slot)[] SlotDefs() => new[]

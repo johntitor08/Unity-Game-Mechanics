@@ -7,6 +7,7 @@ public class EquipmentUI : MonoBehaviour
     public static EquipmentUI Instance { get; private set; }
     private Dictionary<EquipmentSlot, EquipmentSlotUI> slotUIMap;
     private readonly List<TextMeshProUGUI> setBonusTexts = new();
+    private bool gameStarted = false;
 
     [Header("Panels")]
     public GameObject equipmentPanel;
@@ -49,11 +50,37 @@ public class EquipmentUI : MonoBehaviour
 
     void Update()
     {
+        if (!gameStarted)
+            return;
+
         if (Input.GetKeyDown(toggleKey))
             TogglePanel();
     }
 
     void OnDestroy() => UnsubscribeFromEvents();
+
+    void SubscribeToEvents()
+    {
+        if (EquipmentManager.Instance != null)
+            EquipmentManager.Instance.OnEquipmentChanged += RefreshUI;
+
+        if (CombatManager.Instance != null)
+            CombatManager.Instance.OnCombatStateChanged += RefreshCombatStats;
+    }
+
+    void UnsubscribeFromEvents()
+    {
+        if (EquipmentManager.Instance != null)
+            EquipmentManager.Instance.OnEquipmentChanged -= RefreshUI;
+
+        if (CombatManager.Instance != null)
+            CombatManager.Instance.OnCombatStateChanged -= RefreshCombatStats;
+    }
+
+    public void OnGameStarted()
+    {
+        gameStarted = true;
+    }
 
     void InitializeSlots()
     {
@@ -95,24 +122,6 @@ public class EquipmentUI : MonoBehaviour
             ui.OnItemClicked += OpenItemPanel;
             ui.OnDetailClicked += OpenDetailPanel;
         }
-    }
-
-    void SubscribeToEvents()
-    {
-        if (EquipmentManager.Instance != null)
-            EquipmentManager.Instance.OnEquipmentChanged += RefreshUI;
-
-        if (CombatManager.Instance != null)
-            CombatManager.Instance.OnCombatStateChanged += RefreshCombatStats;
-    }
-
-    void UnsubscribeFromEvents()
-    {
-        if (EquipmentManager.Instance != null)
-            EquipmentManager.Instance.OnEquipmentChanged -= RefreshUI;
-
-        if (CombatManager.Instance != null)
-            CombatManager.Instance.OnCombatStateChanged -= RefreshCombatStats;
     }
 
     public void TogglePanel()

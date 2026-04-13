@@ -4,6 +4,7 @@ public class MarketUI : MonoBehaviour
 {
     public static MarketUI Instance;
     public GameObject marketPanel;
+    private bool gameStarted = false;
 
     void Awake()
     {
@@ -11,6 +12,25 @@ public class MarketUI : MonoBehaviour
             Instance = this;
         else
             Destroy(gameObject);
+    }
+
+    private void Update()
+    {
+        if (!gameStarted)
+            return;
+
+        if (Input.GetKeyDown(KeyCode.S))
+        {
+            if (marketPanel.activeSelf)
+                CloseAll();
+            else
+                OpenMarket();
+        }
+    }
+
+    public void OnGameStarted()
+    {
+        gameStarted = true;
     }
 
     public void OpenMarket()
