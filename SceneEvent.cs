@@ -10,6 +10,8 @@ public enum SceneProgress
     Scene4,
     Scene5,
     Scene6,
+    Scene7,
+    Scene8
 }
 
 public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
@@ -495,6 +497,14 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                     TriggerScene6();
 
                 break;
+
+            case SceneProgress.Scene6:
+                TriggerScene7();
+                break;
+
+            case SceneProgress.Scene7:
+                TriggerScene8();
+                break;
         }
     }
 
@@ -566,6 +576,15 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             case SceneProgress.Scene6:
                 SetBackground(4);
                 SetCharacter(8);
+                break;
+
+            case SceneProgress.Scene7:
+                SetBackground(5);
+                break;
+
+            case SceneProgress.Scene8:
+                SetBackground(6);
+                SetCharacter(15);
                 break;
         }
     }
@@ -684,5 +703,26 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         Progress = SceneProgress.Scene6;
         SetBackground(4);
         TryStartDialogue(5);
+    }
+
+    public void TriggerScene7()
+    {
+        if (Progress != SceneProgress.Scene6)
+            return;
+
+        Progress = SceneProgress.Scene7;
+        SetBackground(5);
+        TryStartDialogue(6);
+    }
+
+    public void TriggerScene8()
+    {
+        if (Progress != SceneProgress.Scene7)
+            return;
+
+        Progress = SceneProgress.Scene8;
+        SetBackground(6);
+        SetCharacter(15);
+        TryStartDialogue(7);
     }
 }

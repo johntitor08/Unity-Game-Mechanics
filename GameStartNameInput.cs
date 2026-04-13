@@ -201,7 +201,7 @@ public class GameStartNameInput : MonoBehaviour
             if (nameInputPanel != null)
                 nameInputPanel.SetActive(false);
 
-            InitializeGame();
+            InitializeGameContinue();
             return;
         }
 
@@ -212,6 +212,35 @@ public class GameStartNameInput : MonoBehaviour
             if (nameInputField != null)
                 StartCoroutine(FocusInputField());
         }
+    }
+
+    void InitializeGame()
+    {
+        if (PlayerStats.Instance != null)
+            PlayerStats.Instance.FullRestore();
+
+        if (DialogueManager.Instance != null && startDialogueNode != null)
+            DialogueManager.Instance.StartDialogue(startDialogueNode);
+
+        InitializeGameContinue();
+    }
+
+    void InitializeGameContinue()
+    {
+        if (ProfileUI.Instance != null)
+            ProfileUI.Instance.OnGameStarted();
+
+        if (InventoryUI.Instance != null)
+            InventoryUI.Instance.OnGameStarted();
+
+        if (EquipmentUI.Instance != null)
+            EquipmentUI.Instance.OnGameStarted();
+
+        if (MarketUI.Instance != null)
+            MarketUI.Instance.OnGameStarted();
+
+        if (CurrencyUI.Instance != null)
+            CurrencyUI.Instance.OnGameStarted();
     }
 
     IEnumerator FocusInputField()
@@ -460,34 +489,6 @@ public class GameStartNameInput : MonoBehaviour
             nameInputPanel.SetActive(false);
 
         InitializeGame();
-    }
-
-    void InitializeGame()
-    {
-        if (PlayerStats.Instance != null)
-        {
-            PlayerStats.Instance.FullRestore();
-        }
-
-        if (DialogueManager.Instance != null && startDialogueNode != null)
-        {
-            DialogueManager.Instance.StartDialogue(startDialogueNode);
-        }
-
-        if (ProfileUI.Instance != null)
-            ProfileUI.Instance.OnGameStarted();
-
-        if (InventoryUI.Instance != null)
-            InventoryUI.Instance.OnGameStarted();
-
-        if (EquipmentUI.Instance != null)
-            EquipmentUI.Instance.OnGameStarted();
-
-        if (MarketUI.Instance != null)
-            MarketUI.Instance.OnGameStarted();
-
-        if (CurrencyUI.Instance != null)
-            CurrencyUI.Instance.OnGameStarted();
     }
 
     void ShowError(string message)
