@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 public class CombatUI : MonoBehaviour
 {
-    private static WaitForSeconds _waitForSeconds2 = new(2f);
+    private static readonly WaitForSeconds _waitForSeconds2 = new(2f);
     public static CombatUI Instance;
     private readonly List<CombatActionButton> actionButtons = new();
     private bool actionLocked;

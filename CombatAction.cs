@@ -33,6 +33,7 @@ public class CombatAction
 
     [Header("Flee")]
     public bool isFlee = false;
+    public bool isDisabled = false;
 
     [Header("Buff")]
     public bool applyBuff = false;

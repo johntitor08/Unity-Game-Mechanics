@@ -51,11 +51,12 @@ public class CombatActionButton : MonoBehaviour
     public void UpdateInteractable(bool canUse)
     {
         bool hasEnoughEnergy = PlayerStats.Instance != null && PlayerStats.Instance.HasEnoughEnergy(action.energyCost);
+        bool disabled = action.isDisabled;
 
         if (button != null)
-            button.interactable = canUse && hasEnoughEnergy;
+            button.interactable = canUse && hasEnoughEnergy && !disabled;
 
         if (notEnoughEnergyIndicator != null)
-            notEnoughEnergyIndicator.SetActive(!hasEnoughEnergy);
+            notEnoughEnergyIndicator.SetActive(!hasEnoughEnergy && !disabled);
     }
 }

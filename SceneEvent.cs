@@ -614,11 +614,30 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         TryStartDialogue(3);
     }
 
+    private CombatAction GetFleeAction()
+    {
+        var cm = CombatManager.Instance;
+
+        if (cm == null || cm.defaultActions == null)
+            return null;
+
+        return cm.defaultActions.Find(a => a.isFlee);
+    }
+
+    private void SetFleeDisabled(bool disabled)
+    {
+        var flee = GetFleeAction();
+
+        if (flee != null)
+            flee.isDisabled = disabled;
+    }
+
     private void StartCombatForScene4()
     {
         if (CombatManager.Instance == null)
             return;
 
+        SetFleeDisabled(true);
         CombatManager.Instance.OnCombatVictory += HandleScene4CombatVictory;
         CombatManager.Instance.OnCombatDefeat += HandleScene4CombatDefeat;
         CombatManager.Instance.StartCombat(enemies[0]);
@@ -626,12 +645,14 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     private void HandleScene4CombatVictory()
     {
+        SetFleeDisabled(false);
         UnsubscribeSceneCombat();
         TriggerScene5();
     }
 
     private void HandleScene4CombatDefeat()
     {
+        SetFleeDisabled(false);
         UnsubscribeSceneCombat();
         SetCharacter(8);
     }
