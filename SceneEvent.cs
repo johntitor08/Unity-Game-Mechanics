@@ -143,6 +143,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (hoverEffect != null)
             hoverEffect.GetComponent<UIHoverRegion>().OnRegionClicked += TriggerScene2;
+
+        if (charImage != null)
+            charImage.gameObject.SetActive(false);
     }
 
     void Update()
@@ -463,20 +466,26 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (iconPanelAnimator != null)
             iconPanelAnimator.SetTrigger(iconPanelCloseTrigger);
+
+        if (charImage != null)
+            charImage.gameObject.SetActive(true);
     }
 
     bool IsInDialogue() => DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue();
 
     void HandleDialogueEnd(DialogueNode endedNode)
     {
+        if (endedNode == null || !endedNode.isFinalNode)
+            return;
+
         if (timePanelAnimator != null)
             timePanelAnimator.SetTrigger(timePanelOpenTrigger);
 
         if (iconPanelAnimator != null)
             iconPanelAnimator.SetTrigger(iconPanelOpenTrigger);
 
-        if (endedNode == null || !endedNode.isFinalNode)
-            return;
+        if (charImage != null)
+            charImage.gameObject.SetActive(false);
 
         switch (endedNode.sceneContext)
         {
