@@ -5,24 +5,42 @@ public class RegionHighlighter : MonoBehaviour
     public Camera cam;
     public LayerMask mask;
     public GameObject highlight;
+    private bool isHighlightActive = false;
+
+    void Start()
+    {
+        if (cam == null)
+            cam = Camera.main;
+
+        if (highlight != null)
+            highlight.SetActive(false);
+    }
 
     void Update()
     {
-        if (cam == null)
+        if (cam == null || highlight == null)
             return;
 
         Vector3 mousePos = cam.ScreenToWorldPoint(Input.mousePosition);
-        mousePos.z = 0;
-        RaycastHit2D hit = Physics2D.Raycast(mousePos, Vector2.zero, Mathf.Infinity, mask);
+        Collider2D hitCollider = Physics2D.OverlapPoint(mousePos, mask);
 
-        if (hit.collider != null)
+        if (hitCollider != null)
         {
-            highlight.SetActive(true);
-            highlight.transform.position = hit.collider.bounds.center;
+            if (!isHighlightActive)
+            {
+                highlight.SetActive(true);
+                isHighlightActive = true;
+            }
+
+            highlight.transform.position = hitCollider.bounds.center;
         }
         else
         {
-            highlight.SetActive(false);
+            if (isHighlightActive)
+            {
+                highlight.SetActive(false);
+                isHighlightActive = false;
+            }
         }
     }
 }
