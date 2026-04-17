@@ -77,6 +77,11 @@ public class UIHoverRegion : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         if (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue())
             return;
 
+        if (fadeRoutine != null)
+            StopCoroutine(fadeRoutine);
+
+        currentAlpha = 0f;
+        SetAlpha(0f);
         OnRegionClicked?.Invoke();
     }
 

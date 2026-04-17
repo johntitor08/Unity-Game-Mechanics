@@ -45,6 +45,7 @@ public class MarketUI : MonoBehaviour
         {
             if (ShopUI.Instance != null)
                 ShopUI.Instance.ShowMarketClosed();
+
             return;
         }
 

@@ -12,7 +12,12 @@ public enum SceneProgress
     Scene5,
     Scene6,
     Scene7,
-    Scene8
+    Scene8,
+    SceneMarket,
+    SceneHome,
+    SceneGym,
+    SceneOffice,
+    SceneChurch
 }
 
 public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
@@ -178,27 +183,15 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (mapIcon != null)
             mapIcon.GetComponent<Button>().onClick.AddListener(() => TogglePanel(mapPanel, "Map"));
 
-        if (combatIcon != null)
-            combatIcon.GetComponent<Button>().onClick.AddListener(() => TogglePanel(combatMapPanel, "Combat"));
-
         if (coinButton != null)
             coinButton.GetComponent<Button>().onClick.AddListener(() => TogglePanel(coinPanel, "Coin"));
 
         if (closeMapButton != null)
             closeMapButton.GetComponent<Button>().onClick.AddListener(HideAllPanels);
 
-        if (marketIcon != null)
-        {
-            marketIcon.GetComponent<Button>().onClick.AddListener(() =>
-            {
-                if (MarketUI.Instance != null)
-                    MarketUI.Instance.OpenMarket();
-            });
-
-            marketIcon.transform.parent.parent.gameObject.SetActive(false);
-        }
-
         SetActive(homeIcon, false);
+        SetActive(combatIcon, false);
+        SetActive(marketIcon, false);
         SetActive(gymIcon, false);
         SetActive(officeIcon, false);
         SetActive(churchIcon, false);
@@ -417,21 +410,16 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         bool isFantasy = index == 1;
         bool isCombat = index == 2;
         SetActive(homeIcon, isModern);
+        SetActive(marketIcon, isModern);
         SetActive(gymIcon, isModern);
         SetActive(officeIcon, isModern);
         SetActive(churchIcon, isModern);
-
-        if (marketIcon != null)
-            marketIcon.transform.parent.parent.gameObject.SetActive(isModern);
-
         SetActive(townIcon, isFantasy);
         SetActive(libraryIcon, isFantasy);
         SetActive(dungeonIcon, isFantasy);
         SetActive(castleIcon, isFantasy);
         SetActive(arenaIcon, isFantasy);
-
-        if (combatIcon != null)
-            combatIcon.transform.parent.parent.gameObject.SetActive(isCombat);
+        SetActive(combatIcon, isCombat);
     }
 
     public void NextMap()
@@ -536,6 +524,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             StartCoroutine(FadeOutCharacter(0.5f, endedNode));
         else
             HandleSceneTransition(endedNode);
+
+        if (Progress == SceneProgress.SceneMarket && sceneStartDialogueNodes[8] != null && endedNode == sceneStartDialogueNodes[8])
+            MarketUI.Instance.OpenMarket();
     }
 
     void HandleSceneTransition(DialogueNode endedNode)
@@ -746,7 +737,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     public void StartCashierDialogue()
     {
-        OpenShop();
+        TriggerMarketScene();
     }
 
     public void TriggerScene2()
@@ -872,5 +863,11 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetBackground(6);
         SetCharacter(15);
         TryStartDialogue(7);
+    }
+
+    public void TriggerMarketScene()
+    {
+        Progress = SceneProgress.SceneMarket;
+        TryStartDialogue(8);
     }
 }

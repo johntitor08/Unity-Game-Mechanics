@@ -7,9 +7,18 @@ public class SellSlot : MonoBehaviour
     [Header("Visual")]
     public Image icon;
     public TextMeshProUGUI nameText;
+    public TextMeshProUGUI descText;
     public TextMeshProUGUI quantityText;
     public TextMeshProUGUI priceText;
+    public Image rarityBorder;
+    public TextMeshProUGUI rarityText;
     public Button sellButton;
+
+    [Header("Rarity Colors")]
+    public Color commonColor = new(0.6f, 0.6f, 0.6f);
+    public Color rareColor = new(0.2f, 0.5f, 1f);
+    public Color epicColor = new(0.6f, 0.2f, 1f);
+    public Color legendaryColor = new(1f, 0.6f, 0f);
 
     private ItemData item;
     private EquipmentData equipData;
@@ -54,14 +63,19 @@ public class SellSlot : MonoBehaviour
         if (nameText != null)
             nameText.text = (isEquipment && upgradeLevel > 0) ? $"{item.itemName} +{upgradeLevel}" : item.itemName;
 
+        if (descText != null)
+            descText.text = item.description;
+
         if (quantityText != null)
             quantityText.text = $"x{quantity}";
 
         if (priceText != null)
         {
             int price = Mathf.RoundToInt(item.basePrice * item.GetRarityMultiplier() * sellRatio);
-            priceText.text = $"{price} Gold";
+            priceText.text = $"{price}";
         }
+
+        SetupRarity(item);
 
         if (sellButton != null)
         {
@@ -69,6 +83,38 @@ public class SellSlot : MonoBehaviour
             sellButton.onClick.AddListener(SellOne);
             RefreshButton();
         }
+    }
+
+    void SetupRarity(ItemData item)
+    {
+        if (item == null)
+            return;
+
+        Rarity rarityEnum = item.rarity;
+        Color color;
+
+        if (item is EquipmentData equip)
+        {
+            rarityEnum = equip.rarity;
+            color = equip.GetRarityColor();
+        }
+        else
+        {
+            color = rarityEnum switch
+            {
+                Rarity.Common => commonColor,
+                Rarity.Rare => rareColor,
+                Rarity.Epic => epicColor,
+                Rarity.Legendary => legendaryColor,
+                _ => commonColor
+            };
+        }
+
+        if (rarityText != null)
+            rarityText.text = rarityEnum.ToString();
+
+        if (rarityBorder != null)
+            rarityBorder.color = color;
     }
 
     void RefreshButton()
