@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -20,8 +21,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     private SceneProgress progress = SceneProgress.Scene1;
     private int currentMapIndex = 0;
     public ItemDatabase itemDatabase;
-    public bool subscribed;
-    public GameObject hoverEffect;
+    private bool isDialogueSubscribed;
+    private bool isHoverEffectsSubscribed;
+    public GameObject[] hoverEffects;
+    private List<System.Action> _hoverHideActions = new();
 
     public SceneProgress Progress
     {
@@ -140,9 +143,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetupIconButtons();
         HideAllPanels();
         SubscribeDialogue();
-
-        if (hoverEffect != null)
-            hoverEffect.GetComponent<UIHoverRegion>().OnRegionClicked += TriggerScene2;
+        SubscribeHoverEffects();
 
         if (charImage != null)
             charImage.gameObject.SetActive(false);
@@ -157,11 +158,13 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     void OnEnable()
     {
         SubscribeDialogue();
+        SubscribeHoverEffects();
     }
 
     void OnDisable()
     {
         UnsubscribeDialogue();
+        UnsubscribeHoverEffects();
     }
 
     void SetupIconButtons()
@@ -348,7 +351,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (backgroundImage != null && index >= 0 && index < bgs.Length && bgs[index] != null)
             backgroundImage.sprite = bgs[index];
 
-        SetActive(hoverEffect, index == 0);
+        SetActive(hoverEffects[0], index == 0 && Progress == SceneProgress.Scene1);
+        SetActive(hoverEffects[1], index == 12);
         bool isHouse = index == 11 || index == 13 || index == 14 || index == 15;
         SetActive(houseIconsPanel, isHouse);
         SetActive(livingRoomIcon, isHouse);
@@ -357,6 +361,50 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetActive(kitchenIcon, isHouse);
         SetActive(bathroomIcon, isHouse);
         SetActive(gardenIcon, isHouse);
+        bool showChar = (index >= 8 && index <= 12);
+        SetActive(charImage.gameObject, showChar);
+
+        if (showChar)
+        {
+            RectTransform charRt = charImage.rectTransform;
+
+            if (index == 9)
+            {
+                charRt.anchorMin = new Vector2(1, 0);
+                charRt.anchorMax = new Vector2(1, 0);
+                charRt.pivot = new Vector2(0.5f, 0.5f);
+                charRt.anchoredPosition = new Vector2(-260f, 450f);
+                charRt.sizeDelta = new Vector2(700f, 1200f);
+                charRt.localScale = new Vector3(0.75f, 0.75f, 0.75f);
+                SetCharacter(23);
+            }
+            else if(index == 11)
+            {
+                charRt.anchorMin = new Vector2(0.5f, 0);
+                charRt.anchorMax = new Vector2(0.5f, 0);
+                charRt.pivot = new Vector2(0.5f, 0.5f);
+                charRt.anchoredPosition = new Vector2(375f, 375f);
+                charRt.sizeDelta = new Vector2(75f, 75f);
+                charRt.localScale = new Vector3(10f, 10f, 10f);
+                SetCharacter(26);
+            }
+            else
+            {
+                charRt.anchorMin = new Vector2(0.5f, 0);
+                charRt.anchorMax = new Vector2(0.5f, 0);
+                charRt.pivot = new Vector2(0.5f, 0.5f);
+                charRt.anchoredPosition = new Vector2(0, 375f);
+                charRt.sizeDelta = new Vector2(75f, 75f);
+                charRt.localScale = new Vector3(10f, 10f, 10f);
+
+                if (index == 8)
+                    SetCharacter(21);
+                else if (index == 10)
+                    SetCharacter(25);
+                else if (index == 12)
+                    SetCharacter(28);
+            }
+        }
     }
 
     public void SetMap(int index)
@@ -400,24 +448,24 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     public void SubscribeDialogue()
     {
-        if (subscribed || DialogueManager.Instance == null)
+        if (isDialogueSubscribed || DialogueManager.Instance == null)
             return;
 
         DialogueManager.Instance.OnDialogueStart += HandleDialogueStart;
         DialogueManager.Instance.OnDialogueEnd += HandleDialogueEnd;
         DialogueManager.Instance.OnLineShown += HandleLineShown;
-        subscribed = true;
+        isDialogueSubscribed = true;
     }
 
     public void UnsubscribeDialogue()
     {
-        if (!subscribed || DialogueManager.Instance == null)
+        if (!isDialogueSubscribed || DialogueManager.Instance == null)
             return;
 
         DialogueManager.Instance.OnDialogueStart -= HandleDialogueStart;
         DialogueManager.Instance.OnDialogueEnd -= HandleDialogueEnd;
         DialogueManager.Instance.OnLineShown -= HandleLineShown;
-        subscribed = false;
+        isDialogueSubscribed = false;
     }
 
     void TryStartDialogue(int nodeIndex)
@@ -485,8 +533,13 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             iconPanelAnimator.SetTrigger(iconPanelOpenTrigger);
 
         if (charImage != null)
-            charImage.gameObject.SetActive(false);
+            StartCoroutine(FadeOutCharacter(0.5f, endedNode));
+        else
+            HandleSceneTransition(endedNode);
+    }
 
+    void HandleSceneTransition(DialogueNode endedNode)
+    {
         switch (endedNode.sceneContext)
         {
             case SceneProgress.Scene2:
@@ -606,10 +659,94 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         TryStartDialogue(0);
     }
 
+    private void SubscribeHoverEffects()
+    {
+        if (hoverEffects == null || hoverEffects.Length == 0 || isHoverEffectsSubscribed)
+            return;
+
+        _hoverHideActions.Clear();
+
+        foreach (var effect in hoverEffects)
+        {
+            if (effect == null)
+                continue;
+
+            if (effect.TryGetComponent<UIHoverRegion>(out var hover))
+            {
+                var captured = effect;
+                void hideAction() => SetActive(captured, false);
+                _hoverHideActions.Add(hideAction);
+                hover.OnRegionClicked += hideAction;
+            }
+        }
+
+        if (hoverEffects[0] != null)
+            hoverEffects[0].GetComponent<UIHoverRegion>().OnRegionClicked += TriggerScene2;
+
+        if (hoverEffects[1] != null)
+            hoverEffects[1].GetComponent<UIHoverRegion>().OnRegionClicked += StartCashierDialogue;
+
+        isHoverEffectsSubscribed = true;
+    }
+
+    public void UnsubscribeHoverEffects()
+    {
+        if (hoverEffects == null || hoverEffects.Length == 0 || !isHoverEffectsSubscribed)
+            return;
+
+        for (int i = 0; i < hoverEffects.Length && i < _hoverHideActions.Count; i++)
+        {
+            if (hoverEffects[i] == null)
+                continue;
+
+            if (hoverEffects[i].TryGetComponent<UIHoverRegion>(out var hover))
+                hover.OnRegionClicked -= _hoverHideActions[i];
+        }
+
+        _hoverHideActions.Clear();
+
+        if (hoverEffects[0] != null)
+            hoverEffects[0].GetComponent<UIHoverRegion>().OnRegionClicked -= TriggerScene2;
+
+        if (hoverEffects[1] != null)
+            hoverEffects[1].GetComponent<UIHoverRegion>().OnRegionClicked -= StartCashierDialogue;
+
+        isHoverEffectsSubscribed = false;
+    }
+
     static void SetActive(GameObject go, bool active)
     {
         if (go != null)
             go.SetActive(active);
+    }
+
+    IEnumerator FadeOutCharacter(float duration, DialogueNode endedNode = null)
+    {
+        if (charImage == null)
+            yield break;
+
+        Color startColor = charImage.color;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float alpha = Mathf.Lerp(startColor.a, 0f, elapsed / duration);
+            charImage.color = new Color(startColor.r, startColor.g, startColor.b, alpha);
+            yield return null;
+        }
+
+        charImage.color = new Color(startColor.r, startColor.g, startColor.b, 0f);
+        charImage.gameObject.SetActive(false);
+        charImage.color = new Color(startColor.r, startColor.g, startColor.b, 1f);
+
+        if (endedNode != null)
+            HandleSceneTransition(endedNode);
+    }
+
+    public void StartCashierDialogue()
+    {
+        OpenShop();
     }
 
     public void TriggerScene2()
@@ -666,6 +803,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             return;
 
         SetFleeDisabled(true);
+        CombatManager.Instance.OnCombatVictory -= HandleScene4CombatVictory;
+        CombatManager.Instance.OnCombatDefeat -= HandleScene4CombatDefeat;
         CombatManager.Instance.OnCombatVictory += HandleScene4CombatVictory;
         CombatManager.Instance.OnCombatDefeat += HandleScene4CombatDefeat;
         CombatManager.Instance.StartCombat(enemies[0]);
