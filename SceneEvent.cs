@@ -344,8 +344,16 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (backgroundImage != null && index >= 0 && index < bgs.Length && bgs[index] != null)
             backgroundImage.sprite = bgs[index];
 
-        SetActive(hoverEffects[0], index == 0 && Progress == SceneProgress.Scene1);
-        SetActive(hoverEffects[1], index == 12);
+        if (hoverEffects != null && hoverEffects.Length >= 6)
+        {
+            SetActive(hoverEffects[0], index == 0 && Progress == SceneProgress.Scene1);
+            SetActive(hoverEffects[1], index == 12);
+            SetActive(hoverEffects[2], index == 10);
+            SetActive(hoverEffects[3], index == 11);
+            SetActive(hoverEffects[4], index == 9);
+            SetActive(hoverEffects[5], index == 8);
+        }
+
         bool isHouse = index == 11 || index == 13 || index == 14 || index == 15;
         SetActive(houseIconsPanel, isHouse);
         SetActive(livingRoomIcon, isHouse);
@@ -354,7 +362,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetActive(kitchenIcon, isHouse);
         SetActive(bathroomIcon, isHouse);
         SetActive(gardenIcon, isHouse);
-        bool showChar = (index >= 8 && index <= 12);
+        bool showChar = index >= 8 && index <= 12;
         SetActive(charImage.gameObject, showChar);
 
         if (showChar)
@@ -525,8 +533,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         else
             HandleSceneTransition(endedNode);
 
-        if (Progress == SceneProgress.SceneMarket && sceneStartDialogueNodes[8] != null && endedNode == sceneStartDialogueNodes[8])
+        if (Progress == SceneProgress.SceneMarket && sceneStartDialogueNodes != null && sceneStartDialogueNodes.Length > 8 && sceneStartDialogueNodes[8] != null && endedNode == sceneStartDialogueNodes[8] && MarketUI.Instance != null)
+        {
             MarketUI.Instance.OpenMarket();
+        }
     }
 
     void HandleSceneTransition(DialogueNode endedNode)
@@ -677,6 +687,18 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (hoverEffects[1] != null)
             hoverEffects[1].GetComponent<UIHoverRegion>().OnRegionClicked += StartCashierDialogue;
 
+        if (hoverEffects[2] != null)
+            hoverEffects[2].GetComponent<UIHoverRegion>().OnRegionClicked += StartNunDialogue;
+
+        if (hoverEffects[3] != null)
+            hoverEffects[3].GetComponent<UIHoverRegion>().OnRegionClicked += StartStepSisterDialogue;
+
+        if (hoverEffects[4] != null)
+            hoverEffects[4].GetComponent<UIHoverRegion>().OnRegionClicked += StartOfficerDialogue;
+
+        if (hoverEffects[5] != null)
+            hoverEffects[5].GetComponent<UIHoverRegion>().OnRegionClicked += StartCoachDialogue;
+
         isHoverEffectsSubscribed = true;
     }
 
@@ -701,6 +723,18 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (hoverEffects[1] != null)
             hoverEffects[1].GetComponent<UIHoverRegion>().OnRegionClicked -= StartCashierDialogue;
+
+        if (hoverEffects[2] != null)
+            hoverEffects[2].GetComponent<UIHoverRegion>().OnRegionClicked -= StartNunDialogue;
+
+        if (hoverEffects[3] != null)
+            hoverEffects[3].GetComponent<UIHoverRegion>().OnRegionClicked -= StartStepSisterDialogue;
+
+        if (hoverEffects[4] != null)
+            hoverEffects[4].GetComponent<UIHoverRegion>().OnRegionClicked -= StartOfficerDialogue;
+
+        if (hoverEffects[5] != null)
+            hoverEffects[5].GetComponent<UIHoverRegion>().OnRegionClicked -= StartCoachDialogue;
 
         isHoverEffectsSubscribed = false;
     }
@@ -735,9 +769,77 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             HandleSceneTransition(endedNode);
     }
 
+    private CombatAction GetFleeAction()
+    {
+        var cm = CombatManager.Instance;
+
+        if (cm == null || cm.defaultActions == null)
+            return null;
+
+        return cm.defaultActions.Find(a => a.isFlee);
+    }
+
+    private void SetFleeDisabled(bool disabled)
+    {
+        var flee = GetFleeAction();
+
+        if (flee != null)
+            flee.isDisabled = disabled;
+    }
+
     public void StartCashierDialogue()
     {
         TriggerMarketScene();
+    }
+
+    public void StartNunDialogue()
+    {
+        TriggerChurchScene();
+    }
+
+    public void StartCoachDialogue()
+    {
+        TriggerGymScene();
+    }
+
+    public void StartStepSisterDialogue()
+    {
+        TriggerHomeScene();
+    }
+
+    public void StartOfficerDialogue()
+    {
+        TriggerOfficeScene();
+    }
+
+    public void TriggerMarketScene()
+    {
+        Progress = SceneProgress.SceneMarket;
+        TryStartDialogue(8);
+    }
+
+    public void TriggerChurchScene()
+    {
+        Progress = SceneProgress.SceneChurch;
+        TryStartDialogue(9);
+    }
+
+    public void TriggerGymScene()
+    {
+        Progress = SceneProgress.SceneGym;
+        TryStartDialogue(10);
+    }
+
+    public void TriggerHomeScene()
+    {
+        Progress = SceneProgress.SceneHome;
+        TryStartDialogue(11);
+    }
+
+    public void TriggerOfficeScene()
+    {
+        Progress = SceneProgress.SceneOffice;
+        TryStartDialogue(12);
     }
 
     public void TriggerScene2()
@@ -768,24 +870,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         Progress = SceneProgress.Scene4;
         SetBackground(3);
         TryStartDialogue(3);
-    }
-
-    private CombatAction GetFleeAction()
-    {
-        var cm = CombatManager.Instance;
-
-        if (cm == null || cm.defaultActions == null)
-            return null;
-
-        return cm.defaultActions.Find(a => a.isFlee);
-    }
-
-    private void SetFleeDisabled(bool disabled)
-    {
-        var flee = GetFleeAction();
-
-        if (flee != null)
-            flee.isDisabled = disabled;
     }
 
     private void StartCombatForScene4()
@@ -863,11 +947,5 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetBackground(6);
         SetCharacter(15);
         TryStartDialogue(7);
-    }
-
-    public void TriggerMarketScene()
-    {
-        Progress = SceneProgress.SceneMarket;
-        TryStartDialogue(8);
     }
 }
