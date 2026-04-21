@@ -13,8 +13,8 @@ public enum SceneProgress
     Scene6,
     Scene7,
     Scene8,
-    SceneMarket,
     SceneHome,
+    SceneMarket,
     SceneGym,
     SceneOffice,
     SceneChurch
@@ -29,7 +29,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     private bool isDialogueSubscribed;
     private bool isHoverEffectsSubscribed;
     public GameObject[] hoverEffects;
-    private List<System.Action> _hoverHideActions = new();
+    private readonly List<System.Action> _hoverHideActions = new();
 
     public SceneProgress Progress
     {
@@ -354,7 +354,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             SetActive(hoverEffects[5], index == 8);
         }
 
-        bool isHouse = index == 11 || index == 13 || index == 14 || index == 15;
+        bool isHouse = index == 11 || index == 13 || index == 14 || index == 15 || index == 16 || index == 17 || index == 20;
         SetActive(houseIconsPanel, isHouse);
         SetActive(livingRoomIcon, isHouse);
         SetActive(bedroomIcon, isHouse);
@@ -488,7 +488,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     {
         yield return null;
 
-        if (sceneStartDialogueNodes == null || nodeIndex >= sceneStartDialogueNodes.Length)
+        if (sceneStartDialogueNodes == null || nodeIndex >= sceneStartDialogueNodes.Length || Progress == SceneProgress.SceneHome || Progress == SceneProgress.SceneMarket || Progress == SceneProgress.SceneGym || Progress == SceneProgress.SceneOffice || Progress == SceneProgress.SceneChurch  )
             yield break;
 
         if (DialogueManager.Instance == null)
@@ -648,6 +648,31 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             case SceneProgress.Scene8:
                 SetBackground(6);
                 SetCharacter(15);
+                break;
+
+            case SceneProgress.SceneHome:
+                SetBackground(11);
+                SetCharacter(26);
+                break;
+
+            case SceneProgress.SceneMarket:
+                SetBackground(12);
+                SetCharacter(28);
+                break;
+
+            case SceneProgress.SceneGym:
+                SetBackground(8);
+                SetCharacter(21);
+                break;
+
+            case SceneProgress.SceneOffice:
+                SetBackground(9);
+                SetCharacter(23);
+                break;
+
+            case SceneProgress.SceneChurch:
+                SetBackground(10);
+                SetCharacter(25);
                 break;
         }
     }
@@ -812,16 +837,16 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         TriggerOfficeScene();
     }
 
+    public void TriggerHomeScene()
+    {
+        Progress = SceneProgress.SceneHome;
+        TryStartDialogue(11);
+    }
+
     public void TriggerMarketScene()
     {
         Progress = SceneProgress.SceneMarket;
         TryStartDialogue(8);
-    }
-
-    public void TriggerChurchScene()
-    {
-        Progress = SceneProgress.SceneChurch;
-        TryStartDialogue(9);
     }
 
     public void TriggerGymScene()
@@ -830,16 +855,16 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         TryStartDialogue(10);
     }
 
-    public void TriggerHomeScene()
-    {
-        Progress = SceneProgress.SceneHome;
-        TryStartDialogue(11);
-    }
-
     public void TriggerOfficeScene()
     {
         Progress = SceneProgress.SceneOffice;
         TryStartDialogue(12);
+    }
+
+    public void TriggerChurchScene()
+    {
+        Progress = SceneProgress.SceneChurch;
+        TryStartDialogue(9);
     }
 
     public void TriggerScene2()

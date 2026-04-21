@@ -334,7 +334,6 @@ public static class SaveSystem
         yield return null;
 
         if (SceneEvent.Instance != null)
-            yield return SceneEvent.Instance.StartCoroutine(
-                SceneEvent.Instance.StartDialogueAfterLoad(sceneDialogueIndex));
+            yield return SceneEvent.Instance.StartCoroutine(SceneEvent.Instance.StartDialogueAfterLoad(sceneDialogueIndex));
     }
 }
