@@ -1,7 +1,4 @@
-﻿using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using Unity.VisualScripting;
+﻿using System.IO;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -89,7 +86,8 @@ public static class SaveSystem
 
         if (ShopManager.Instance != null)
         {
-            data.shopStockIDs.Clear(); data.shopStockAmounts.Clear();
+            data.shopStockIDs.Clear();
+            data.shopStockAmounts.Clear();
 
             foreach (var s in ShopManager.Instance.GetStockDataForSave())
             {
@@ -100,46 +98,33 @@ public static class SaveSystem
 
         if (ScenarioManager.Instance != null)
         {
-            data.completedScenarios.Clear();
-            data.completedScenarios.AddRange(ScenarioManager.Instance.GetCompletedScenarios());
+            var scenarioSave = ScenarioManager.Instance.GetSaveData();
+            data.completedScenarios = scenarioSave.completedScenarioIDs;
 
             if (ScenarioManager.Instance.IsScenarioActive())
             {
                 data.activeScenarioID = ScenarioManager.Instance.GetCurrentScenario().scenarioID;
                 data.activeScenarioStep = ScenarioManager.Instance.GetCurrentStepIndex();
             }
+            else
+            {
+                data.activeScenarioID = "";
+                data.activeScenarioStep = 0;
+            }
         }
 
         if (QuestManager.Instance != null)
         {
-            data.activeQuests.Clear();
-
-            foreach (var quest in QuestManager.Instance.GetActiveQuests())
-            {
-                QuestSaveData q = new()
-                {
-                    questID = quest.questID
-                };
-
-                foreach (var obj in quest.objectives)
-                {
-                    q.objectiveProgress.Add(obj.currentProgress);
-                    q.objectiveCompleted.Add(obj.isCompleted);
-                }
-
-                data.activeQuests.Add(q);
-            }
-
-            data.completedQuests.Clear();
-            data.completedQuests.AddRange(QuestManager.Instance.GetCompletedQuests());
-
-            if (QuestTrackerUI.Instance != null)
-                data.trackedQuests = QuestTrackerUI.Instance.GetTrackedQuests();
+            var questSave = QuestManager.Instance.GetSaveData();
+            data.activeQuests = questSave.runtimeStates;
+            data.completedQuests = questSave.completedQuestIDs;
+            data.trackedQuests = questSave.trackedQuestIDs;
         }
 
         if (PlayerStats.Instance != null)
         {
-            data.statTypes.Clear(); data.statValues.Clear();
+            data.statTypes.Clear();
+            data.statValues.Clear();
 
             foreach (var s in PlayerStats.Instance.stats)
             {
@@ -286,29 +271,27 @@ public static class SaveSystem
             ShopManager.Instance.ApplyLoadedStock(data.shopStockIDs, data.shopStockAmounts);
 
         if (ScenarioManager.Instance != null)
-            ScenarioManager.Instance.SetCompletedScenarios(new HashSet<string>(data.completedScenarios));
+        {
+            ScenarioManager.Instance.LoadSaveData(new ScenarioSaveData
+            {
+                completedScenarioIDs = data.completedScenarios
+            });
+        }
 
         if (QuestManager.Instance != null)
         {
-            foreach (var qSave in data.activeQuests)
+            var questSave = new QuestSaveData
             {
-                var quest = QuestManager.Instance.allQuests.FirstOrDefault(q => q.questID == qSave.questID);
+                runtimeStates = data.activeQuests,
+                completedQuestIDs = data.completedQuests,
+                trackedQuestIDs = data.trackedQuests
+            };
 
-                if (quest == null)
-                    continue;
+            if (questSave.runtimeStates != null)
+                foreach (var state in questSave.runtimeStates)
+                    state.RebuildLookup();
 
-                QuestManager.Instance.StartQuest(quest);
-
-                for (int i = 0; i < quest.objectives.Length && i < qSave.objectiveProgress.Count; i++)
-                {
-                    quest.objectives[i].currentProgress = qSave.objectiveProgress[i];
-                    quest.objectives[i].isCompleted = qSave.objectiveCompleted[i];
-                }
-            }
-
-            if (QuestTrackerUI.Instance != null)
-                foreach (var id in data.trackedQuests)
-                    QuestTrackerUI.Instance.TrackQuest(id);
+            QuestManager.Instance.LoadSaveData(questSave);
         }
 
         if (PlayerStats.Instance != null)

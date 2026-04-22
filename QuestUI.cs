@@ -33,9 +33,18 @@ public class QuestUI : MonoBehaviour
     public Button trackButton;
 
     [Header("Settings")]
-    public KeyCode toggleKey = KeyCode.J;
+    public KeyCode toggleKey = KeyCode.Q;
 
-    void Awake() => Instance = this;
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+    }
 
     void Start()
     {
@@ -47,7 +56,6 @@ public class QuestUI : MonoBehaviour
             acceptButton.onClick.AddListener(OnAcceptClicked);
             acceptButton.gameObject.SetActive(false);
         }
-
         if (abandonButton != null)
         {
             abandonButton.onClick.AddListener(OnAbandonClicked);
@@ -67,9 +75,10 @@ public class QuestUI : MonoBehaviour
     {
         if (isSubscribed && QuestManager.Instance != null)
         {
-            QuestManager.Instance.OnQuestStarted -= OnQuestStarted;
-            QuestManager.Instance.OnQuestCompleted -= OnQuestCompleted;
-            QuestManager.Instance.OnObjectiveUpdated -= OnObjectiveUpdated;
+            QuestManager.Instance.OnQuestStarted      -= OnQuestStarted;
+            QuestManager.Instance.OnQuestCompleted    -= OnQuestCompleted;
+            QuestManager.Instance.OnObjectiveUpdated  -= OnObjectiveUpdated;
+            QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveCompleted;
             isSubscribed = false;
         }
 
@@ -80,9 +89,10 @@ public class QuestUI : MonoBehaviour
     {
         if (QuestManager.Instance != null && !isSubscribed)
         {
-            QuestManager.Instance.OnQuestStarted += OnQuestStarted;
-            QuestManager.Instance.OnQuestCompleted += OnQuestCompleted;
-            QuestManager.Instance.OnObjectiveUpdated += OnObjectiveUpdated;
+            QuestManager.Instance.OnQuestStarted      += OnQuestStarted;
+            QuestManager.Instance.OnQuestCompleted    += OnQuestCompleted;
+            QuestManager.Instance.OnObjectiveUpdated  += OnObjectiveUpdated;
+            QuestManager.Instance.OnObjectiveCompleted += OnObjectiveCompleted;
             isSubscribed = true;
             RefreshQuestLog();
         }
@@ -102,8 +112,7 @@ public class QuestUI : MonoBehaviour
     void RefreshQuestLog()
     {
         foreach (var slot in questSlots)
-            if (slot != null)
-                Destroy(slot.gameObject);
+            if (slot != null) Destroy(slot.gameObject);
 
         questSlots.Clear();
 
@@ -144,9 +153,13 @@ public class QuestUI : MonoBehaviour
             Destroy(child.gameObject);
 
         foreach (var objective in quest.objectives)
-            Instantiate(objectivePrefab, objectivesParent).Setup(objective);
+        {
+            var objUI = Instantiate(objectivePrefab, objectivesParent);
+            var state = QuestManager.Instance.GetObjectiveState(quest.questID, objective.objectiveID);
+            objUI.Setup(objective, state);
+        }
 
-        bool isActive = QuestManager.Instance.IsQuestActive(quest.questID);
+        bool isActive    = QuestManager.Instance.IsQuestActive(quest.questID);
         bool isCompleted = QuestManager.Instance.IsQuestCompleted(quest.questID);
 
         if (acceptButton != null && abandonButton != null)
@@ -176,11 +189,15 @@ public class QuestUI : MonoBehaviour
         questDetailsPanel.SetActive(false);
     }
 
-    void OnQuestStarted(QuestData quest) => RefreshQuestLog();
+    void OnQuestStarted(QuestData quest)  => RefreshQuestLog();
 
     void OnQuestCompleted(QuestData quest) => RefreshQuestLog();
 
-    void OnObjectiveUpdated(QuestData quest, QuestObjective objective)
+    void OnObjectiveUpdated(QuestData quest, QuestObjective objective)  => RefreshDetails(quest);
+
+    void OnObjectiveCompleted(QuestData quest, QuestObjective objective) => RefreshDetails(quest);
+
+    void RefreshDetails(QuestData quest)
     {
         if (selectedQuest != null && selectedQuest.questID == quest.questID)
             ShowQuestDetails(selectedQuest);

@@ -18,11 +18,13 @@ public class QuestTrackerEntry : MonoBehaviour
 
         foreach (var objective in quest.objectives)
         {
-            if (objective.isCompleted)
+            var state = QuestManager.Instance.GetObjectiveState(quest.questID, objective.objectiveID);
+
+            if (state.isCompleted)
                 continue;
 
             var objText = Instantiate(objectiveTextPrefab, objectivesParent);
-            objText.text = $"• {objective.description} ({objective.currentProgress}/{objective.GetRequiredCount()})";
+            objText.text = $"â€¢ {objective.description} ({state.currentProgress}/{objective.GetRequiredCount()})";
         }
     }
 }

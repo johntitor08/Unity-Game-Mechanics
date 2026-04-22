@@ -5,7 +5,7 @@ using System.Collections;
 
 public class QuestRewardUI : MonoBehaviour
 {
-    public static QuestRewardUI Instance;
+    public static QuestRewardUI Instance { get; private set; }
 
     [Header("Reward Panel")]
     public GameObject rewardPanel;
@@ -18,8 +18,16 @@ public class QuestRewardUI : MonoBehaviour
     [Header("Animation")]
     public float displayDuration = 5f;
 
+    private Coroutine autoCloseCoroutine;
+
     void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         Instance = this;
         rewardPanel.SetActive(false);
     }
@@ -30,8 +38,17 @@ public class QuestRewardUI : MonoBehaviour
             closeButton.onClick.AddListener(Close);
     }
 
+    void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
+
     public void ShowRewards(QuestData quest)
     {
+        if (autoCloseCoroutine != null)
+            StopCoroutine(autoCloseCoroutine);
+
         rewardPanel.SetActive(true);
 
         if (questNameText != null)
@@ -54,7 +71,7 @@ public class QuestRewardUI : MonoBehaviour
             foreach (var reward in quest.currencyRewards)
             {
                 var rewardUI = Instantiate(rewardItemPrefab, rewardsContainer);
-                var currencyInfo = CurrencyManager.Instance.GetCurrencyInfo(reward.type);
+                var currencyInfo = CurrencyManager.Instance != null ? CurrencyManager.Instance.GetCurrencyInfo(reward.type) : null;
                 rewardUI.Setup(reward.type.ToString(), reward.amount.ToString(), currencyInfo?.icon);
             }
         }
@@ -69,7 +86,7 @@ public class QuestRewardUI : MonoBehaviour
             }
         }
 
-        StartCoroutine(AutoClose());
+        autoCloseCoroutine = StartCoroutine(AutoClose());
     }
 
     IEnumerator AutoClose()
@@ -80,6 +97,12 @@ public class QuestRewardUI : MonoBehaviour
 
     void Close()
     {
+        if (autoCloseCoroutine != null)
+        {
+            StopCoroutine(autoCloseCoroutine);
+            autoCloseCoroutine = null;
+        }
+
         rewardPanel.SetActive(false);
     }
 }

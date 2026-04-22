@@ -9,22 +9,58 @@ public class QuestMarker : MonoBehaviour
     [Header("Visual")]
     public GameObject markerVisual;
     public float floatHeight = 0.5f;
-    public float floatSpeed = 1f;
+    public float floatSpeed  = 1f;
 
     private Vector3 startPos;
+    private bool isVisible = false;
+    private System.Action<QuestData> onQuestStarted;
+    private System.Action<QuestData> onQuestCompleted;
+    private System.Action<QuestData, QuestObjective> onObjectiveCompleted;
 
     void Start()
     {
         startPos = transform.position;
+        onQuestStarted = _ => RefreshVisibility();
+        onQuestCompleted = _ => RefreshVisibility();
+        onObjectiveCompleted = (_, __) => RefreshVisibility();
+        RefreshVisibility();
+
+        if (QuestManager.Instance != null)
+            Subscribe(QuestManager.Instance);
+        else
+            QuestManager.OnReady += OnQuestManagerReady;
     }
 
-    void Update()
+    void OnDestroy()
     {
-        UpdateVisibility();
-        AnimateMarker();
+        QuestManager.OnReady -= OnQuestManagerReady;
+
+        if (QuestManager.Instance != null)
+            Unsubscribe(QuestManager.Instance);
     }
 
-    void UpdateVisibility()
+    void OnQuestManagerReady()
+    {
+        QuestManager.OnReady -= OnQuestManagerReady;
+        Subscribe(QuestManager.Instance);
+        RefreshVisibility();
+    }
+
+    void Subscribe(QuestManager qm)
+    {
+        qm.OnQuestStarted += onQuestStarted;
+        qm.OnQuestCompleted += onQuestCompleted;
+        qm.OnObjectiveCompleted += onObjectiveCompleted;
+    }
+
+    void Unsubscribe(QuestManager qm)
+    {
+        qm.OnQuestStarted -= onQuestStarted;
+        qm.OnQuestCompleted -= onQuestCompleted;
+        qm.OnObjectiveCompleted -= onObjectiveCompleted;
+    }
+
+    void RefreshVisibility()
     {
         if (QuestManager.Instance == null)
             return;
@@ -35,16 +71,23 @@ public class QuestMarker : MonoBehaviour
         if (quest != null)
         {
             var objective = QuestManager.Instance.GetObjective(quest, objectiveID);
-            shouldShow = objective != null && !objective.isCompleted;
+
+            if (objective != null)
+            {
+                var state = QuestManager.Instance.GetObjectiveState(questID, objectiveID);
+                shouldShow = !state.isCompleted;
+            }
         }
 
+        isVisible = shouldShow;
+
         if (markerVisual != null)
-            markerVisual.SetActive(shouldShow);
+            markerVisual.SetActive(isVisible);
     }
 
-    void AnimateMarker()
+    void Update()
     {
-        if (markerVisual == null || !markerVisual.activeSelf)
+        if (!isVisible || markerVisual == null)
             return;
 
         float newY = startPos.y + Mathf.Sin(Time.time * floatSpeed) * floatHeight;

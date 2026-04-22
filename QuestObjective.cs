@@ -25,8 +25,8 @@ public class QuestObjective
     public int targetCount = 1;
 
     [Header("Progress")]
-    public int currentProgress = 0;
-    public bool isCompleted = false;
+    [System.NonSerialized] public int currentProgress = 0;
+    [System.NonSerialized] public bool isCompleted = false;
     public bool isOptional = false;
 
     [Header("Events")]

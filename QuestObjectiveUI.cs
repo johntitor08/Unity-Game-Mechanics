@@ -10,29 +10,28 @@ public class QuestObjectiveUI : MonoBehaviour
     public Slider progressBar;
     public Image checkmarkIcon;
 
-    public void Setup(QuestObjective objective)
+    public void Setup(QuestObjective objective, ObjectiveRuntimeState state)
     {
         if (descriptionText != null)
             descriptionText.text = objective.description;
 
-        UpdateProgress(objective);
+        UpdateProgress(objective, state);
     }
 
-    public void UpdateProgress(QuestObjective objective)
+    public void UpdateProgress(QuestObjective objective, ObjectiveRuntimeState state)
     {
+        int required = objective.GetRequiredCount();
+
         if (progressText != null)
-        {
-            progressText.text = $"{objective.currentProgress}/{objective.GetRequiredCount()}";
-        }
+            progressText.text = $"{state.currentProgress}/{required}";
 
         if (progressBar != null)
         {
-            progressBar.value = objective.GetProgressPercentage();
+            float pct = required == 0 ? 1f : Mathf.Clamp01((float)state.currentProgress / required);
+            progressBar.value = pct;
         }
 
         if (checkmarkIcon != null)
-        {
-            checkmarkIcon.gameObject.SetActive(objective.isCompleted);
-        }
+            checkmarkIcon.gameObject.SetActive(state.isCompleted);
     }
 }

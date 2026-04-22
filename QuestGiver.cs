@@ -17,7 +17,7 @@ public class QuestGiver : MonoBehaviour
     public GameObject interactionPrompt;
 
     private bool playerInRange = false;
-    private QuestData activePlayerQuest;
+    private readonly List<QuestData> activePlayerQuests = new();
 
     void Start()
     {
@@ -35,9 +35,7 @@ public class QuestGiver : MonoBehaviour
     void Update()
     {
         if (playerInRange && Input.GetKeyDown(interactionKey))
-        {
             Interact();
-        }
     }
 
     void OnTriggerEnter2D(Collider2D other)
@@ -45,9 +43,7 @@ public class QuestGiver : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerInRange = true;
-
-            if (interactionPrompt != null)
-                interactionPrompt.SetActive(true);
+            if (interactionPrompt != null) interactionPrompt.SetActive(true);
         }
     }
 
@@ -56,14 +52,14 @@ public class QuestGiver : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerInRange = false;
-
-            if (interactionPrompt != null)
-                interactionPrompt.SetActive(false);
+            if (interactionPrompt != null) interactionPrompt.SetActive(false);
         }
     }
 
     void UpdateQuestIndicators()
     {
+        activePlayerQuests.Clear();
+
         bool hasNewQuest = false;
         bool hasActiveQuest = false;
         bool hasCompleteQuest = false;
@@ -76,15 +72,20 @@ public class QuestGiver : MonoBehaviour
             }
             else if (QuestManager.Instance.IsQuestActive(quest.questID))
             {
-                activePlayerQuest = quest;
+                activePlayerQuests.Add(quest);
                 bool allComplete = true;
 
                 foreach (var obj in quest.objectives)
                 {
-                    if (!obj.isOptional && !obj.isCompleted)
+                    if (!obj.isOptional)
                     {
-                        allComplete = false;
-                        break;
+                        var state = QuestManager.Instance.GetObjectiveState(quest.questID, obj.objectiveID);
+
+                        if (!state.isCompleted)
+                        {
+                            allComplete = false;
+                            break;
+                        }
                     }
                 }
 
@@ -107,28 +108,32 @@ public class QuestGiver : MonoBehaviour
 
     void Interact()
     {
-        if (activePlayerQuest != null)
+        foreach (var quest in activePlayerQuests)
         {
-            bool canComplete = true;
+            bool allComplete = true;
 
-            foreach (var obj in activePlayerQuest.objectives)
+            foreach (var obj in quest.objectives)
             {
-                if (!obj.isOptional && !obj.isCompleted)
+                if (!obj.isOptional)
                 {
-                    canComplete = false;
-                    break;
+                    var state = QuestManager.Instance.GetObjectiveState(quest.questID, obj.objectiveID);
+
+                    if (!state.isCompleted)
+                    {
+                        allComplete = false;
+                        break;
+                    }
                 }
             }
 
-            if (canComplete)
+            if (allComplete)
             {
-                QuestManager.Instance.CompleteQuest(activePlayerQuest);
-                activePlayerQuest = null;
+                QuestManager.Instance.CompleteQuest(quest);
                 return;
             }
-            else if (activePlayerQuest.progressDialogue != null)
+            else if (quest.progressDialogue != null)
             {
-                DialogueManager.Instance.StartDialogue(activePlayerQuest.progressDialogue);
+                DialogueManager.Instance.StartDialogue(quest.progressDialogue);
                 return;
             }
         }
@@ -138,13 +143,9 @@ public class QuestGiver : MonoBehaviour
             if (QuestManager.Instance.CanStartQuest(quest))
             {
                 if (quest.startDialogue != null)
-                {
                     DialogueManager.Instance.StartDialogue(quest.startDialogue, () => QuestManager.Instance.StartQuest(quest));
-                }
                 else
-                {
                     QuestManager.Instance.StartQuest(quest);
-                }
 
                 return;
             }

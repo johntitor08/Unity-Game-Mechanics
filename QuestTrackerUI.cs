@@ -19,6 +19,12 @@ public class QuestTrackerUI : MonoBehaviour
 
     void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         Instance = this;
     }
 
@@ -31,9 +37,7 @@ public class QuestTrackerUI : MonoBehaviour
     void OnEnable()
     {
         if (QuestManager.Instance == null)
-        {
             QuestManager.OnReady += TrySubscribe;
-        }
     }
 
     void OnDisable()
@@ -43,9 +47,9 @@ public class QuestTrackerUI : MonoBehaviour
             QuestManager.Instance.OnQuestStarted -= OnQuestStarted;
             QuestManager.Instance.OnQuestCompleted -= OnQuestCompleted;
             QuestManager.Instance.OnObjectiveUpdated -= OnObjectiveUpdated;
+            QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveCompleted;
             isSubscribed = false;
         }
-
         QuestManager.OnReady -= TrySubscribe;
     }
 
@@ -56,6 +60,7 @@ public class QuestTrackerUI : MonoBehaviour
             QuestManager.Instance.OnQuestStarted += OnQuestStarted;
             QuestManager.Instance.OnQuestCompleted += OnQuestCompleted;
             QuestManager.Instance.OnObjectiveUpdated += OnObjectiveUpdated;
+            QuestManager.Instance.OnObjectiveCompleted += OnObjectiveCompleted;
             isSubscribed = true;
             UpdateTracker();
         }
@@ -72,10 +77,9 @@ public class QuestTrackerUI : MonoBehaviour
         UntrackQuest(quest.questID);
     }
 
-    void OnObjectiveUpdated(QuestData quest, QuestObjective objective)
-    {
-        UpdateTracker();
-    }
+    void OnObjectiveUpdated(QuestData quest, QuestObjective objective) => UpdateTracker();
+
+    void OnObjectiveCompleted(QuestData quest, QuestObjective objective) => UpdateTracker();
 
     public void TrackQuest(string questID)
     {
@@ -100,10 +104,8 @@ public class QuestTrackerUI : MonoBehaviour
         var toRemove = new List<string>();
 
         foreach (var questID in trackerEntries.Keys)
-        {
             if (!trackedQuestIDs.Contains(questID))
                 toRemove.Add(questID);
-        }
 
         foreach (var questID in toRemove)
         {
@@ -133,10 +135,7 @@ public class QuestTrackerUI : MonoBehaviour
         }
     }
 
-    public List<string> GetTrackedQuests()
-    {
-        return new List<string>(trackedQuestIDs);
-    }
+    public List<string> GetTrackedQuests() => new(trackedQuestIDs);
 
     public void SetTrackedQuests(List<string> questIDs)
     {

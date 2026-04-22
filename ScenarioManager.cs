@@ -3,6 +3,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System;
 
+[System.Serializable]
+public class ScenarioSaveData
+{
+    public List<string> completedScenarioIDs = new();
+}
+
 public class ScenarioManager : MonoBehaviour
 {
     public static ScenarioManager Instance;
@@ -13,6 +19,7 @@ public class ScenarioManager : MonoBehaviour
     public event Action<ScenarioStep> OnStepComplete;
     private readonly HashSet<string> completedScenarios = new();
     private Coroutine activeCoroutine;
+    private Transform cachedPlayer;
 
     [Header("Active Scenario")]
     public ScenarioData currentScenario;
@@ -21,6 +28,22 @@ public class ScenarioManager : MonoBehaviour
 
     [Header("Available Scenarios")]
     public ScenarioData[] availableScenarios;
+
+    Transform PlayerTransform
+    {
+        get
+        {
+            if (cachedPlayer == null)
+            {
+                var go = GameObject.FindGameObjectWithTag("Player");
+
+                if (go != null)
+                    cachedPlayer = go.transform;
+            }
+
+            return cachedPlayer;
+        }
+    }
 
     void Awake()
     {
@@ -34,27 +57,47 @@ public class ScenarioManager : MonoBehaviour
             Destroy(gameObject);
         }
     }
+    
+    public ScenarioSaveData GetSaveData()
+    {
+        var data = new ScenarioSaveData
+        {
+            completedScenarioIDs = new List<string>(completedScenarios)
+        };
+        return data;
+    }
+
+    public void LoadSaveData(ScenarioSaveData data)
+    {
+        completedScenarios.Clear();
+
+        if (data?.completedScenarioIDs == null)
+            return;
+
+        foreach (var id in data.completedScenarioIDs)
+            completedScenarios.Add(id);
+    }
 
     public bool CanStartScenario(ScenarioData scenario)
     {
-        if (scenario == null) return false;
-        if (IsScenarioCompleted(scenario.scenarioID)) return false;
+        if (scenario == null)
+            return false;
 
-        if (ProfileManager.Instance != null &&
-            ProfileManager.Instance.profile.level < scenario.requiredLevel)
+        if (IsScenarioCompleted(scenario.scenarioID))
+            return false;
+
+        if (ProfileManager.Instance != null && ProfileManager.Instance.profile.level < scenario.requiredLevel)
             return false;
 
         if (scenario.requiredFlags != null)
-        {
             foreach (var flag in scenario.requiredFlags)
-                if (!StoryFlags.Has(flag)) return false;
-        }
+                if (!StoryFlags.Has(flag))
+                    return false;
 
         if (scenario.prerequisiteScenarios != null)
-        {
             foreach (var prereq in scenario.prerequisiteScenarios)
-                if (!IsScenarioCompleted(prereq.scenarioID)) return false;
-        }
+                if (!IsScenarioCompleted(prereq.scenarioID))
+                    return false;
 
         return true;
     }
@@ -81,7 +124,8 @@ public class ScenarioManager : MonoBehaviour
 
     void StartNextStep()
     {
-        if (!isScenarioActive || currentScenario == null) return;
+        if (!isScenarioActive || currentScenario == null)
+            return;
 
         if (currentStepIndex >= currentScenario.steps.Length)
         {
@@ -123,7 +167,9 @@ public class ScenarioManager : MonoBehaviour
 
     public void CompleteCurrentStep()
     {
-        if (!isScenarioActive || currentScenario == null) return;
+        if (!isScenarioActive || currentScenario == null)
+            return;
+
         ScenarioStep step = currentScenario.steps[currentStepIndex];
         step.onStepComplete?.Invoke();
         OnStepComplete?.Invoke(step);
@@ -163,8 +209,7 @@ public class ScenarioManager : MonoBehaviour
 
     void ExecuteCollectItemStep(ScenarioStep step)
     {
-        if (InventoryManager.Instance != null &&
-            InventoryManager.Instance.GetQuantity(step.requiredItem) >= step.requiredQuantity)
+        if (InventoryManager.Instance != null && InventoryManager.Instance.GetQuantity(step.requiredItem) >= step.requiredQuantity)
         {
             InventoryManager.Instance.RemoveItem(step.requiredItem, step.requiredQuantity);
             CompleteCurrentStep();
@@ -178,8 +223,7 @@ public class ScenarioManager : MonoBehaviour
     {
         while (isScenarioActive && currentStepIndex == stepIndex)
         {
-            if (InventoryManager.Instance != null &&
-                InventoryManager.Instance.GetQuantity(step.requiredItem) >= step.requiredQuantity)
+            if (InventoryManager.Instance != null && InventoryManager.Instance.GetQuantity(step.requiredItem) >= step.requiredQuantity)
             {
                 InventoryManager.Instance.RemoveItem(step.requiredItem, step.requiredQuantity);
                 CompleteCurrentStep();
@@ -192,20 +236,19 @@ public class ScenarioManager : MonoBehaviour
 
     void ExecuteLocationStep(ScenarioStep step)
     {
-        GameObject player = GameObject.FindGameObjectWithTag("Player");
         GameObject target = GameObject.FindGameObjectWithTag(step.targetLocationTag);
 
-        if (player != null && target != null)
-            activeCoroutine = StartCoroutine(WaitForLocation(player, target, currentStepIndex));
+        if (PlayerTransform != null && target != null)
+            activeCoroutine = StartCoroutine(WaitForLocation(target.transform, currentStepIndex));
         else
             CompleteCurrentStep();
     }
 
-    IEnumerator WaitForLocation(GameObject player, GameObject target, int stepIndex)
+    IEnumerator WaitForLocation(Transform target, int stepIndex)
     {
         while (isScenarioActive && currentStepIndex == stepIndex)
         {
-            if (Vector3.Distance(player.transform.position, target.transform.position) < 2f)
+            if (PlayerTransform != null && Vector3.Distance(PlayerTransform.position, target.position) < 2f)
             {
                 CompleteCurrentStep();
                 yield break;
@@ -240,10 +283,8 @@ public class ScenarioManager : MonoBehaviour
         GiveScenarioRewards();
 
         if (currentScenario.flagsToSet != null)
-        {
             foreach (var flag in currentScenario.flagsToSet)
                 StoryFlags.Add(flag);
-        }
 
         if (currentScenario.outroDialogue != null && DialogueManager.Instance != null)
             DialogueManager.Instance.StartDialogue(currentScenario.outroDialogue, FinalizeScenario);
@@ -253,7 +294,9 @@ public class ScenarioManager : MonoBehaviour
 
     public void FailScenario()
     {
-        if (!isScenarioActive || !currentScenario.canFail) return;
+        if (!isScenarioActive || !currentScenario.canFail)
+            return;
+
         StopActiveCoroutine();
 
         if (currentScenario.failureDialogue != null && DialogueManager.Instance != null)
@@ -268,7 +311,7 @@ public class ScenarioManager : MonoBehaviour
             CombatManager.Instance.OnCombatEnded -= OnCombatEnded;
 
         OnScenarioComplete?.Invoke(currentScenario);
-        currentScenario = null;
+        currentScenario  = null;
         currentStepIndex = 0;
         isScenarioActive = false;
         StopActiveCoroutine();
@@ -281,16 +324,12 @@ public class ScenarioManager : MonoBehaviour
             ProfileManager.Instance.AddExperience(currentScenario.experienceReward);
 
         if (currentScenario.currencyRewards != null)
-        {
             foreach (var reward in currentScenario.currencyRewards)
                 reward.Grant();
-        }
 
         if (currentScenario.itemRewards != null && InventoryManager.Instance != null)
-        {
             foreach (var reward in currentScenario.itemRewards)
                 InventoryManager.Instance.AddItem(reward.item, reward.quantity);
-        }
     }
 
     void StopActiveCoroutine()
@@ -304,23 +343,21 @@ public class ScenarioManager : MonoBehaviour
 
     public bool IsScenarioCompleted(string id) => completedScenarios.Contains(id);
 
-    public HashSet<string> GetCompletedScenarios()
-    {
-        return new HashSet<string>(completedScenarios);
-    }
+    public HashSet<string> GetCompletedScenarios() => new(completedScenarios);
+
+    public bool IsScenarioActive() => isScenarioActive && currentScenario != null;
+
+    public ScenarioData GetCurrentScenario() => currentScenario;
+
+    public int GetCurrentStepIndex() => currentStepIndex;
 
     public void SetCompletedScenarios(HashSet<string> scenarios)
     {
         completedScenarios.Clear();
-        if (scenarios == null) return;
 
-        foreach (var id in scenarios)
-            completedScenarios.Add(id);
+        if (scenarios == null)
+            return;
+
+        foreach (var id in scenarios) completedScenarios.Add(id);
     }
-
-    public bool IsScenarioActive() => isScenarioActive && currentScenario != null;
-    
-    public ScenarioData GetCurrentScenario() => currentScenario;
-
-    public int GetCurrentStepIndex() => currentStepIndex;
 }
