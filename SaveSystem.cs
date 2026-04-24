@@ -96,6 +96,15 @@ public static class SaveSystem
             }
         }
 
+        if (QuestManager.Instance != null)
+        {
+            var questSave = QuestManager.Instance.GetSaveData();
+            data.activeQuestIDs = questSave.activeQuestIDs;
+            data.activeQuests = questSave.runtimeStates;
+            data.completedQuests = questSave.completedQuestIDs;
+            data.trackedQuests = questSave.trackedQuestIDs;
+        }
+
         if (ScenarioManager.Instance != null)
         {
             var scenarioSave = ScenarioManager.Instance.GetSaveData();
@@ -111,14 +120,6 @@ public static class SaveSystem
                 data.activeScenarioID = "";
                 data.activeScenarioStep = 0;
             }
-        }
-
-        if (QuestManager.Instance != null)
-        {
-            var questSave = QuestManager.Instance.GetSaveData();
-            data.activeQuests = questSave.runtimeStates;
-            data.completedQuests = questSave.completedQuestIDs;
-            data.trackedQuests = questSave.trackedQuestIDs;
         }
 
         if (PlayerStats.Instance != null)
@@ -270,18 +271,11 @@ public static class SaveSystem
         if (ShopManager.Instance != null)
             ShopManager.Instance.ApplyLoadedStock(data.shopStockIDs, data.shopStockAmounts);
 
-        if (ScenarioManager.Instance != null)
-        {
-            ScenarioManager.Instance.LoadSaveData(new ScenarioSaveData
-            {
-                completedScenarioIDs = data.completedScenarios
-            });
-        }
-
         if (QuestManager.Instance != null)
         {
             var questSave = new QuestSaveData
             {
+                activeQuestIDs = data.activeQuestIDs,
                 runtimeStates = data.activeQuests,
                 completedQuestIDs = data.completedQuests,
                 trackedQuestIDs = data.trackedQuests
@@ -292,6 +286,14 @@ public static class SaveSystem
                     state.RebuildLookup();
 
             QuestManager.Instance.LoadSaveData(questSave);
+        }
+
+        if (ScenarioManager.Instance != null)
+        {
+            ScenarioManager.Instance.LoadSaveData(new ScenarioSaveData
+            {
+                completedScenarioIDs = data.completedScenarios
+            });
         }
 
         if (PlayerStats.Instance != null)
