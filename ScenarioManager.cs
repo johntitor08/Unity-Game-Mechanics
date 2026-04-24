@@ -64,6 +64,7 @@ public class ScenarioManager : MonoBehaviour
         {
             completedScenarioIDs = new List<string>(completedScenarios)
         };
+
         return data;
     }
 
@@ -80,13 +81,7 @@ public class ScenarioManager : MonoBehaviour
 
     public bool CanStartScenario(ScenarioData scenario)
     {
-        if (scenario == null)
-            return false;
-
-        if (IsScenarioCompleted(scenario.scenarioID))
-            return false;
-
-        if (ProfileManager.Instance != null && ProfileManager.Instance.profile.level < scenario.requiredLevel)
+        if (scenario == null || IsScenarioCompleted(scenario.scenarioID) || (ProfileManager.Instance != null && ProfileManager.Instance.profile.level < scenario.requiredLevel))
             return false;
 
         if (scenario.requiredFlags != null)

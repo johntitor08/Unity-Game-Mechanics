@@ -1,7 +1,8 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using System.Collections.Generic;
 
-public class QuestGiver : MonoBehaviour
+public class QuestGiver : MonoBehaviour, IPointerClickHandler
 {
     [Header("Quests")]
     public List<QuestData> availableQuests;
@@ -17,24 +18,59 @@ public class QuestGiver : MonoBehaviour
     public GameObject interactionPrompt;
 
     private bool playerInRange = false;
-    private readonly List<QuestData> activePlayerQuests = new();
 
     void Start()
     {
+        if (interactionPrompt != null)
+            interactionPrompt.SetActive(false);
+
+        if (QuestManager.Instance != null)
+            Subscribe();
+        else
+            QuestManager.OnReady += OnQuestManagerReady;
+
         UpdateQuestIndicators();
-        if (interactionPrompt != null) interactionPrompt.SetActive(false);
+    }
+
+    void OnDestroy()
+    {
+        QuestManager.OnReady -= OnQuestManagerReady;
 
         if (QuestManager.Instance != null)
         {
-            QuestManager.Instance.OnQuestStarted += _ => UpdateQuestIndicators();
-            QuestManager.Instance.OnQuestCompleted += _ => UpdateQuestIndicators();
-            QuestManager.Instance.OnObjectiveCompleted += (_, __) => UpdateQuestIndicators();
+            QuestManager.Instance.OnQuestStarted -= OnQuestChanged;
+            QuestManager.Instance.OnQuestCompleted -= OnQuestChanged;
+            QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveChanged;
         }
     }
+
+    void OnQuestManagerReady()
+    {
+        QuestManager.OnReady -= OnQuestManagerReady;
+        Subscribe();
+        UpdateQuestIndicators();
+    }
+
+    void Subscribe()
+    {
+        QuestManager.Instance.OnQuestStarted += OnQuestChanged;
+        QuestManager.Instance.OnQuestCompleted += OnQuestChanged;
+        QuestManager.Instance.OnObjectiveCompleted += OnObjectiveChanged;
+    }
+
+    void OnQuestChanged(QuestData _) => UpdateQuestIndicators();
+
+    void OnObjectiveChanged(QuestData _, QuestObjective __) => UpdateQuestIndicators();
 
     void Update()
     {
         if (playerInRange && Input.GetKeyDown(interactionKey))
+            Interact();
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (playerInRange)
             Interact();
     }
 
@@ -43,7 +79,9 @@ public class QuestGiver : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerInRange = true;
-            if (interactionPrompt != null) interactionPrompt.SetActive(true);
+
+            if (interactionPrompt != null)
+                interactionPrompt.SetActive(true);
         }
     }
 
@@ -52,13 +90,32 @@ public class QuestGiver : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerInRange = false;
-            if (interactionPrompt != null) interactionPrompt.SetActive(false);
+
+            if (interactionPrompt != null)
+                interactionPrompt.SetActive(false);
         }
+    }
+
+    bool AreAllObjectivesComplete(QuestData quest)
+    {
+        foreach (var obj in quest.objectives)
+        {
+            if (!obj.isOptional)
+            {
+                var state = QuestManager.Instance.GetObjectiveState(quest.questID, obj.objectiveID);
+
+                if (!state.isCompleted)
+                    return false;
+            }
+        }
+
+        return true;
     }
 
     void UpdateQuestIndicators()
     {
-        activePlayerQuests.Clear();
+        if (QuestManager.Instance == null)
+            return;
 
         bool hasNewQuest = false;
         bool hasActiveQuest = false;
@@ -72,24 +129,7 @@ public class QuestGiver : MonoBehaviour
             }
             else if (QuestManager.Instance.IsQuestActive(quest.questID))
             {
-                activePlayerQuests.Add(quest);
-                bool allComplete = true;
-
-                foreach (var obj in quest.objectives)
-                {
-                    if (!obj.isOptional)
-                    {
-                        var state = QuestManager.Instance.GetObjectiveState(quest.questID, obj.objectiveID);
-
-                        if (!state.isCompleted)
-                        {
-                            allComplete = false;
-                            break;
-                        }
-                    }
-                }
-
-                if (allComplete)
+                if (AreAllObjectivesComplete(quest))
                     hasCompleteQuest = true;
                 else
                     hasActiveQuest = true;
@@ -108,30 +148,18 @@ public class QuestGiver : MonoBehaviour
 
     void Interact()
     {
-        foreach (var quest in activePlayerQuests)
+        foreach (var quest in availableQuests)
         {
-            bool allComplete = true;
+            if (!QuestManager.Instance.IsQuestActive(quest.questID))
+                continue;
 
-            foreach (var obj in quest.objectives)
-            {
-                if (!obj.isOptional)
-                {
-                    var state = QuestManager.Instance.GetObjectiveState(quest.questID, obj.objectiveID);
-
-                    if (!state.isCompleted)
-                    {
-                        allComplete = false;
-                        break;
-                    }
-                }
-            }
-
-            if (allComplete)
+            if (AreAllObjectivesComplete(quest))
             {
                 QuestManager.Instance.CompleteQuest(quest);
                 return;
             }
-            else if (quest.progressDialogue != null)
+
+            if (quest.progressDialogue != null)
             {
                 DialogueManager.Instance.StartDialogue(quest.progressDialogue);
                 return;

@@ -6,6 +6,7 @@ using System.Collections;
 public class QuestRewardUI : MonoBehaviour
 {
     public static QuestRewardUI Instance { get; private set; }
+    private Coroutine autoCloseCoroutine;
 
     [Header("Reward Panel")]
     public GameObject rewardPanel;
@@ -15,10 +16,12 @@ public class QuestRewardUI : MonoBehaviour
     public RewardItemUI rewardItemPrefab;
     public Button closeButton;
 
+    [Header("Optional Rewards")]
+    public Transform optionalRewardsContainer;
+    public TextMeshProUGUI optionalRewardsLabel;
+
     [Header("Animation")]
     public float displayDuration = 5f;
-
-    private Coroutine autoCloseCoroutine;
 
     void Awake()
     {
@@ -83,6 +86,26 @@ public class QuestRewardUI : MonoBehaviour
                 int qty = (quest.itemRewardQuantities != null && i < quest.itemRewardQuantities.Length) ? quest.itemRewardQuantities[i] : 1;
                 var rewardUI = Instantiate(rewardItemPrefab, rewardsContainer);
                 rewardUI.Setup(quest.itemRewards[i].itemName, $"x{qty}", quest.itemRewards[i].icon);
+            }
+        }
+
+        bool hasOptional = quest.optionalRewards != null && quest.optionalRewards.Length > 0;
+
+        if (optionalRewardsLabel != null)
+            optionalRewardsLabel.gameObject.SetActive(hasOptional);
+
+        if (optionalRewardsContainer != null)
+        {
+            foreach (Transform child in optionalRewardsContainer)
+                Destroy(child.gameObject);
+
+            if (hasOptional)
+            {
+                foreach (var item in quest.optionalRewards)
+                {
+                    var rewardUI = Instantiate(rewardItemPrefab, optionalRewardsContainer);
+                    rewardUI.Setup(item.itemName, "x1", item.icon);
+                }
             }
         }
 

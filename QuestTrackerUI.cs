@@ -50,6 +50,7 @@ public class QuestTrackerUI : MonoBehaviour
             QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveCompleted;
             isSubscribed = false;
         }
+
         QuestManager.OnReady -= TrySubscribe;
     }
 
@@ -81,12 +82,19 @@ public class QuestTrackerUI : MonoBehaviour
 
     void OnObjectiveCompleted(QuestData quest, QuestObjective objective) => UpdateTracker();
 
+    public bool IsTracked(string questID) => trackedQuestIDs.Contains(questID);
+
+    public void ToggleQuest(QuestData quest)
+    {
+        if (IsTracked(quest.questID))
+            UntrackQuest(quest.questID);
+        else
+            TrackQuest(quest.questID);
+    }
+
     public void TrackQuest(string questID)
     {
-        if (trackedQuestIDs.Contains(questID))
-            return;
-
-        if (trackedQuestIDs.Count >= maxTrackedQuests)
+        if (trackedQuestIDs.Contains(questID) || trackedQuestIDs.Count >= maxTrackedQuests)
             return;
 
         trackedQuestIDs.Add(questID);
@@ -139,7 +147,7 @@ public class QuestTrackerUI : MonoBehaviour
 
     public void SetTrackedQuests(List<string> questIDs)
     {
-        trackedQuestIDs = new List<string>(questIDs);
+        trackedQuestIDs = questIDs.Count <= maxTrackedQuests ? new List<string>(questIDs) : questIDs.GetRange(0, maxTrackedQuests);
         UpdateTracker();
     }
 }

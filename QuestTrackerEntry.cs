@@ -10,6 +10,9 @@ public class QuestTrackerEntry : MonoBehaviour
 
     public void Setup(QuestData quest)
     {
+        if (QuestManager.Instance == null)
+            return;
+
         if (questNameText != null)
             questNameText.text = quest.questName;
 

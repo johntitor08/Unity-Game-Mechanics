@@ -9,7 +9,7 @@ public class QuestMarker : MonoBehaviour
     [Header("Visual")]
     public GameObject markerVisual;
     public float floatHeight = 0.5f;
-    public float floatSpeed  = 1f;
+    public float floatSpeed = 1f;
 
     private Vector3 startPos;
     private bool isVisible = false;
@@ -29,6 +29,15 @@ public class QuestMarker : MonoBehaviour
             Subscribe(QuestManager.Instance);
         else
             QuestManager.OnReady += OnQuestManagerReady;
+    }
+
+    void Update()
+    {
+        if (!isVisible || markerVisual == null)
+            return;
+
+        float newY = startPos.y + Mathf.Sin(Time.time * floatSpeed) * floatHeight;
+        transform.position = new Vector3(startPos.x, newY, startPos.z);
     }
 
     void OnDestroy()
@@ -65,32 +74,25 @@ public class QuestMarker : MonoBehaviour
         if (QuestManager.Instance == null)
             return;
 
-        var quest = QuestManager.Instance.GetActiveQuest(questID);
-        bool shouldShow = false;
-
-        if (quest != null)
+        if (string.IsNullOrEmpty(objectiveID))
         {
-            var objective = QuestManager.Instance.GetObjective(quest, objectiveID);
+            isVisible = QuestManager.Instance.IsQuestActive(questID);
+        }
+        else
+        {
+            var quest = QuestManager.Instance.GetActiveQuest(questID);
+            isVisible = false;
 
-            if (objective != null)
+            if (quest != null)
             {
-                var state = QuestManager.Instance.GetObjectiveState(questID, objectiveID);
-                shouldShow = !state.isCompleted;
+                var objective = QuestManager.Instance.GetObjective(quest, objectiveID);
+
+                if (objective != null)
+                    isVisible = !QuestManager.Instance.GetObjectiveState(questID, objectiveID).isCompleted;
             }
         }
 
-        isVisible = shouldShow;
-
         if (markerVisual != null)
             markerVisual.SetActive(isVisible);
-    }
-
-    void Update()
-    {
-        if (!isVisible || markerVisual == null)
-            return;
-
-        float newY = startPos.y + Mathf.Sin(Time.time * floatSpeed) * floatHeight;
-        transform.position = new Vector3(startPos.x, newY, startPos.z);
     }
 }

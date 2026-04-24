@@ -15,7 +15,7 @@ public class QuestSlotUI : MonoBehaviour
 
     private QuestData quest;
 
-    public void Setup(QuestData questData, bool isCompleted = false)
+    public void Setup(QuestData questData, bool isCompleted = false, bool isNew = false)
     {
         quest = questData;
 
@@ -30,6 +30,9 @@ public class QuestSlotUI : MonoBehaviour
 
         if (completedIndicator != null)
             completedIndicator.SetActive(isCompleted);
+
+        if (newIndicator != null)
+            newIndicator.SetActive(isNew);
 
         if (difficultyIcon != null)
             difficultyIcon.color = GetDifficultyColor(questData.difficulty);

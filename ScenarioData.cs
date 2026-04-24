@@ -36,13 +36,14 @@ public class ScenarioStep
     public string stepName;
     [TextArea] public string stepDescription;
     public ScenarioStepType type;
+
     [Header("Step Data")]
     public EnemyData enemy;
     public DialogueNode dialogue;
     public ItemData requiredItem;
-    public int requiredQuantity = 1;
+    [Min(1)] public int requiredQuantity = 1;
     public string targetLocationTag;
-    public float waitDuration = 5f;
+    [Min(0f)] public float waitDuration = 5f;
 
     [Header("Events")]
     public UnityEngine.Events.UnityEvent onStepStart;

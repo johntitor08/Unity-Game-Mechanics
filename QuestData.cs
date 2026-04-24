@@ -25,6 +25,7 @@ public class QuestData : ScriptableObject
     public DialogueNode startDialogue;
     public DialogueNode progressDialogue;
     public DialogueNode completeDialogue;
+    public DialogueNode failureDialogue;
 
     [Header("Rewards")]
     public int experienceReward = 100;
@@ -43,6 +44,9 @@ public class QuestData : ScriptableObject
     [Header("Time Limit")]
     public bool hasTimeLimit = false;
     public float timeLimitSeconds = 300f;
+
+    [Header("Failure")]
+    public bool canFail = false;
 
     [Header("Events")]
     public UnityEvent onQuestStart;
