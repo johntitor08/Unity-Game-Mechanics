@@ -141,6 +141,9 @@ public class QuestTrackerUI : MonoBehaviour
 
             trackerEntries[questID].Setup(quest);
         }
+
+        if (trackerPanel != null)
+            trackerPanel.SetActive(trackedQuestIDs.Count > 0);
     }
 
     public List<string> GetTrackedQuests() => new(trackedQuestIDs);

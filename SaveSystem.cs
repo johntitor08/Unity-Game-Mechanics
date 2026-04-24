@@ -146,9 +146,6 @@ public static class SaveSystem
         IsLoading = true;
         SceneManager.sceneLoaded += OnSceneLoaded;
         SceneManager.LoadScene(CachedData.currentScene);
-
-        if (ProfileUI.Instance != null)
-            ProfileUI.Instance.StartCoroutine(UpdateUIAfterLoad());
     }
 
     static System.Collections.IEnumerator UpdateUIAfterLoad()
@@ -162,11 +159,16 @@ public static class SaveSystem
     static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
-
-        if (CachedData != null && SceneEvent.Instance != null)
-            SceneEvent.Instance.StartCoroutine(DelayedApply(CachedData));
-
+        var data = CachedData;
         CachedData = null;
+
+        if (data == null)
+            return;
+
+        if (SceneEvent.Instance != null)
+            SceneEvent.Instance.StartCoroutine(DelayedApply(data));
+        else
+            ApplyLoadedData(data);
     }
 
     static System.Collections.IEnumerator DelayedApply(SaveData data)
@@ -226,11 +228,8 @@ public static class SaveSystem
 
                     string id = key[..sep];
 
-                    if (!int.TryParse(key[(sep + 1)..], out int lvl))
+                    if (!int.TryParse(key[(sep + 1)..], out int lvl) || ItemDatabase.Instance == null)
                         continue;
-
-                    if (ItemDatabase.Instance == null)
-                        return;
 
                     var itemData = ItemDatabase.Instance.GetByID(id);
 
@@ -255,7 +254,7 @@ public static class SaveSystem
             foreach (var saved in data.equippedItems)
             {
                 if (ItemDatabase.Instance == null)
-                    return;
+                    continue;
 
                 var eq = ItemDatabase.Instance.GetByID(saved.itemID) as EquipmentData;
 

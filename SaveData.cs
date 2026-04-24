@@ -4,6 +4,7 @@ using System.Collections.Generic;
 [Serializable]
 public class SaveData
 {
+    public int version = 1;
     public string playerName = "Player";
     public int playerLevel = 1;
     public int playerExperience = 0;
