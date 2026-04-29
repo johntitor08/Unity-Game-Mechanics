@@ -4,19 +4,45 @@ using UnityEngine.SceneManagement;
 
 public static class SaveSystem
 {
-    private static string SavePath => Path.Combine(Application.persistentDataPath, "save.json");
+    public const int SlotCount = 8;
+    public static int ActiveSlot { get; private set; } = 0;
     public static SaveData CachedData;
     public static bool IsLoading { get; private set; }
 
-    public static bool HasSaveFile() => File.Exists(SavePath);
-
-    public static void DeleteSave()
+    public static void SetActiveSlot(int slot)
     {
-        if (File.Exists(SavePath))
-            File.Delete(SavePath);
+        ActiveSlot = Mathf.Clamp(slot, 0, SlotCount - 1);
     }
 
-    public static void SaveGame()
+    private static string SavePath(int slot) => Path.Combine(Application.persistentDataPath, $"save_slot{slot}.json");
+
+    public static bool HasSaveFile() => HasSaveFile(ActiveSlot);
+
+    public static bool HasSaveFile(int slot) => File.Exists(SavePath(slot));
+
+    public static SaveData PeekSlot(int slot)
+    {
+        string path = SavePath(slot);
+
+        if (!File.Exists(path))
+            return null;
+
+        return JsonUtility.FromJson<SaveData>(File.ReadAllText(path));
+    }
+
+    public static void DeleteSave() => DeleteSave(ActiveSlot);
+
+    public static void DeleteSave(int slot)
+    {
+        string path = SavePath(slot);
+
+        if (File.Exists(path))
+            File.Delete(path);
+    }
+
+    public static void SaveGame() => SaveGame(ActiveSlot);
+
+    public static void SaveGame(int slot)
     {
         if (IsLoading)
             return;
@@ -134,26 +160,20 @@ public static class SaveSystem
             }
         }
 
-        File.WriteAllText(SavePath, JsonUtility.ToJson(data, true));
+        data.savedAt = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+        File.WriteAllText(SavePath(slot), JsonUtility.ToJson(data, true));
     }
 
-    public static void LoadGame()
+    public static void LoadGame() => LoadGame(ActiveSlot);
+    public static void LoadGame(int slot)
     {
-        if (!HasSaveFile())
+        if (!HasSaveFile(slot))
             return;
 
-        CachedData = JsonUtility.FromJson<SaveData>(File.ReadAllText(SavePath));
+        CachedData = JsonUtility.FromJson<SaveData>(File.ReadAllText(SavePath(slot)));
         IsLoading = true;
         SceneManager.sceneLoaded += OnSceneLoaded;
         SceneManager.LoadScene(CachedData.currentScene);
-    }
-
-    static System.Collections.IEnumerator UpdateUIAfterLoad()
-    {
-        yield return null;
-
-        if (ProfileUI.Instance != null)
-            ProfileUI.Instance.RefreshAll();
     }
 
     static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -318,6 +338,7 @@ public static class SaveSystem
         yield return null;
 
         if (SceneEvent.Instance != null)
-            yield return SceneEvent.Instance.StartCoroutine(SceneEvent.Instance.StartDialogueAfterLoad(sceneDialogueIndex));
+            yield return SceneEvent.Instance.StartCoroutine(
+                SceneEvent.Instance.StartDialogueAfterLoad(sceneDialogueIndex));
     }
 }

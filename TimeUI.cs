@@ -29,13 +29,9 @@ public class TimeUI : MonoBehaviour
     void Awake()
     {
         if (Instance == null)
-        {
             Instance = this;
-        }
         else
-        {
             Destroy(gameObject);
-        }
     }
 
     void Start()
@@ -56,9 +52,7 @@ public class TimeUI : MonoBehaviour
     void Update()
     {
         if (showProgressBar && progressBar != null && TimePhaseManager.Instance != null)
-        {
             progressBar.value = TimePhaseManager.Instance.GetPhaseProgress();
-        }
     }
 
     void OnDestroy()
@@ -72,21 +66,13 @@ public class TimeUI : MonoBehaviour
         if (phaseText != null)
         {
             phaseText.text = GetPhaseName(phase);
-
-            if (animateTransitions)
-            {
-                AnimateText();
-            }
+            if (animateTransitions) AnimateText();
         }
 
         if (phaseIcon != null)
         {
             phaseIcon.sprite = GetPhaseIcon(phase);
-
-            if (animateTransitions)
-            {
-                AnimateIcon();
-            }
+            if (animateTransitions) AnimateIcon();
         }
 
         UpdateDayCounter();
@@ -95,34 +81,26 @@ public class TimeUI : MonoBehaviour
     void UpdateDayCounter()
     {
         if (dayCounterText != null && showDayCounter)
-        {
             dayCounterText.text = "Day " + currentDay;
-        }
     }
 
-    string GetPhaseName(TimePhase phase)
+    string GetPhaseName(TimePhase phase) => phase switch
     {
-        return phase switch
-        {
-            TimePhase.Morning => "Morning",
-            TimePhase.Noon => "Noon",
-            TimePhase.Evening => "Evening",
-            TimePhase.Night => "Night",
-            _ => "Unknown"
-        };
-    }
+        TimePhase.Morning => "Morning",
+        TimePhase.Noon => "Noon",
+        TimePhase.Evening => "Evening",
+        TimePhase.Night => "Night",
+        _ => "Unknown"
+    };
 
-    Sprite GetPhaseIcon(TimePhase phase)
+    Sprite GetPhaseIcon(TimePhase phase) => phase switch
     {
-        return phase switch
-        {
-            TimePhase.Morning => morningIcon,
-            TimePhase.Noon => noonIcon,
-            TimePhase.Evening => eveningIcon,
-            TimePhase.Night => nightIcon,
-            _ => null
-        };
-    }
+        TimePhase.Morning => morningIcon,
+        TimePhase.Noon => noonIcon,
+        TimePhase.Evening => eveningIcon,
+        TimePhase.Night => nightIcon,
+        _ => null
+    };
 
     void AnimateText()
     {
@@ -172,15 +150,14 @@ public class TimeUI : MonoBehaviour
         float duration = 0.5f;
         float elapsed = 0f;
         float startAngle = 360f;
-        float endAngle = 0f;
 
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / duration;
             t = 1f - Mathf.Pow(1f - t, 2f);
-            float angle = Mathf.Lerp(startAngle, endAngle, t);
-            phaseIcon.transform.rotation = Quaternion.Euler(0, 0, angle);
+            float angle = Mathf.Lerp(startAngle, 0f, t);
+            phaseIcon.transform.rotation = Quaternion.Euler(0f, 0f, angle);
             yield return null;
         }
 

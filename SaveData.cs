@@ -5,6 +5,7 @@ using System.Collections.Generic;
 public class SaveData
 {
     public int version = 1;
+    public string savedAt = "";
     public string playerName = "Player";
     public int playerLevel = 1;
     public int playerExperience = 0;

@@ -1,11 +1,14 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Linq;
+using UnityEngine.UI;
 
 public class QuestTrackerUI : MonoBehaviour
 {
     public static QuestTrackerUI Instance;
-    private List<string> trackedQuestIDs = new();
+    private HashSet<string> trackedQuestIDs = new();
     private readonly Dictionary<string, QuestTrackerEntry> trackerEntries = new();
+    private readonly List<string> toRemove = new();
     private bool isSubscribed = false;
 
     [Header("Tracker")]
@@ -13,9 +16,14 @@ public class QuestTrackerUI : MonoBehaviour
     public Transform trackedQuestsParent;
     public QuestTrackerEntry trackerEntryPrefab;
     public int maxTrackedQuests = 3;
+    public Button closeButton;
 
     [Header("Settings")]
     public bool autoTrackNewQuests = true;
+    public bool persistAcrossScenes = false;
+
+    [Header("Visibility")]
+    [SerializeField] private bool isPanelHiddenByUser = false;
 
     void Awake()
     {
@@ -26,18 +34,27 @@ public class QuestTrackerUI : MonoBehaviour
         }
 
         Instance = this;
+
+        if (persistAcrossScenes)
+            DontDestroyOnLoad(gameObject);
     }
 
     void Start()
     {
-        TrySubscribe();
-        UpdateTracker();
+        if (closeButton != null)
+            closeButton.onClick.AddListener(OnCloseClicked);
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
     }
 
     void OnEnable()
     {
-        if (QuestManager.Instance == null)
-            QuestManager.OnReady += TrySubscribe;
+        QuestManager.OnReady += TrySubscribe;
+        TrySubscribe();
     }
 
     void OnDisable()
@@ -48,6 +65,10 @@ public class QuestTrackerUI : MonoBehaviour
             QuestManager.Instance.OnQuestCompleted -= OnQuestCompleted;
             QuestManager.Instance.OnObjectiveUpdated -= OnObjectiveUpdated;
             QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveCompleted;
+            QuestManager.Instance.OnTrackingToggleRequested -= OnTrackingToggleRequested;
+            QuestManager.Instance.OnSaveDataRequested -= OnSaveDataRequested;
+            QuestManager.Instance.OnTrackedQuestsLoaded -= OnTrackedQuestsLoaded;
+            QuestManager.Instance.OnQuestAbandoned -= OnQuestAbandoned;
             isSubscribed = false;
         }
 
@@ -62,6 +83,10 @@ public class QuestTrackerUI : MonoBehaviour
             QuestManager.Instance.OnQuestCompleted += OnQuestCompleted;
             QuestManager.Instance.OnObjectiveUpdated += OnObjectiveUpdated;
             QuestManager.Instance.OnObjectiveCompleted += OnObjectiveCompleted;
+            QuestManager.Instance.OnTrackingToggleRequested += OnTrackingToggleRequested;
+            QuestManager.Instance.OnSaveDataRequested += OnSaveDataRequested;
+            QuestManager.Instance.OnTrackedQuestsLoaded += OnTrackedQuestsLoaded;
+            QuestManager.Instance.OnQuestAbandoned += OnQuestAbandoned;
             isSubscribed = true;
             UpdateTracker();
         }
@@ -70,17 +95,37 @@ public class QuestTrackerUI : MonoBehaviour
     void OnQuestStarted(QuestData quest)
     {
         if (autoTrackNewQuests && quest.trackObjectives)
-            TrackQuest(quest.questID);
+        {
+            if (!TrackQuest(quest.questID))
+                Debug.Log($"[QuestTrackerUI] Max limit ({maxTrackedQuests}) dolu, '{quest.questName}' takibe alınamadı.");
+        }
     }
 
-    void OnQuestCompleted(QuestData quest)
+    void OnQuestCompleted(QuestData quest) => UntrackQuest(quest.questID);
+
+    void OnQuestAbandoned(QuestData quest) => UntrackQuest(quest.questID);
+
+    void OnObjectiveUpdated(QuestData quest, QuestObjective objective) => RefreshEntries();
+
+    void OnObjectiveCompleted(QuestData quest, QuestObjective objective) => RefreshEntries();
+
+    void OnTrackingToggleRequested(QuestData quest) => ToggleQuest(quest);
+
+    void OnSaveDataRequested(QuestSaveData data)
     {
-        UntrackQuest(quest.questID);
+        data.trackedQuestIDs = new List<string>(trackedQuestIDs);
     }
 
-    void OnObjectiveUpdated(QuestData quest, QuestObjective objective) => UpdateTracker();
+    void OnTrackedQuestsLoaded(List<string> questIDs)
+    {
+        if (questIDs == null)
+            return;
 
-    void OnObjectiveCompleted(QuestData quest, QuestObjective objective) => UpdateTracker();
+        var qm = QuestManager.Instance;
+        var validIDs = questIDs.Where(id => qm != null && qm.GetActiveQuest(id) != null).Take(maxTrackedQuests);
+        trackedQuestIDs = new HashSet<string>(validIDs);
+        UpdateTracker();
+    }
 
     public bool IsTracked(string questID) => trackedQuestIDs.Contains(questID);
 
@@ -92,24 +137,41 @@ public class QuestTrackerUI : MonoBehaviour
             TrackQuest(quest.questID);
     }
 
-    public void TrackQuest(string questID)
+    public bool TrackQuest(string questID)
     {
-        if (trackedQuestIDs.Contains(questID) || trackedQuestIDs.Count >= maxTrackedQuests)
-            return;
+        if (trackedQuestIDs.Count >= maxTrackedQuests)
+            return false;
 
-        trackedQuestIDs.Add(questID);
+        var qm = QuestManager.Instance;
+
+        if (qm == null || qm.GetActiveQuest(questID) == null || !trackedQuestIDs.Add(questID))
+            return false;
+
+        isPanelHiddenByUser = false;
+
         UpdateTracker();
+        return true;
     }
 
     public void UntrackQuest(string questID)
     {
-        trackedQuestIDs.Remove(questID);
+        if (!trackedQuestIDs.Remove(questID))
+            return;
+
         UpdateTracker();
     }
 
-    public void UpdateTracker()
+    void OnCloseClicked()
     {
-        var toRemove = new List<string>();
+        isPanelHiddenByUser = true;
+
+        if (trackerPanel != null)
+            trackerPanel.SetActive(false);
+    }
+
+    void UpdateTracker()
+    {
+        toRemove.Clear();
 
         foreach (var questID in trackerEntries.Keys)
             if (!trackedQuestIDs.Contains(questID))
@@ -135,6 +197,12 @@ public class QuestTrackerUI : MonoBehaviour
 
             if (!trackerEntries.ContainsKey(questID))
             {
+                if (trackerEntryPrefab == null)
+                {
+                    Debug.LogError("[QuestTrackerUI] trackerEntryPrefab atanmamış.", this);
+                    continue;
+                }
+
                 var entry = Instantiate(trackerEntryPrefab, trackedQuestsParent);
                 trackerEntries[questID] = entry;
             }
@@ -143,14 +211,38 @@ public class QuestTrackerUI : MonoBehaviour
         }
 
         if (trackerPanel != null)
-            trackerPanel.SetActive(trackedQuestIDs.Count > 0);
+            trackerPanel.SetActive(!isPanelHiddenByUser && trackedQuestIDs.Count > 0);
+    }
+
+    void RefreshEntries()
+    {
+        List<string> orphaned = null;
+        var qm = QuestManager.Instance;
+
+        foreach (var (questID, entry) in trackerEntries)
+        {
+            if (entry == null)
+            {
+                (orphaned ??= new()).Add(questID);
+                continue;
+            }
+
+            var quest = qm != null ? qm.GetActiveQuest(questID) : null;
+
+            if (quest != null)
+                entry.Setup(quest);
+            else
+                (orphaned ??= new()).Add(questID);
+        }
+
+        if (orphaned != null)
+        {
+            foreach (var id in orphaned)
+                trackedQuestIDs.Remove(id);
+
+            UpdateTracker();
+        }
     }
 
     public List<string> GetTrackedQuests() => new(trackedQuestIDs);
-
-    public void SetTrackedQuests(List<string> questIDs)
-    {
-        trackedQuestIDs = questIDs.Count <= maxTrackedQuests ? new List<string>(questIDs) : questIDs.GetRange(0, maxTrackedQuests);
-        UpdateTracker();
-    }
 }

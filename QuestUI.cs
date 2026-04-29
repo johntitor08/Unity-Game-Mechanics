@@ -48,8 +48,11 @@ public class QuestUI : MonoBehaviour
 
     void Start()
     {
-        questLogPanel.SetActive(false);
-        questDetailsPanel.SetActive(false);
+        if (questLogPanel != null)
+            questLogPanel.SetActive(false);
+
+        if (questDetailsPanel != null)
+            questDetailsPanel.SetActive(false);
 
         if (acceptButton != null)
         {
@@ -68,14 +71,18 @@ public class QuestUI : MonoBehaviour
             trackButton.onClick.AddListener(OnTrackClicked);
             trackButton.gameObject.SetActive(false);
         }
+    }
 
-        TrySubscribe();
+    void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
     }
 
     void OnEnable()
     {
-        if (QuestManager.Instance == null)
-            QuestManager.OnReady += TrySubscribe;
+        QuestManager.OnReady += TrySubscribe;
+        TrySubscribe();
     }
 
     void OnDisable()
@@ -84,6 +91,7 @@ public class QuestUI : MonoBehaviour
         {
             QuestManager.Instance.OnQuestStarted -= OnQuestStarted;
             QuestManager.Instance.OnQuestCompleted -= OnQuestCompleted;
+            QuestManager.Instance.OnQuestAbandoned -= OnQuestAbandoned;
             QuestManager.Instance.OnObjectiveUpdated -= OnObjectiveUpdated;
             QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveCompleted;
             isSubscribed = false;
@@ -98,6 +106,7 @@ public class QuestUI : MonoBehaviour
         {
             QuestManager.Instance.OnQuestStarted += OnQuestStarted;
             QuestManager.Instance.OnQuestCompleted += OnQuestCompleted;
+            QuestManager.Instance.OnQuestAbandoned += OnQuestAbandoned;
             QuestManager.Instance.OnObjectiveUpdated += OnObjectiveUpdated;
             QuestManager.Instance.OnObjectiveCompleted += OnObjectiveCompleted;
             isSubscribed = true;
@@ -109,66 +118,91 @@ public class QuestUI : MonoBehaviour
     {
         if (Input.GetKeyDown(toggleKey))
         {
-            questLogPanel.SetActive(!questLogPanel.activeSelf);
+            if (questLogPanel != null)
+            {
+                bool nowActive = !questLogPanel.activeSelf;
+                questLogPanel.SetActive(nowActive);
 
-            if (questLogPanel.activeSelf)
-                RefreshQuestLog();
+                if (nowActive)
+                    RefreshQuestLog();
+            }
         }
     }
 
     void RefreshQuestLog()
     {
+        if (QuestManager.Instance == null)
+            return;
+
+        if (questSlotPrefab == null)
+        {
+            Debug.LogError("QuestUI: questSlotPrefab atanmamış.");
+            return;
+        }
+
         foreach (var slot in questSlots)
             if (slot != null)
                 Destroy(slot.gameObject);
 
         questSlots.Clear();
 
-        foreach (var quest in QuestManager.Instance.GetActiveQuests())
-        {
-            var slot = Instantiate(questSlotPrefab, activeQuestsParent);
-            slot.Setup(quest);
-            questSlots.Add(slot);
-        }
+        SpawnSlots(QuestManager.Instance.GetActiveQuests(), activeQuestsParent, isCompleted: false);
+        SpawnSlots(QuestManager.Instance.GetAvailableQuests(), availableQuestsParent, isCompleted: false);
+        SpawnSlots(QuestManager.Instance.GetCompletedQuests(), completedQuestsParent, isCompleted: true);
+    }
 
-        foreach (var quest in QuestManager.Instance.GetAvailableQuests())
-        {
-            var slot = Instantiate(questSlotPrefab, availableQuestsParent);
-            slot.Setup(quest, isNew: true);
-            questSlots.Add(slot);
-        }
+    private void SpawnSlots(IEnumerable<QuestData> quests, Transform parent, bool isCompleted)
+    {
+        if (parent == null || quests == null)
+            return;
 
-        foreach (var quest in QuestManager.Instance.GetCompletedQuests())
+        foreach (var quest in quests)
         {
-            var slot = Instantiate(questSlotPrefab, completedQuestsParent);
-            slot.Setup(quest, true);
+            var slot = Instantiate(questSlotPrefab, parent);
+            slot.Setup(quest, isCompleted);
             questSlots.Add(slot);
         }
     }
 
     public void ShowQuestDetails(QuestData quest)
     {
+        var qm = QuestManager.Instance;
+
+        if (qm == null || quest == null)
+            return;
+
         selectedQuest = quest;
-        questDetailsPanel.SetActive(true);
-        questTitleText.text = quest.questName;
-        questDescriptionText.text = quest.description;
-        questTypeText.text = $"{quest.questType} - {quest.difficulty}";
+
+        if (questDetailsPanel != null)
+            questDetailsPanel.SetActive(true);
+
+        if (questTitleText != null)
+            questTitleText.text = quest.questName;
+
+        if (questDescriptionText != null)
+            questDescriptionText.text = quest.description;
+
+        if (questTypeText != null)
+            questTypeText.text = $"{quest.questType} - {quest.difficulty}";
 
         if (questIcon != null)
             questIcon.sprite = quest.icon;
 
-        foreach (Transform child in objectivesParent)
-            Destroy(child.gameObject);
-
-        foreach (var objective in quest.objectives)
+        if (objectivesParent != null && objectivePrefab != null)
         {
-            var objUI = Instantiate(objectivePrefab, objectivesParent);
-            var state = QuestManager.Instance.GetObjectiveState(quest.questID, objective.objectiveID);
-            objUI.Setup(objective, state);
+            foreach (Transform child in objectivesParent)
+                Destroy(child.gameObject);
+
+            foreach (var objective in quest.objectives)
+            {
+                var objUI = Instantiate(objectivePrefab, objectivesParent);
+                var state = qm.GetObjectiveState(quest.questID, objective.objectiveID);
+                objUI.Setup(objective, state);
+            }
         }
 
-        bool isActive = QuestManager.Instance.IsQuestActive(quest.questID);
-        bool isCompleted = QuestManager.Instance.IsQuestCompleted(quest.questID);
+        bool isActive = qm.IsQuestActive(quest.questID);
+        bool isCompleted = qm.IsQuestCompleted(quest.questID);
         bool isTracked = QuestTrackerUI.Instance != null && QuestTrackerUI.Instance.IsTracked(quest.questID);
 
         if (acceptButton != null && abandonButton != null)
@@ -180,7 +214,6 @@ public class QuestUI : MonoBehaviour
         if (trackButton != null)
         {
             trackButton.gameObject.SetActive(isActive);
-
             var label = trackButton.GetComponentInChildren<TextMeshProUGUI>();
 
             if (label != null)
@@ -195,7 +228,9 @@ public class QuestUI : MonoBehaviour
 
         QuestManager.Instance.StartQuest(selectedQuest);
         RefreshQuestLog();
-        questDetailsPanel.SetActive(false);
+
+        if (questDetailsPanel != null)
+            questDetailsPanel.SetActive(false);
     }
 
     void OnAbandonClicked()
@@ -204,8 +239,12 @@ public class QuestUI : MonoBehaviour
             return;
 
         QuestManager.Instance.AbandonQuest(selectedQuest);
+
+        selectedQuest = null;
         RefreshQuestLog();
-        questDetailsPanel.SetActive(false);
+
+        if (questDetailsPanel != null)
+            questDetailsPanel.SetActive(false);
     }
 
     void OnTrackClicked()
@@ -221,6 +260,8 @@ public class QuestUI : MonoBehaviour
 
     void OnQuestCompleted(QuestData quest) => RefreshQuestLog();
 
+    void OnQuestAbandoned(QuestData quest) => RefreshQuestLog();
+
     void OnObjectiveUpdated(QuestData quest, QuestObjective objective) => RefreshDetails(quest);
 
     void OnObjectiveCompleted(QuestData quest, QuestObjective objective) => RefreshDetails(quest);
@@ -229,8 +270,5 @@ public class QuestUI : MonoBehaviour
     {
         if (selectedQuest != null && selectedQuest.questID == quest.questID)
             ShowQuestDetails(selectedQuest);
-
-        if (QuestTrackerUI.Instance != null)
-            QuestTrackerUI.Instance.UpdateTracker();
     }
 }

@@ -23,6 +23,9 @@ public class QuestRewardUI : MonoBehaviour
     [Header("Animation")]
     public float displayDuration = 5f;
 
+    [Header("Display")]
+    [SerializeField] private string completionTitle = "Quest Complete!";
+
     void Awake()
     {
         if (Instance != null && Instance != this)
@@ -49,6 +52,18 @@ public class QuestRewardUI : MonoBehaviour
 
     public void ShowRewards(QuestData quest)
     {
+        if (quest == null)
+        {
+            Debug.LogWarning("QuestRewardUI.ShowRewards called with null quest.");
+            return;
+        }
+
+        if (rewardItemPrefab == null)
+        {
+            Debug.LogError("QuestRewardUI: rewardItemPrefab is not assigned.");
+            return;
+        }
+
         if (autoCloseCoroutine != null)
             StopCoroutine(autoCloseCoroutine);
 
@@ -58,24 +73,19 @@ public class QuestRewardUI : MonoBehaviour
             questNameText.text = quest.questName;
 
         if (titleText != null)
-            titleText.text = "Quest Complete!";
+            titleText.text = completionTitle;
 
-        foreach (Transform child in rewardsContainer)
-            Destroy(child.gameObject);
+        ClearContainer(rewardsContainer);
 
         if (quest.experienceReward > 0)
-        {
-            var rewardUI = Instantiate(rewardItemPrefab, rewardsContainer);
-            rewardUI.Setup("Experience", quest.experienceReward.ToString(), null);
-        }
+            SpawnRewardItem(rewardsContainer, "Experience", quest.experienceReward.ToString(), null);
 
         if (quest.currencyRewards != null)
         {
             foreach (var reward in quest.currencyRewards)
             {
-                var rewardUI = Instantiate(rewardItemPrefab, rewardsContainer);
                 var currencyInfo = CurrencyManager.Instance != null ? CurrencyManager.Instance.GetCurrencyInfo(reward.type) : null;
-                rewardUI.Setup(reward.type.ToString(), reward.amount.ToString(), currencyInfo?.icon);
+                SpawnRewardItem(rewardsContainer, reward.type.ToString(), reward.amount.ToString(), currencyInfo?.icon);
             }
         }
 
@@ -84,8 +94,7 @@ public class QuestRewardUI : MonoBehaviour
             for (int i = 0; i < quest.itemRewards.Length; i++)
             {
                 int qty = (quest.itemRewardQuantities != null && i < quest.itemRewardQuantities.Length) ? quest.itemRewardQuantities[i] : 1;
-                var rewardUI = Instantiate(rewardItemPrefab, rewardsContainer);
-                rewardUI.Setup(quest.itemRewards[i].itemName, $"x{qty}", quest.itemRewards[i].icon);
+                SpawnRewardItem(rewardsContainer, quest.itemRewards[i].itemName, $"x{qty}", quest.itemRewards[i].icon);
             }
         }
 
@@ -94,22 +103,33 @@ public class QuestRewardUI : MonoBehaviour
         if (optionalRewardsLabel != null)
             optionalRewardsLabel.gameObject.SetActive(hasOptional);
 
-        if (optionalRewardsContainer != null)
-        {
-            foreach (Transform child in optionalRewardsContainer)
-                Destroy(child.gameObject);
+        ClearContainer(optionalRewardsContainer);
 
-            if (hasOptional)
-            {
-                foreach (var item in quest.optionalRewards)
-                {
-                    var rewardUI = Instantiate(rewardItemPrefab, optionalRewardsContainer);
-                    rewardUI.Setup(item.itemName, "x1", item.icon);
-                }
-            }
+        if (hasOptional && optionalRewardsContainer != null)
+        {
+            foreach (var item in quest.optionalRewards)
+                SpawnRewardItem(optionalRewardsContainer, item.itemName, "x1", item.icon);
         }
 
         autoCloseCoroutine = StartCoroutine(AutoClose());
+    }
+
+    private void ClearContainer(Transform container)
+    {
+        if (container == null)
+            return;
+
+        foreach (Transform child in container)
+            Destroy(child.gameObject);
+    }
+
+    private void SpawnRewardItem(Transform container, string label, string value, Sprite icon)
+    {
+        if (container == null)
+            return;
+
+        var rewardUI = Instantiate(rewardItemPrefab, container);
+        rewardUI.Setup(label, value, icon);
     }
 
     IEnumerator AutoClose()
