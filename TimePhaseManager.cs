@@ -29,12 +29,15 @@ public class TimePhaseManager : MonoBehaviour
     public Button nextPhaseButton;
     public Button previousPhaseButton;
 
+    [Header("Previous Phase Cost")]
+    public CurrencyType previousPhaseCostType = CurrencyType.Gold;
+    public int previousPhaseCost = 50;
+
     void Awake()
     {
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject);
         }
         else
         {
@@ -54,9 +57,24 @@ public class TimePhaseManager : MonoBehaviour
         if (previousPhaseButton != null)
             previousPhaseButton.onClick.AddListener(GoPreviousPhase);
 
+        if (CurrencyManager.Instance != null)
+            CurrencyManager.Instance.OnCurrencyChanged += OnCurrencyChanged;
+
         OnPhaseChanged?.Invoke(currentPhase);
         UpdateCameraColor(currentPhase);
         UpdatePhaseButtons();
+    }
+
+    void OnDestroy()
+    {
+        if (CurrencyManager.Instance != null)
+            CurrencyManager.Instance.OnCurrencyChanged -= OnCurrencyChanged;
+    }
+
+    void OnCurrencyChanged(CurrencyType type, int oldAmount, int newAmount)
+    {
+        if (type == previousPhaseCostType)
+            UpdatePhaseButtons();
     }
 
     void Update()
@@ -104,7 +122,7 @@ public class TimePhaseManager : MonoBehaviour
 
     public void GoPreviousPhase()
     {
-        if (currentPhase == TimePhase.Morning)
+        if (currentPhase == TimePhase.Morning || CurrencyManager.Instance == null || !CurrencyManager.Instance.Spend(previousPhaseCostType, previousPhaseCost))
             return;
 
         currentPhase = currentPhase switch
@@ -151,7 +169,10 @@ public class TimePhaseManager : MonoBehaviour
     void UpdatePhaseButtons()
     {
         if (previousPhaseButton != null)
-            previousPhaseButton.interactable = currentPhase != TimePhase.Morning;
+        {
+            bool canGoBack = currentPhase != TimePhase.Morning && CurrencyManager.Instance != null && CurrencyManager.Instance.Has(previousPhaseCostType, previousPhaseCost);
+            previousPhaseButton.interactable = canGoBack;
+        }
 
         if (nextPhaseButton != null)
             nextPhaseButton.interactable = currentPhase != TimePhase.Night;

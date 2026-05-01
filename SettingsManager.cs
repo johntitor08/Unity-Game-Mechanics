@@ -48,6 +48,27 @@ public class SettingsManager : MonoBehaviour
         SetupDropdowns();
         LoadSettings();
         BindListeners();
+        BindBackButton();
+    }
+
+    public void OnOpen()
+    {
+        BindBackButton();
+    }
+
+    void BindBackButton()
+    {
+        if (backButton == null)
+            return;
+
+        backButton.onClick.RemoveAllListeners();
+
+        if (MainMenuManager.Instance != null)
+            backButton.onClick.AddListener(MainMenuManager.Instance.OnSettingsBack);
+        else if (GameMenuManager.Instance != null)
+            backButton.onClick.AddListener(GameMenuManager.Instance.OnSettingsBack);
+        else
+            Debug.LogWarning("[SettingsManager] Back button bağlanamadı: ne MainMenuManager ne GameMenuManager sahnede var.");
     }
 
     void SetupDropdowns()
@@ -117,6 +138,9 @@ public class SettingsManager : MonoBehaviour
 
         if (difficultySlider != null)
         {
+            difficultySlider.minValue = 0;
+            difficultySlider.maxValue = 3;
+            difficultySlider.wholeNumbers = true;
             difficultySlider.onValueChanged.RemoveAllListeners();
             difficultySlider.onValueChanged.AddListener(OnDifficultyChanged);
         }
@@ -132,23 +156,12 @@ public class SettingsManager : MonoBehaviour
             resetButton.onClick.RemoveAllListeners();
             resetButton.onClick.AddListener(ResetSettings);
         }
-
-        if (backButton != null)
-        {
-            backButton.onClick.RemoveAllListeners();
-
-            if (MainMenuManager.Instance != null)
-                backButton.onClick.AddListener(MainMenuManager.Instance.OnSettingsBack);
-            else if (GameMenuManager.Instance != null)
-                backButton.onClick.AddListener(GameMenuManager.Instance.OnSettingsBack);
-            else
-                Debug.LogWarning("[SettingsManager] Back button bağlanamadı: ne MainMenuManager ne GameMenuManager sahnede var.");
-        }
     }
 
     void OnMasterVolumeChanged(float value)
     {
         SetMixerVolume("MasterVolume", value);
+
         if (masterVolumeText != null)
             masterVolumeText.text = Mathf.Round(value * 100) + "%";
     }
@@ -156,6 +169,7 @@ public class SettingsManager : MonoBehaviour
     void OnMusicVolumeChanged(float value)
     {
         SetMixerVolume("MusicVolume", value);
+
         if (musicVolumeText != null)
             musicVolumeText.text = Mathf.Round(value * 100) + "%";
     }
@@ -163,6 +177,7 @@ public class SettingsManager : MonoBehaviour
     void OnSFXVolumeChanged(float value)
     {
         SetMixerVolume("SFXVolume", value);
+
         if (sfxVolumeText != null)
             sfxVolumeText.text = Mathf.Round(value * 100) + "%";
     }
@@ -177,18 +192,18 @@ public class SettingsManager : MonoBehaviour
         if (difficultyText == null)
             return;
 
-        difficultyText.text = value switch
+        difficultyText.text = Mathf.RoundToInt(value) switch
         {
-            <= 1f => "Easy",
-            <= 2f => "Normal",
-            <= 3f => "Hard",
+            0 => "Easy",
+            1 => "Normal",
+            2 => "Hard",
             _ => "Nightmare"
         };
     }
 
     void ApplySettings()
     {
-        if (resolutionDropdown != null)
+        if (resolutionDropdown != null && resolutions != null && resolutions.Length > 0)
         {
             var r = resolutions[resolutionDropdown.value];
             Screen.SetResolution(r.width, r.height, Screen.fullScreen);
@@ -224,7 +239,7 @@ public class SettingsManager : MonoBehaviour
             vsyncToggle.isOn = true;
 
         if (difficultySlider != null)
-            difficultySlider.value = 2f;
+            difficultySlider.value = 1f;
 
         if (subtitlesToggle != null)
             subtitlesToggle.isOn = true;
@@ -243,7 +258,7 @@ public class SettingsManager : MonoBehaviour
         PlayerPrefs.SetInt("QualityLevel", QualitySettings.GetQualityLevel());
         PlayerPrefs.SetInt("Fullscreen", Screen.fullScreen ? 1 : 0);
         PlayerPrefs.SetInt("VSync", QualitySettings.vSyncCount);
-        PlayerPrefs.SetFloat("Difficulty", difficultySlider != null ? difficultySlider.value : 2f);
+        PlayerPrefs.SetFloat("Difficulty", difficultySlider != null ? difficultySlider.value : 1f);
         PlayerPrefs.SetInt("Subtitles", subtitlesToggle != null && subtitlesToggle.isOn ? 1 : 0);
         PlayerPrefs.SetInt("Autosave", autosaveToggle != null && autosaveToggle.isOn ? 1 : 0);
         PlayerPrefs.Save();
@@ -254,7 +269,7 @@ public class SettingsManager : MonoBehaviour
         float masterVolume = PlayerPrefs.GetFloat("MasterVolume", 1f);
         float musicVolume = PlayerPrefs.GetFloat("MusicVolume", 0.8f);
         float sfxVolume = PlayerPrefs.GetFloat("SFXVolume", 1f);
-        float difficulty = PlayerPrefs.GetFloat("Difficulty", 2f);
+        float difficulty = PlayerPrefs.GetFloat("Difficulty", 1f);
 
         if (masterVolumeSlider != null)
             masterVolumeSlider.value = masterVolume;
@@ -313,5 +328,5 @@ public class SettingsManager : MonoBehaviour
 
     public bool IsSubtitlesEnabled() => subtitlesToggle != null && subtitlesToggle.isOn;
 
-    public float GetDifficulty() => difficultySlider != null ? difficultySlider.value : 2f;
+    public float GetDifficulty() => difficultySlider != null ? difficultySlider.value : 1f;
 }
