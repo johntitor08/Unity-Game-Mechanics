@@ -65,18 +65,6 @@ public class TimePhaseManager : MonoBehaviour
         UpdatePhaseButtons();
     }
 
-    void OnDestroy()
-    {
-        if (CurrencyManager.Instance != null)
-            CurrencyManager.Instance.OnCurrencyChanged -= OnCurrencyChanged;
-    }
-
-    void OnCurrencyChanged(CurrencyType type, int oldAmount, int newAmount)
-    {
-        if (type == previousPhaseCostType)
-            UpdatePhaseButtons();
-    }
-
     void Update()
     {
         if (!autoProgress)
@@ -89,6 +77,18 @@ public class TimePhaseManager : MonoBehaviour
             phaseTimer = 0f;
             NextPhase();
         }
+    }
+
+    void OnDestroy()
+    {
+        if (CurrencyManager.Instance != null)
+            CurrencyManager.Instance.OnCurrencyChanged -= OnCurrencyChanged;
+    }
+
+    void OnCurrencyChanged(CurrencyType type, int oldAmount, int newAmount)
+    {
+        if (type == previousPhaseCostType)
+            UpdatePhaseButtons();
     }
 
     public void SetPhase(TimePhase newPhase)
@@ -105,6 +105,8 @@ public class TimePhaseManager : MonoBehaviour
 
     public void NextPhase()
     {
+        TimePhase previousPhase = currentPhase;
+
         currentPhase = currentPhase switch
         {
             TimePhase.Morning => TimePhase.Noon,
@@ -115,6 +117,10 @@ public class TimePhaseManager : MonoBehaviour
         };
 
         phaseTimer = 0f;
+
+        if (previousPhase == TimePhase.Night && currentPhase == TimePhase.Morning)
+            TriggerNewDay();
+
         OnPhaseChanged?.Invoke(currentPhase);
         UpdateCameraColor(currentPhase);
         UpdatePhaseButtons();

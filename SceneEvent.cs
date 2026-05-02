@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -30,6 +31,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     private bool isHoverEffectsSubscribed;
     public GameObject[] hoverEffects;
     private readonly List<System.Action> _hoverHideActions = new();
+    private Action<EnemyData> _currentVictoryHandler;
+    private Action _currentDefeatHandler;
 
     public SceneProgress Progress
     {
@@ -365,6 +368,11 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         bool showChar = index >= 8 && index <= 12;
         SetActive(charImage.gameObject, showChar);
 
+        if (index == 13)
+            hoverEffects[6].SetActive(true);
+        else
+            hoverEffects[6].SetActive(false);
+
         if (showChar)
         {
             RectTransform charRt = charImage.rectTransform;
@@ -379,7 +387,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 charRt.localScale = new Vector3(0.75f, 0.75f, 0.75f);
                 SetCharacter(23);
             }
-            else if(index == 11)
+            else if (index == 11)
             {
                 charRt.anchorMin = new Vector2(0.5f, 0);
                 charRt.anchorMax = new Vector2(0.5f, 0);
@@ -488,7 +496,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     {
         yield return null;
 
-        if (sceneStartDialogueNodes == null || nodeIndex >= sceneStartDialogueNodes.Length || Progress == SceneProgress.SceneHome || Progress == SceneProgress.SceneMarket || Progress == SceneProgress.SceneGym || Progress == SceneProgress.SceneOffice || Progress == SceneProgress.SceneChurch  )
+        if (sceneStartDialogueNodes == null || nodeIndex >= sceneStartDialogueNodes.Length || Progress == SceneProgress.SceneHome || Progress == SceneProgress.SceneMarket || Progress == SceneProgress.SceneGym || Progress == SceneProgress.SceneOffice || Progress == SceneProgress.SceneChurch)
             yield break;
 
         if (DialogueManager.Instance == null)
@@ -534,9 +542,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             HandleSceneTransition(endedNode);
 
         if (Progress == SceneProgress.SceneMarket && sceneStartDialogueNodes != null && sceneStartDialogueNodes.Length > 8 && sceneStartDialogueNodes[8] != null && endedNode == sceneStartDialogueNodes[8] && MarketUI.Instance != null)
-        {
             MarketUI.Instance.OpenMarket();
-        }
     }
 
     void HandleSceneTransition(DialogueNode endedNode)
@@ -724,6 +730,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (hoverEffects[5] != null)
             hoverEffects[5].GetComponent<UIHoverRegion>().OnRegionClicked += StartCoachDialogue;
 
+        if (hoverEffects[6] != null)
+            hoverEffects[6].GetComponent<UIHoverRegion>().OnRegionClicked += SkipToNextDay;
+
         isHoverEffectsSubscribed = true;
     }
 
@@ -760,6 +769,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (hoverEffects[5] != null)
             hoverEffects[5].GetComponent<UIHoverRegion>().OnRegionClicked -= StartCoachDialogue;
+
+        if (hoverEffects[6] != null)
+            hoverEffects[6].GetComponent<UIHoverRegion>().OnRegionClicked -= SkipToNextDay;
 
         isHoverEffectsSubscribed = false;
     }
@@ -810,6 +822,86 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (flee != null)
             flee.isDisabled = disabled;
+    }
+
+    private void StartCombatForScene(int enemyIndex, Action<EnemyData> onVictory, Action onDefeat)
+    {
+        var cm = CombatManager.Instance;
+
+        if (cm == null)
+        {
+            Debug.LogWarning("[SceneEvent] StartCombatForScene: CombatManager not found.");
+            return;
+        }
+
+        if (enemies == null || enemyIndex < 0 || enemyIndex >= enemies.Length || enemies[enemyIndex] == null)
+        {
+            Debug.LogWarning($"[SceneEvent] StartCombatForScene: no enemy at index {enemyIndex}.");
+            return;
+        }
+
+        UnsubscribeSceneCombat();
+        _currentVictoryHandler = onVictory;
+        _currentDefeatHandler = onDefeat;
+        cm.OnCombatVictory += _currentVictoryHandler;
+        cm.OnCombatDefeat += _currentDefeatHandler;
+        SetFleeDisabled(true);
+        cm.StartCombat(enemies[enemyIndex]);
+    }
+
+    private void UnsubscribeSceneCombat()
+    {
+        var cm = CombatManager.Instance;
+
+        if (cm == null)
+            return;
+
+        if (_currentVictoryHandler != null)
+        {
+            cm.OnCombatVictory -= _currentVictoryHandler;
+            _currentVictoryHandler = null;
+        }
+
+        if (_currentDefeatHandler != null)
+        {
+            cm.OnCombatDefeat -= _currentDefeatHandler;
+            _currentDefeatHandler = null;
+        }
+    }
+
+    private void StartCombatForScene4()
+    {
+        StartCombatForScene(
+            enemyIndex: 0,
+            onVictory: (enemy) =>
+            {
+                SetFleeDisabled(false);
+                UnsubscribeSceneCombat();
+                TriggerScene5();
+            },
+            onDefeat: () =>
+            {
+                SetFleeDisabled(false);
+                UnsubscribeSceneCombat();
+                SetCharacter(8);
+            }
+        );
+    }
+
+    public void SkipToNextDay()
+    {
+        if (TimePhaseManager.Instance == null)
+            return;
+
+        while (TimePhaseManager.Instance.currentPhase != TimePhase.Night)
+        {
+            TimePhaseManager.Instance.NextPhase();
+        }
+
+        TimePhaseManager.Instance.NextPhase();
+
+        if (PlayerStats.Instance != null)
+            PlayerStats.Instance.FullRestore();
     }
 
     public void StartCashierDialogue()
@@ -895,42 +987,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         Progress = SceneProgress.Scene4;
         SetBackground(3);
         TryStartDialogue(3);
-    }
-
-    private void StartCombatForScene4()
-    {
-        if (CombatManager.Instance == null)
-            return;
-
-        SetFleeDisabled(true);
-        CombatManager.Instance.OnCombatVictory -= HandleScene4CombatVictory;
-        CombatManager.Instance.OnCombatDefeat -= HandleScene4CombatDefeat;
-        CombatManager.Instance.OnCombatVictory += HandleScene4CombatVictory;
-        CombatManager.Instance.OnCombatDefeat += HandleScene4CombatDefeat;
-        CombatManager.Instance.StartCombat(enemies[0]);
-    }
-
-    private void HandleScene4CombatVictory()
-    {
-        SetFleeDisabled(false);
-        UnsubscribeSceneCombat();
-        TriggerScene5();
-    }
-
-    private void HandleScene4CombatDefeat()
-    {
-        SetFleeDisabled(false);
-        UnsubscribeSceneCombat();
-        SetCharacter(8);
-    }
-
-    private void UnsubscribeSceneCombat()
-    {
-        if (CombatManager.Instance == null)
-            return;
-
-        CombatManager.Instance.OnCombatVictory -= HandleScene4CombatVictory;
-        CombatManager.Instance.OnCombatDefeat -= HandleScene4CombatDefeat;
     }
 
     public void TriggerScene5()
