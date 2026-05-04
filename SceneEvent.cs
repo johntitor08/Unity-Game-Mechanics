@@ -26,6 +26,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public static SceneEvent Instance { get; private set; }
     private SceneProgress progress = SceneProgress.Scene1;
     private int currentMapIndex = 0;
+    private int _validMapCursor = 0;
+    private static readonly int[] validMapIndices = { 6, 8, 13 };
     public ItemDatabase itemDatabase;
     private bool isDialogueSubscribed;
     private bool isHoverEffectsSubscribed;
@@ -33,6 +35,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     private readonly List<System.Action> _hoverHideActions = new();
     private Action<EnemyData> _currentVictoryHandler;
     private Action _currentDefeatHandler;
+    private Vector2 _officeIconDefaultPos;
 
     public SceneProgress Progress
     {
@@ -135,6 +138,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (itemDatabase != null)
             itemDatabase.SetInstance();
+
+        if (officeIcon != null)
+            _officeIconDefaultPos = officeIcon.GetComponent<RectTransform>().anchoredPosition;
     }
 
     void Start()
@@ -142,12 +148,16 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (DialogueManager.Instance != null)
             DialogueManager.Instance.PanelAnimator = this;
 
+        if (TimePhaseManager.Instance != null)
+            TimePhaseManager.Instance.OnPhaseChanged += OnPhaseChanged;
+
         if (!SaveSystem.IsLoading)
         {
             SetBackground(0);
             SetCharacter(0);
         }
 
+        currentMapIndex = validMapIndices[0];
         SetupIconButtons();
         HideAllPanels();
         SubscribeDialogue();
@@ -167,12 +177,18 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     {
         SubscribeDialogue();
         SubscribeHoverEffects();
+
+        if (TimePhaseManager.Instance != null)
+            TimePhaseManager.Instance.OnPhaseChanged += OnPhaseChanged;
     }
 
     void OnDisable()
     {
         UnsubscribeDialogue();
         UnsubscribeHoverEffects();
+
+        if (TimePhaseManager.Instance != null)
+            TimePhaseManager.Instance.OnPhaseChanged -= OnPhaseChanged;
     }
 
     void SetupIconButtons()
@@ -418,13 +434,18 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     public void SetMap(int index)
     {
-        if (mapImage == null || index < 0 || index >= maps.Length || maps[index] == null)
+        if (mapImage == null)
             return;
 
-        mapImage.sprite = maps[index];
-        bool isModern = index == 0;
-        bool isFantasy = index == 1;
-        bool isCombat = index == 2;
+        int resolvedIndex = ResolveMapIndex(index);
+
+        if (resolvedIndex < 0 || resolvedIndex >= maps.Length || maps[resolvedIndex] == null)
+            return;
+
+        mapImage.sprite = maps[resolvedIndex];
+        bool isModern = resolvedIndex == 8 || resolvedIndex == 9 || resolvedIndex == 10;
+        bool isFantasy = resolvedIndex == 6 || resolvedIndex == 7 || resolvedIndex == 11;
+        bool isCombat = resolvedIndex == 13 || resolvedIndex == 19 || resolvedIndex == 20;
         SetActive(homeIcon, isModern);
         SetActive(marketIcon, isModern);
         SetActive(gymIcon, isModern);
@@ -436,18 +457,84 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetActive(castleIcon, isFantasy);
         SetActive(arenaIcon, isFantasy);
         SetActive(combatIcon, isCombat);
+
+        if (isModern)
+        {
+            TimePhase phase = TimePhaseManager.Instance != null ? TimePhaseManager.Instance.currentPhase : TimePhase.Morning;
+            UpdateModernIconStates(phase);
+        }
+    }
+
+    private void UpdateModernIconStates(TimePhase phase)
+    {
+        SetInteractable(homeIcon, true);
+        SetInteractable(marketIcon, phase == TimePhase.Morning || phase == TimePhase.Noon || phase == TimePhase.Evening);
+        SetInteractable(gymIcon, phase == TimePhase.Morning || phase == TimePhase.Noon || phase == TimePhase.Evening);
+        SetInteractable(officeIcon, phase == TimePhase.Noon || phase == TimePhase.Evening);
+        SetInteractable(churchIcon, phase == TimePhase.Morning || phase == TimePhase.Noon);
+
+        if (officeIcon != null && officeIcon.TryGetComponent<RectTransform>(out var rt))
+        {
+            bool isShifted = phase == TimePhase.Noon || phase == TimePhase.Evening;
+            rt.anchoredPosition = isShifted ? new Vector2(_officeIconDefaultPos.x - 75f, _officeIconDefaultPos.y) : _officeIconDefaultPos;
+        }
+    }
+
+    private int ResolveMapIndex(int index)
+    {
+        TimePhase phase = TimePhaseManager.Instance != null ? TimePhaseManager.Instance.currentPhase : TimePhase.Morning;
+
+        if (index == 8 || index == 9 || index == 10)
+            return phase switch
+            {
+                TimePhase.Morning => 9,
+                TimePhase.Noon => 8,
+                TimePhase.Evening => 8,
+                TimePhase.Night => 10,
+                _ => 9
+            };
+
+        if (index == 6 || index == 7 || index == 11)
+            return phase switch
+            {
+                TimePhase.Morning => 6,
+                TimePhase.Noon => 7,
+                TimePhase.Evening => 7,
+                TimePhase.Night => 11,
+                _ => 6
+            };
+
+        if (index == 13 || index == 19 || index == 20)
+            return phase switch
+            {
+                TimePhase.Morning => 13,
+                TimePhase.Noon => 19,
+                TimePhase.Evening => 19,
+                TimePhase.Night => 20,
+                _ => 13
+            };
+
+        return index;
     }
 
     public void NextMap()
     {
-        currentMapIndex = (currentMapIndex + 1) % maps.Length;
+        _validMapCursor = (_validMapCursor + 1) % validMapIndices.Length;
+        currentMapIndex = validMapIndices[_validMapCursor];
         SetMap(currentMapIndex);
     }
 
     public void PreviousMap()
     {
-        currentMapIndex = (currentMapIndex - 1 + maps.Length) % maps.Length;
+        _validMapCursor = (_validMapCursor - 1 + validMapIndices.Length) % validMapIndices.Length;
+        currentMapIndex = validMapIndices[_validMapCursor];
         SetMap(currentMapIndex);
+    }
+
+    private void OnPhaseChanged(TimePhase _)
+    {
+        if (mapPanel != null && mapPanel.activeSelf)
+            SetMap(currentMapIndex);
     }
 
     public void SubscribeDialogue()
@@ -782,6 +869,17 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             go.SetActive(active);
     }
 
+    static void SetInteractable(GameObject go, bool interactable)
+    {
+        if (go == null)
+            return;
+
+        Button btn = go.GetComponentInChildren<Button>();
+
+        if (btn != null)
+            btn.interactable = interactable;
+    }
+
     IEnumerator FadeOutCharacter(float duration, DialogueNode endedNode = null)
     {
         if (charImage == null)
@@ -894,9 +992,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             return;
 
         while (TimePhaseManager.Instance.currentPhase != TimePhase.Night)
-        {
             TimePhaseManager.Instance.NextPhase();
-        }
 
         TimePhaseManager.Instance.NextPhase();
 
@@ -904,30 +1000,15 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             PlayerStats.Instance.FullRestore();
     }
 
-    public void StartCashierDialogue()
-    {
-        TriggerMarketScene();
-    }
+    public void StartCashierDialogue() => TriggerMarketScene();
 
-    public void StartNunDialogue()
-    {
-        TriggerChurchScene();
-    }
+    public void StartNunDialogue() => TriggerChurchScene();
 
-    public void StartCoachDialogue()
-    {
-        TriggerGymScene();
-    }
+    public void StartCoachDialogue() => TriggerGymScene();
 
-    public void StartStepSisterDialogue()
-    {
-        TriggerHomeScene();
-    }
+    public void StartStepSisterDialogue() => TriggerHomeScene();
 
-    public void StartOfficerDialogue()
-    {
-        TriggerOfficeScene();
-    }
+    public void StartOfficerDialogue() => TriggerOfficeScene();
 
     public void TriggerHomeScene()
     {
