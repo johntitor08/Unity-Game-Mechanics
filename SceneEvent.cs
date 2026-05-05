@@ -76,9 +76,11 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public GameObject equipmentPanel;
     public GameObject coinPanel;
     public GameObject houseIconsPanel;
+    public GameObject sleepingPanel;
 
     [Header("UI Maps")]
     public Image mapImage;
+    public Image combatMapImage;
     public Sprite[] maps;
 
     [Header("UI Icons")]
@@ -88,9 +90,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public GameObject profileIcon;
     public GameObject inventoryIcon;
     public GameObject mapIcon;
-    public GameObject coinButton;
+    public GameObject coinIcon;
     public GameObject combatIcon;
-    public GameObject closeMapButton;
     public GameObject homeIcon;
     public GameObject marketIcon;
     public GameObject gymIcon;
@@ -109,6 +110,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public GameObject kitchenIcon;
     public GameObject bathroomIcon;
     public GameObject gardenIcon;
+
+    [Header("UI Buttons")]
+    public GameObject closeMapButton;
+    public GameObject closeCombatMapButton;
 
     [Header("Animation")]
     public Animator timePanelAnimator;
@@ -202,11 +207,17 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (mapIcon != null)
             mapIcon.GetComponent<Button>().onClick.AddListener(() => TogglePanel(mapPanel, "Map"));
 
-        if (coinButton != null)
-            coinButton.GetComponent<Button>().onClick.AddListener(() => TogglePanel(coinPanel, "Coin"));
+        if (coinIcon != null)
+            coinIcon.GetComponent<Button>().onClick.AddListener(() => TogglePanel(coinPanel, "Coin"));
+
+        if (combatIcon != null)
+            combatIcon.GetComponentInChildren<Button>().onClick.AddListener(() => TogglePanel(combatMapPanel, "Combat Map"));
 
         if (closeMapButton != null)
             closeMapButton.GetComponent<Button>().onClick.AddListener(HideAllPanels);
+
+        if (closeCombatMapButton != null)
+            closeCombatMapButton.GetComponent<Button>().onClick.AddListener(HideAllPanels);
 
         SetActive(homeIcon, false);
         SetActive(combatIcon, false);
@@ -284,14 +295,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             ProfileUI.Instance.RefreshAll();
     }
 
-    public void OpenCombat()
-    {
-        OpenPanel(combatMapPanel, "Combat");
-
-        if (ProfileUI.Instance != null)
-            ProfileUI.Instance.RefreshAll();
-    }
-
     public void OpenEquipment()
     {
         OpenPanel(equipmentPanel, "Equipment");
@@ -308,20 +311,27 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             ProfileUI.Instance.RefreshAll();
     }
 
+    public void OpenCombatMap()
+    {
+        OpenPanel(combatMapPanel, "Combat Map");
+
+        if (ProfileUI.Instance != null)
+            ProfileUI.Instance.RefreshAll();
+    }
+
     public void HideAllPanels()
     {
         SetActive(profilePanel, false);
         SetActive(inventoryPanel, false);
+        SetActive(mapPanel, false);
+        SetActive(equipmentPanel, false);
+        SetActive(coinPanel, false);
+        SetActive(combatMapPanel, false);
 
         if (MarketUI.Instance != null)
             MarketUI.Instance.CloseAll();
         else
             SetActive(shopPanel, false);
-
-        SetActive(mapPanel, false);
-        SetActive(combatMapPanel, false);
-        SetActive(equipmentPanel, false);
-        SetActive(coinPanel, false);
     }
 
     void TogglePanel(GameObject panel, string panelName)
@@ -463,6 +473,17 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             TimePhase phase = TimePhaseManager.Instance != null ? TimePhaseManager.Instance.currentPhase : TimePhase.Morning;
             UpdateModernIconStates(phase);
         }
+    }
+
+    public void SetCombatMap(int index)
+    {
+        if (combatMapImage == null)
+            return;
+
+        if (index < 0 || index >= maps.Length || maps[index] == null)
+            return;
+
+        combatMapImage.sprite = maps[index];
     }
 
     private void UpdateModernIconStates(TimePhase phase)
@@ -991,6 +1012,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (TimePhaseManager.Instance == null)
             return;
 
+        StartCoroutine(ShowSleepingPanelAfterDelay(3f));
+
         while (TimePhaseManager.Instance.currentPhase != TimePhase.Night)
             TimePhaseManager.Instance.NextPhase();
 
@@ -998,6 +1021,13 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (PlayerStats.Instance != null)
             PlayerStats.Instance.FullRestore();
+    }
+
+    IEnumerator ShowSleepingPanelAfterDelay(float delay)
+    {
+        SetActive(sleepingPanel, true);
+        yield return new WaitForSeconds(delay);
+        SetActive(sleepingPanel, false);
     }
 
     public void StartCashierDialogue() => TriggerMarketScene();
