@@ -145,7 +145,6 @@ public class QuestUI : MonoBehaviour
                 Destroy(slot.gameObject);
 
         questSlots.Clear();
-
         SpawnSlots(QuestManager.Instance.GetActiveQuests(), activeQuestsParent, isCompleted: false);
         SpawnSlots(QuestManager.Instance.GetAvailableQuests(), availableQuestsParent, isCompleted: false);
         SpawnSlots(QuestManager.Instance.GetCompletedQuests(), completedQuestsParent, isCompleted: true);
@@ -239,7 +238,6 @@ public class QuestUI : MonoBehaviour
             return;
 
         QuestManager.Instance.AbandonQuest(selectedQuest);
-
         selectedQuest = null;
         RefreshQuestLog();
 

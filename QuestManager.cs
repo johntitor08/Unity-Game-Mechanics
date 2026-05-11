@@ -9,8 +9,12 @@ public class QuestManager : MonoBehaviour
     public event Action<QuestData> OnQuestStarted;
     public event Action<QuestData> OnQuestCompleted;
     public event Action<QuestData> OnQuestFailed;
+    public event Action<QuestData> OnQuestAbandoned;
     public event Action<QuestData, QuestObjective> OnObjectiveUpdated;
     public event Action<QuestData, QuestObjective> OnObjectiveCompleted;
+    public event Action<QuestData> OnTrackingToggleRequested;
+    public event Action<QuestSaveData> OnSaveDataRequested;
+    public event Action<List<string>> OnTrackedQuestsLoaded;
     public static event Action OnReady;
     private readonly List<QuestData> activeQuests = new();
     private readonly List<QuestData> completedQuests = new();
@@ -105,7 +109,7 @@ public class QuestManager : MonoBehaviour
         if (quest.prerequisiteQuests != null)
             foreach (var prereq in quest.prerequisiteQuests)
                 if (!IsQuestCompleted(prereq.questID))
-                        return false;
+                    return false;
 
         return true;
     }
@@ -181,7 +185,9 @@ public class QuestManager : MonoBehaviour
         objective.onObjectiveComplete?.Invoke();
         OnObjectiveCompleted?.Invoke(quest, objective);
         Debug.Log($"Objective completed: {objective.description}");
-        bool allComplete = quest.objectives.All(obj => obj.isOptional || GetObjectiveState(quest.questID, obj.objectiveID).isCompleted);
+
+        bool allComplete = quest.objectives.All(obj =>
+            obj.isOptional || GetObjectiveState(quest.questID, obj.objectiveID).isCompleted);
 
         if (allComplete)
             CompleteQuest(quest);
@@ -241,7 +247,7 @@ public class QuestManager : MonoBehaviour
     public void FailQuest(QuestData quest)
     {
         if (!IsQuestActive(quest.questID))
-           return;
+            return;
 
         activeQuests.Remove(quest);
 
@@ -264,8 +270,14 @@ public class QuestManager : MonoBehaviour
         if (questTimers.ContainsKey(quest.questID))
             questTimers.Remove(quest.questID);
 
+        OnQuestAbandoned?.Invoke(quest);
         Debug.Log($"Quest abandoned: {quest.questName}");
         SaveSystem.SaveGame();
+    }
+
+    public void ToggleTracking(QuestData quest)
+    {
+        OnTrackingToggleRequested?.Invoke(quest);
     }
 
     void CheckKillObjectives(EnemyData killedEnemy)
@@ -348,8 +360,7 @@ public class QuestManager : MonoBehaviour
             data.questTimerValues.Add(kvp.Value);
         }
 
-        if (QuestTrackerUI.Instance != null)
-            data.trackedQuestIDs = QuestTrackerUI.Instance.GetTrackedQuests();
+        OnSaveDataRequested?.Invoke(data);
 
         return data;
     }
@@ -382,8 +393,7 @@ public class QuestManager : MonoBehaviour
         for (int i = 0; i < data.questTimerKeys.Count; i++)
             questTimers[data.questTimerKeys[i]] = data.questTimerValues[i];
 
-        if (QuestTrackerUI.Instance != null && data.trackedQuestIDs != null)
-            QuestTrackerUI.Instance.SetTrackedQuests(data.trackedQuestIDs);
+        OnTrackedQuestsLoaded?.Invoke(data.trackedQuestIDs);
     }
 
     public bool IsQuestActive(string questID) => activeQuests.Any(q => q.questID == questID);
@@ -400,5 +410,6 @@ public class QuestManager : MonoBehaviour
 
     public List<QuestData> GetAvailableQuests() => allQuests.Where(CanStartQuest).ToList();
 
-    public float GetQuestTimeRemaining(string questID) => questTimers.TryGetValue(questID, out float t) ? t : 0f;
+    public float GetQuestTimeRemaining(string questID) =>
+        questTimers.TryGetValue(questID, out float t) ? t : 0f;
 }

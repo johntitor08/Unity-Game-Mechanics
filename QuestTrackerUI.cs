@@ -148,7 +148,6 @@ public class QuestTrackerUI : MonoBehaviour
             return false;
 
         isPanelHiddenByUser = false;
-
         UpdateTracker();
         return true;
     }
@@ -160,6 +159,13 @@ public class QuestTrackerUI : MonoBehaviour
 
         UpdateTracker();
     }
+
+    public void SetTrackedQuests(List<string> questIDs)
+    {
+        OnTrackedQuestsLoaded(questIDs);
+    }
+
+    public List<string> GetTrackedQuests() => new(trackedQuestIDs);
 
     void OnCloseClicked()
     {
@@ -243,6 +249,4 @@ public class QuestTrackerUI : MonoBehaviour
             UpdateTracker();
         }
     }
-
-    public List<string> GetTrackedQuests() => new(trackedQuestIDs);
 }

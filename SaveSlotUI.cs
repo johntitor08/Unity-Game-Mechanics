@@ -13,6 +13,7 @@ public class SaveSlotUI : MonoBehaviour
     public Button saveButton;
     public Button loadButton;
     public Button deleteButton;
+
     private SaveUI parentUI;
 
     public void Initialize(int index, SaveUI parent)
@@ -50,11 +51,7 @@ public class SaveSlotUI : MonoBehaviour
             if (hasSave)
             {
                 var data = SaveSystem.PeekSlot(slotIndex);
-
-                if (data != null)
-                    metaText.text = BuildMeta(data);
-                else
-                    metaText.text = "Corrupted";
+                metaText.text = data != null ? BuildMeta(data) : "Corrupted";
             }
             else
             {
@@ -67,8 +64,8 @@ public class SaveSlotUI : MonoBehaviour
     {
         string phase = data.currentTimePhase.ToString();
         string day = $"Day {data.currentDay}";
-        string time = string.IsNullOrEmpty(data.savedAt) ? "" : $"  ·  {data.savedAt}";
-        return $"{day}  ·  {phase}{time}";
+        string time = string.IsNullOrEmpty(data.savedAt) ? "" : $" · {data.savedAt}";
+        return $"{day} · {phase}{time}";
     }
 
     public void SetInteractable(bool interactable)
@@ -96,10 +93,10 @@ public class SaveSlotUI : MonoBehaviour
         Refresh();
 
         if (parentUI != null)
+        {
             parentUI.SetAllSlotsInteractable(true);
-
-        if (parentUI != null)
             parentUI.ShowToast("Game Saved!");
+        }
     }
 
     void OnLoad()

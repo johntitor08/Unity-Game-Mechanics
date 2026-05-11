@@ -4,9 +4,63 @@ using UnityEngine.SceneManagement;
 
 public static class SaveSystem
 {
-    private static string SavePath => Path.Combine(Application.persistentDataPath, "save.json");
     public static SaveData CachedData;
     public static bool IsLoading { get; private set; }
+    private static int activeSlot = 0;
+
+    private static string SavePath => GetSavePath(activeSlot);
+
+    private static string GetSavePath(int slotIndex)
+    {
+        return Path.Combine(Application.persistentDataPath, $"save_slot_{slotIndex}.json");
+    }
+
+    public static void SetActiveSlot(int slotIndex)
+    {
+        activeSlot = Mathf.Max(0, slotIndex);
+    }
+
+    public static bool HasSaveFile(int slotIndex)
+    {
+        return File.Exists(GetSavePath(slotIndex));
+    }
+
+    public static SaveData PeekSlot(int slotIndex)
+    {
+        string path = GetSavePath(slotIndex);
+
+        if (!File.Exists(path))
+            return null;
+
+        try
+        {
+            return JsonUtility.FromJson<SaveData>(File.ReadAllText(path));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public static void DeleteSave(int slotIndex)
+    {
+        string path = GetSavePath(slotIndex);
+
+        if (File.Exists(path))
+            File.Delete(path);
+    }
+
+    public static void SaveGame(int slotIndex)
+    {
+        SetActiveSlot(slotIndex);
+        SaveGame();
+    }
+
+    public static void LoadGame(int slotIndex)
+    {
+        SetActiveSlot(slotIndex);
+        LoadGame();
+    }
 
     public static bool HasSaveFile() => File.Exists(SavePath);
 
@@ -21,7 +75,10 @@ public static class SaveSystem
         if (IsLoading)
             return;
 
-        SaveData data = new();
+        SaveData data = new()
+        {
+            savedAt = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm")
+        };
 
         if (ProfileManager.Instance != null)
         {

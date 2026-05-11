@@ -20,7 +20,6 @@ public class EquipmentLootTable : ScriptableObject
 
     [Header("Rarity Drop Chances")]
     [Range(0f, 1f)] public float commonChance = 0.50f;
-    [Range(0f, 1f)] public float uncommonChance = 0.30f;
     [Range(0f, 1f)] public float rareChance = 0.15f;
     [Range(0f, 1f)] public float epicChance = 0.04f;
     [Range(0f, 1f)] public float legendaryChance = 0.01f;
@@ -109,11 +108,6 @@ public class EquipmentLootTable : ScriptableObject
 
         if (roll <= cumulative)
             return Rarity.Rare;
-
-        cumulative += uncommonChance;
-
-        if (roll <= cumulative)
-            return Rarity.Uncommon;
 
         return Rarity.Common;
     }
