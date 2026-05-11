@@ -697,7 +697,7 @@ public class CombatManager : MonoBehaviour
         yield return new WaitForSeconds(delay);
         GrantVictoryRewards();
         DropEnemyLoot();
-        var defeated = currentEnemy; // capture before EndCombatInternal clears it
+        var defeated = currentEnemy;
         OnCombatVictory?.Invoke(defeated);
         OnCombatEnded?.Invoke();
         yield return _waitForSeconds2;
