@@ -155,10 +155,7 @@ public class CurrencyManager : MonoBehaviour
 
     public void Add(CurrencyType type, int amount, bool showNotification = true)
     {
-        if (amount <= 0)
-            return;
-
-        if (!currencyDict.TryGetValue(type, out var currency))
+        if (amount <= 0 || !currencyDict.TryGetValue(type, out var currency))
             return;
 
         int old = currency.amount;
@@ -241,8 +238,14 @@ public class CurrencyManager : MonoBehaviour
 
     private void FinalizeSingle(bool isGain, bool showNotification)
     {
-        _ = showNotification;
         PlaySound(isGain ? gainSound : spendSound);
+
+        if (showNotification && CurrencyNotificationUI.Instance != null)
+        {
+            // Notification display is handled by FinalizeTransaction for multi-currency.
+            // For single currency, we can trigger a simple notification or skip if not needed.
+        }
+
         SaveSystem.SaveGame();
     }
 

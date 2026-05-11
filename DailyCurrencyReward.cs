@@ -23,9 +23,10 @@ public class DailyCurrencyReward : MonoBehaviour
             return;
         }
 
-        TimeSpan timeSinceClaim = DateTime.Now - lastClaimDate;
-        currentStreak = (timeSinceClaim.TotalHours >= 24 && timeSinceClaim.TotalHours < 48) ? currentStreak + 1 : 1;
-        int totalReward = baseRewardAmount + (streakBonus * (currentStreak - 1));
+        bool isFirstClaim = lastClaimDate == DateTime.MinValue;
+        TimeSpan timeSinceClaim = isFirstClaim ? TimeSpan.Zero : DateTime.Now - lastClaimDate;
+        currentStreak = (!isFirstClaim && timeSinceClaim.TotalHours >= 24 && timeSinceClaim.TotalHours < 48) ? currentStreak + 1 : 1;
+        int totalReward = baseRewardAmount + (streakBonus * Mathf.Max(0, currentStreak - 1));
 
         if (CurrencyManager.Instance != null)
         {

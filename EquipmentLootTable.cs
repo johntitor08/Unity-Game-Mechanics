@@ -110,6 +110,11 @@ public class EquipmentLootTable : ScriptableObject
         if (roll <= cumulative)
             return Rarity.Rare;
 
+        cumulative += uncommonChance;
+
+        if (roll <= cumulative)
+            return Rarity.Uncommon;
+
         return Rarity.Common;
     }
 }

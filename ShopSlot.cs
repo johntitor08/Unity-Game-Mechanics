@@ -207,10 +207,17 @@ public class ShopSlot : MonoBehaviour
 
     void GetProperties()
     {
-        btnRect = buyButton.GetComponent<RectTransform>();
-        originalSize = btnRect != null ? btnRect.sizeDelta : Vector2.zero;
-        originalText = buyButtonText.text;
-        originalColor = buyButtonText.color;
+        if (buyButton != null)
+        {
+            btnRect = buyButton.GetComponent<RectTransform>();
+            originalSize = btnRect != null ? btnRect.sizeDelta : Vector2.zero;
+        }
+
+        if (buyButtonText != null)
+        {
+            originalText = buyButtonText.text;
+            originalColor = buyButtonText.color;
+        }
     }
 
     void SetupProperties(ItemData item)
@@ -271,7 +278,7 @@ public class ShopSlot : MonoBehaviour
             return;
 
         buyButton.interactable = canBuy && !isPurchasing;
-        buyButtonText.text = canBuy ? "BUY" : "LOCKED";
+        buyButtonText.text = canBuy ? "Buy" : "Locked";
 
         if (!canBuy)
             background.color = lockedColor;
@@ -349,7 +356,7 @@ public class ShopSlot : MonoBehaviour
         }
 
         btnRect.sizeDelta = new Vector2(originalSize.x + 50f, originalSize.y);
-        buyButtonText.text = "PURCHASED!";
+        buyButtonText.text = "Purchased!";
         buyButtonText.color = Color.green;
         buyButton.interactable = false;
         yield return waitForSeconds0_5;

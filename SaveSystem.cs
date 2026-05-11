@@ -4,45 +4,19 @@ using UnityEngine.SceneManagement;
 
 public static class SaveSystem
 {
-    public const int SlotCount = 8;
-    public static int ActiveSlot { get; private set; } = 0;
+    private static string SavePath => Path.Combine(Application.persistentDataPath, "save.json");
     public static SaveData CachedData;
     public static bool IsLoading { get; private set; }
 
-    public static void SetActiveSlot(int slot)
+    public static bool HasSaveFile() => File.Exists(SavePath);
+
+    public static void DeleteSave()
     {
-        ActiveSlot = Mathf.Clamp(slot, 0, SlotCount - 1);
+        if (File.Exists(SavePath))
+            File.Delete(SavePath);
     }
 
-    private static string SavePath(int slot) => Path.Combine(Application.persistentDataPath, $"save_slot{slot}.json");
-
-    public static bool HasSaveFile() => HasSaveFile(ActiveSlot);
-
-    public static bool HasSaveFile(int slot) => File.Exists(SavePath(slot));
-
-    public static SaveData PeekSlot(int slot)
-    {
-        string path = SavePath(slot);
-
-        if (!File.Exists(path))
-            return null;
-
-        return JsonUtility.FromJson<SaveData>(File.ReadAllText(path));
-    }
-
-    public static void DeleteSave() => DeleteSave(ActiveSlot);
-
-    public static void DeleteSave(int slot)
-    {
-        string path = SavePath(slot);
-
-        if (File.Exists(path))
-            File.Delete(path);
-    }
-
-    public static void SaveGame() => SaveGame(ActiveSlot);
-
-    public static void SaveGame(int slot)
+    public static void SaveGame()
     {
         if (IsLoading)
             return;
@@ -122,15 +96,6 @@ public static class SaveSystem
             }
         }
 
-        if (QuestManager.Instance != null)
-        {
-            var questSave = QuestManager.Instance.GetSaveData();
-            data.activeQuestIDs = questSave.activeQuestIDs;
-            data.activeQuests = questSave.runtimeStates;
-            data.completedQuests = questSave.completedQuestIDs;
-            data.trackedQuests = questSave.trackedQuestIDs;
-        }
-
         if (ScenarioManager.Instance != null)
         {
             var scenarioSave = ScenarioManager.Instance.GetSaveData();
@@ -148,6 +113,14 @@ public static class SaveSystem
             }
         }
 
+        if (QuestManager.Instance != null)
+        {
+            var questSave = QuestManager.Instance.GetSaveData();
+            data.activeQuests = questSave.runtimeStates;
+            data.completedQuests = questSave.completedQuestIDs;
+            data.trackedQuests = questSave.trackedQuestIDs;
+        }
+
         if (PlayerStats.Instance != null)
         {
             data.statTypes.Clear();
@@ -160,35 +133,39 @@ public static class SaveSystem
             }
         }
 
-        data.savedAt = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm");
-        File.WriteAllText(SavePath(slot), JsonUtility.ToJson(data, true));
+        File.WriteAllText(SavePath, JsonUtility.ToJson(data, true));
     }
 
-    public static void LoadGame() => LoadGame(ActiveSlot);
-    public static void LoadGame(int slot)
+    public static void LoadGame()
     {
-        if (!HasSaveFile(slot))
+        if (!HasSaveFile())
             return;
 
-        CachedData = JsonUtility.FromJson<SaveData>(File.ReadAllText(SavePath(slot)));
+        CachedData = JsonUtility.FromJson<SaveData>(File.ReadAllText(SavePath));
         IsLoading = true;
         SceneManager.sceneLoaded += OnSceneLoaded;
         SceneManager.LoadScene(CachedData.currentScene);
+
+        if (ProfileUI.Instance != null)
+            ProfileUI.Instance.StartCoroutine(UpdateUIAfterLoad());
+    }
+
+    static System.Collections.IEnumerator UpdateUIAfterLoad()
+    {
+        yield return null;
+
+        if (ProfileUI.Instance != null)
+            ProfileUI.Instance.RefreshAll();
     }
 
     static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
-        var data = CachedData;
+
+        if (CachedData != null && SceneEvent.Instance != null)
+            SceneEvent.Instance.StartCoroutine(DelayedApply(CachedData));
+
         CachedData = null;
-
-        if (data == null)
-            return;
-
-        if (SceneEvent.Instance != null)
-            SceneEvent.Instance.StartCoroutine(DelayedApply(data));
-        else
-            ApplyLoadedData(data);
     }
 
     static System.Collections.IEnumerator DelayedApply(SaveData data)
@@ -248,8 +225,11 @@ public static class SaveSystem
 
                     string id = key[..sep];
 
-                    if (!int.TryParse(key[(sep + 1)..], out int lvl) || ItemDatabase.Instance == null)
+                    if (!int.TryParse(key[(sep + 1)..], out int lvl))
                         continue;
+
+                    if (ItemDatabase.Instance == null)
+                        return;
 
                     var itemData = ItemDatabase.Instance.GetByID(id);
 
@@ -274,7 +254,7 @@ public static class SaveSystem
             foreach (var saved in data.equippedItems)
             {
                 if (ItemDatabase.Instance == null)
-                    continue;
+                    return;
 
                 var eq = ItemDatabase.Instance.GetByID(saved.itemID) as EquipmentData;
 
@@ -290,11 +270,18 @@ public static class SaveSystem
         if (ShopManager.Instance != null)
             ShopManager.Instance.ApplyLoadedStock(data.shopStockIDs, data.shopStockAmounts);
 
+        if (ScenarioManager.Instance != null)
+        {
+            ScenarioManager.Instance.LoadSaveData(new ScenarioSaveData
+            {
+                completedScenarioIDs = data.completedScenarios
+            });
+        }
+
         if (QuestManager.Instance != null)
         {
             var questSave = new QuestSaveData
             {
-                activeQuestIDs = data.activeQuestIDs,
                 runtimeStates = data.activeQuests,
                 completedQuestIDs = data.completedQuests,
                 trackedQuestIDs = data.trackedQuests
@@ -305,14 +292,6 @@ public static class SaveSystem
                     state.RebuildLookup();
 
             QuestManager.Instance.LoadSaveData(questSave);
-        }
-
-        if (ScenarioManager.Instance != null)
-        {
-            ScenarioManager.Instance.LoadSaveData(new ScenarioSaveData
-            {
-                completedScenarioIDs = data.completedScenarios
-            });
         }
 
         if (PlayerStats.Instance != null)
@@ -338,7 +317,6 @@ public static class SaveSystem
         yield return null;
 
         if (SceneEvent.Instance != null)
-            yield return SceneEvent.Instance.StartCoroutine(
-                SceneEvent.Instance.StartDialogueAfterLoad(sceneDialogueIndex));
+            yield return SceneEvent.Instance.StartCoroutine(SceneEvent.Instance.StartDialogueAfterLoad(sceneDialogueIndex));
     }
 }

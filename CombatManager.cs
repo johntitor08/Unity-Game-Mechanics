@@ -218,7 +218,7 @@ public class CombatManager : MonoBehaviour
             HandleOffensiveAction(action);
 
         OnCombatStateChanged?.Invoke();
-        StartCoroutine(DelayedEnemyTurn(turnDelay));
+        Invoke(nameof(StartEnemyTurn), turnDelay);
     }
 
     private bool CanExecutePlayerAction(CombatAction action)
@@ -257,31 +257,7 @@ public class CombatManager : MonoBehaviour
 
         isPlayerTurn = false;
         OnTurnChanged?.Invoke(false);
-        StartCoroutine(DelayedEnemyAction(enemyActionDelay));
-    }
-
-    IEnumerator DelayedEnemyTurn(float delay)
-    {
-        yield return new WaitForSeconds(delay);
-
-        if (inCombat && !combatResolved)
-            StartEnemyTurn();
-    }
-
-    IEnumerator DelayedEnemyAction(float delay)
-    {
-        yield return new WaitForSeconds(delay);
-
-        if (inCombat && !combatResolved)
-            ExecuteEnemyAction();
-    }
-
-    IEnumerator DelayedPlayerTurn(float delay)
-    {
-        yield return new WaitForSeconds(delay);
-
-        if (inCombat && !combatResolved)
-            StartPlayerTurn();
+        Invoke(nameof(ExecuteEnemyAction), enemyActionDelay);
     }
 
     private void HandleDefensiveAction(CombatAction action)
@@ -362,21 +338,14 @@ public class CombatManager : MonoBehaviour
         {
             Log($"Failed to flee! ({Mathf.RoundToInt(fleeChance * 100)}% chance)");
             OnCombatStateChanged?.Invoke();
-            StartCoroutine(DelayedEnemyTurn(turnDelay));
+            Invoke(nameof(StartEnemyTurn), turnDelay);
         }
     }
 
     public float GetFleeChance()
     {
         int speed = PlayerStats != null ? PlayerStats.Get(StatType.Speed) : 0;
-        float speedMultiplier = 1f;
-
-        if (PlayerBuffs != null)
-            foreach (var buff in PlayerBuffs.GetActiveBuffs())
-                if (buff.type == PlayerBuffManager.BuffType.Speed)
-                    speedMultiplier += buff.multiplier;
-
-        return Mathf.Clamp01(baseFleeChance + speed * fleeSpeedScaling * speedMultiplier);
+        return Mathf.Clamp01(baseFleeChance + speed * fleeSpeedScaling);
     }
 
     private void FleeCombat()
@@ -507,7 +476,7 @@ public class CombatManager : MonoBehaviour
                 Log($"{currentEnemy.enemyName} is stunned and cannot act!");
                 DecayDefenseBonuses();
                 OnCombatStateChanged?.Invoke();
-                StartCoroutine(DelayedPlayerTurn(turnDelay));
+                Invoke(nameof(StartPlayerTurn), turnDelay);
                 return;
             }
         }
@@ -517,9 +486,16 @@ public class CombatManager : MonoBehaviour
         ExecuteAIPattern(enemyHpPercent, playerHpPercent);
         DecayDefenseBonuses();
         OnCombatStateChanged?.Invoke();
-        
-        if (!combatResolved)
-            StartCoroutine(DelayedPlayerTurn(turnDelay));
+
+        if (!PlayerStats.IsAlive())
+        {
+            if (!combatResolved)
+                StartCoroutine(HandleDefeatAfterDelay(turnDelay));
+
+            return;
+        }
+
+        Invoke(nameof(StartPlayerTurn), turnDelay);
     }
 
     private bool CanExecuteEnemyAction()
@@ -568,8 +544,8 @@ public class CombatManager : MonoBehaviour
             case EnemyAIPattern.Finisher:
                 FinisherDecision(playerHp);
                 break;
-
             default:
+
                 RandomDecision();
                 break;
         }
@@ -721,8 +697,8 @@ public class CombatManager : MonoBehaviour
         yield return new WaitForSeconds(delay);
         GrantVictoryRewards();
         DropEnemyLoot();
-        var defeatedEnemy = currentEnemy;
-        OnCombatVictory?.Invoke(defeatedEnemy);
+        var defeated = currentEnemy; // capture before EndCombatInternal clears it
+        OnCombatVictory?.Invoke(defeated);
         OnCombatEnded?.Invoke();
         yield return _waitForSeconds2;
         EndCombatInternal();
@@ -779,12 +755,12 @@ public class CombatManager : MonoBehaviour
             return;
 
         if (!enemyStats.TryGetComponent<EnemyLoot>(out var loot))
-        {
-            Debug.LogWarning($"No EnemyLoot component found directly on enemy '{currentEnemy.enemyName}'. Loot will not be dropped. Add EnemyLoot to the root EnemyStats object.");
-            return;
-        }
+            loot = enemyStats.GetComponentInChildren<EnemyLoot>();
 
-        loot.DropLoot(currentEnemy);
+        if (loot != null)
+            loot.DropLoot(currentEnemy);
+        else
+            Debug.LogWarning("No EnemyLoot component found on enemy!");
     }
 
     private void ApplyDefeatPenalties()

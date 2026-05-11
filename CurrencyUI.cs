@@ -55,7 +55,7 @@ public class CurrencyUI : MonoBehaviour
 
     void OnEnable()
     {
-        if (_subscribed)
+        if (!_subscribed)
             Subscribe();
     }
 
@@ -80,6 +80,7 @@ public class CurrencyUI : MonoBehaviour
             return;
 
         CurrencyManager.Instance.OnCurrencyChanged -= OnCurrencyChanged;
+        _subscribed = false;
     }
 
     public void OnGameStarted()

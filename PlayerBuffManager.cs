@@ -116,7 +116,7 @@ public class PlayerBuffManager : MonoBehaviour
             return;
 
         ui.Setup(buff.icon, buff.displayName, buff.duration);
-        string key = buff.stackable ? buff.id + "_" + Time.time : buff.id;
+        string key = buff.stackable ? buff.id + "_" + System.Guid.NewGuid().ToString("N") : buff.id;
         buffUIMap[key] = ui;
     }
 
