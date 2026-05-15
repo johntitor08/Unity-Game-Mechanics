@@ -462,6 +462,15 @@ public class ProfileUI : MonoBehaviour
         RefreshStatButtons();
     }
 
+    void RefreshPowerScore()
+    {
+        if (powerScoreText == null || PlayerStats.Instance == null)
+            return;
+
+        int score = (int)PlayerStats.Instance.GetPowerScore();
+        powerScoreText.text = $"Power Score: {score}";
+    }
+
     void RefreshStatPointsText()
     {
         if (statPointsText == null || ProfileManager.Instance == null)
@@ -581,15 +590,6 @@ public class ProfileUI : MonoBehaviour
 
         if (energyFillImage != null)
             energyFillImage.color = energyColor;
-    }
-
-    void RefreshPowerScore()
-    {
-        if (powerScoreText == null || PlayerStats.Instance == null)
-            return;
-
-        int score = (int)PlayerStats.Instance.GetPowerScore();
-        powerScoreText.text = $"Güç: {score}";
     }
 
     IEnumerator PulseText(StatType type, TextMeshProUGUI text)
