@@ -1,92 +1,55 @@
-using System.Collections.Generic;
+﻿using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
-public class InventoryUI : MonoBehaviour
+public class LootNotification : MonoBehaviour
 {
-    public static InventoryUI Instance;
-    private readonly List<ItemSlot> slots = new();
-    private bool gameStarted = false;
+    public Image iconImage;
+    public TextMeshProUGUI messageText;
+    public CanvasGroup canvasGroup;
+    private float duration;
+    private float elapsed;
 
-    [Header("UI")]
-    public GameObject panel;
-    public Transform content;
-    public ItemSlot slotPrefab;
-
-    void Awake()
+    public void Setup(string message, Color color, Sprite icon, float dur)
     {
-        if (Instance != null && Instance != this)
+        if (messageText != null)
         {
-            Destroy(gameObject);
-            return;
+            messageText.text = message;
+            messageText.color = color;
         }
 
-        Instance = this;
+        if (iconImage != null && icon != null)
+        {
+            iconImage.sprite = icon;
+            iconImage.enabled = true;
+        }
+        else if (iconImage != null)
+        {
+            iconImage.enabled = false;
+        }
+
+        duration = dur;
+        elapsed = 0f;
+
+        if (canvasGroup != null)
+            canvasGroup.alpha = 1f;
     }
 
     void Update()
     {
-        if (!gameStarted)
-            return;
+        elapsed += Time.deltaTime;
 
-        if (Input.GetKeyDown(KeyCode.I))
-            panel.SetActive(!panel.activeSelf);
-    }
-
-    void OnEnable()
-    {
-        TrySubscribe();
-        InventoryManager.OnReady += TrySubscribe;
-    }
-
-    void OnDisable()
-    {
-        if (InventoryManager.Instance != null)
-            InventoryManager.Instance.OnInventoryChanged -= Refresh;
-
-        InventoryManager.OnReady -= TrySubscribe;
-    }
-
-    void TrySubscribe()
-    {
-        if (InventoryManager.Instance == null)
-            return;
-
-        InventoryManager.Instance.OnInventoryChanged -= Refresh;
-        InventoryManager.Instance.OnInventoryChanged += Refresh;
-        Refresh();
-    }
-
-    public void OnGameStarted()
-    {
-        gameStarted = true;
-    }
-
-    void Refresh()
-    {
-        int index = 0;
-
-        foreach (var (inst, qty) in InventoryManager.Instance.GetEquipmentInstances())
+        if (elapsed > duration - 1f && canvasGroup != null)
         {
-            EnsureSlot(index).Setup(inst.baseData.itemID, qty, inst.upgradeLevel);
-            index++;
+            canvasGroup.alpha = 1f - ((elapsed - (duration - 1f)) / 1f);
         }
 
-        foreach (var (item, qty) in InventoryManager.Instance.GetNonEquipmentItems())
+        if (elapsed >= duration)
         {
-            EnsureSlot(index).Setup(item.itemID, qty, 0);
-            index++;
+            if (LootNotificationUI.Instance != null)
+            {
+                LootNotificationUI.Instance.ReturnToPool(gameObject);
+            }
         }
-
-        for (int i = index; i < slots.Count; i++)
-            slots[i].gameObject.SetActive(false);
-    }
-
-    ItemSlot EnsureSlot(int index)
-    {
-        if (index >= slots.Count)
-            slots.Add(Instantiate(slotPrefab, content));
-
-        slots[index].gameObject.SetActive(true);
-        return slots[index];
     }
 }

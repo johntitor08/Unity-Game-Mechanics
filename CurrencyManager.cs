@@ -1,92 +1,257 @@
-using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
+using System.Collections.Generic;
+using System;
 
-public class StatusEffectUI : MonoBehaviour
+public class CurrencyManager : MonoBehaviour
 {
-    [Header("References")]
-    public StatusEffectManager effectManager;
-    public Transform iconContainer;
-    public StatusEffectIcon iconPrefab;
+    public static CurrencyManager Instance;
+    private readonly Dictionary<CurrencyType, Currency> currencyDict = new();
+    public event Action<CurrencyType, int, int> OnCurrencyChanged;
+    public event Action<CurrencyType, int> OnCurrencyAdded;
+    public event Action<CurrencyType, int> OnCurrencySpent;
+    public event Action<CurrencyType> OnInsufficientFunds;
 
-    private readonly List<StatusEffectIcon> activeIcons = new();
-    private bool isSubscribed = false;
-
-    void OnEnable()
+    [Serializable]
+    public class Currency
     {
-        TrySubscribe();
-    }
+        public CurrencyType type;
+        public int amount = 0;
+        public int maxAmount = 999_999;
+        public Sprite icon;
+        public Color displayColor = Color.yellow;
 
-    void OnDisable()
-    {
-        if (isSubscribed && effectManager != null)
+        public Currency(CurrencyType type, int startAmount = 0)
         {
-            effectManager.OnEffectApplied -= OnEffectApplied;
-            effectManager.OnEffectRemoved -= OnEffectRemoved;
-            isSubscribed = false;
+            this.type = type;
+            this.amount = startAmount;
         }
     }
 
-    void TrySubscribe()
+    [Header("Currency Configuration")]
+    public List<Currency> currencies = new()
     {
-        if (effectManager != null && !isSubscribed)
-        {
-            effectManager.OnEffectApplied += OnEffectApplied;
-            effectManager.OnEffectRemoved += OnEffectRemoved;
-            isSubscribed = true;
-        }
-    }
+        new Currency(CurrencyType.Gold, 100),
+        new Currency(CurrencyType.Gems, 0),
+        new Currency(CurrencyType.Tokens, 0),
+        new Currency(CurrencyType.Credits, 0)
+    };
 
-    void Update()
+    [Header("Sound Effects")]
+    public AudioClip gainSound;
+    public AudioClip spendSound;
+    public AudioClip insufficientFundsSound;
+
+    void Awake()
     {
-        if (effectManager == null)
-            return;
-
-        for (int i = activeIcons.Count - 1; i >= 0; i--)
+        if (Instance == null)
         {
-            var icon = activeIcons[i];
-
-            if (icon == null)
-                continue;
-
-            ActiveStatusEffect effect = effectManager.GetActiveEffect(icon.effectType);
-
-            if (effect != null)
-            {
-                icon.UpdateEffect(effect);
-            }
-            else
-            {
-                activeIcons.RemoveAt(i);
-                Destroy(icon.gameObject);
-            }
-        }
-    }
-
-    private void OnEffectApplied(StatusEffectData effect)
-    {
-        StatusEffectIcon icon = activeIcons.FirstOrDefault(i => i.effectType == effect.effectType);
-
-        if (icon != null)
-        {
-            icon.UpdateEffect(effectManager.GetActiveEffect(effect.effectType));
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
         }
         else
         {
-            icon = Instantiate(iconPrefab, iconContainer);
-            icon.Setup(effectManager.GetActiveEffect(effect.effectType));
-            activeIcons.Add(icon);
+            Destroy(gameObject);
+            return;
+        }
+
+        InitializeCurrencies();
+    }
+
+    private void InitializeCurrencies()
+    {
+        currencyDict.Clear();
+
+        foreach (var currency in currencies)
+        {
+            if (!currencyDict.ContainsKey(currency.type))
+                currencyDict.Add(currency.type, currency);
         }
     }
 
-    private void OnEffectRemoved(StatusEffectData effect)
+    public int Get(CurrencyType type)
     {
-        StatusEffectIcon icon = activeIcons.FirstOrDefault(i => i.effectType == effect.effectType);
+        return currencyDict.TryGetValue(type, out var currency) ? currency.amount : 0;
+    }
 
-        if (icon != null)
+    public bool Has(CurrencyType type, int amount)
+    {
+        return Get(type) >= amount;
+    }
+
+    public Currency GetCurrencyInfo(CurrencyType type)
+    {
+        return currencyDict.TryGetValue(type, out var currency) ? currency : null;
+    }
+
+    public Dictionary<CurrencyType, int> GetAllCurrencies()
+    {
+        Dictionary<CurrencyType, int> result = new();
+
+        foreach (var c in currencies)
+            result[c.type] = c.amount;
+
+        return result;
+    }
+
+    public void AddMultiple(Dictionary<CurrencyType, int> amounts, bool showNotification = true)
+    {
+        if (amounts == null || amounts.Count == 0)
+            return;
+
+        Dictionary<CurrencyType, int> changes = new();
+
+        foreach (var kvp in amounts)
         {
-            activeIcons.Remove(icon);
-            Destroy(icon.gameObject);
+            if (!currencyDict.TryGetValue(kvp.Key, out var currency) || kvp.Value <= 0)
+                continue;
+
+            int old = currency.amount;
+            currency.amount = Mathf.Min(currency.amount + kvp.Value, currency.maxAmount);
+            int delta = currency.amount - old;
+
+            if (delta > 0)
+            {
+                changes[kvp.Key] = delta;
+                OnCurrencyAdded?.Invoke(kvp.Key, delta);
+                OnCurrencyChanged?.Invoke(kvp.Key, old, currency.amount);
+            }
         }
+
+        FinalizeTransaction(changes, true, showNotification);
+    }
+
+    public bool SpendMultiple(Dictionary<CurrencyType, int> amounts, bool showNotification = true)
+    {
+        if (amounts == null || amounts.Count == 0)
+            return false;
+
+        foreach (var kvp in amounts)
+        {
+            if (!Has(kvp.Key, kvp.Value))
+            {
+                OnInsufficientFunds?.Invoke(kvp.Key);
+                PlaySound(insufficientFundsSound);
+                return false;
+            }
+        }
+
+        Dictionary<CurrencyType, int> changes = new();
+
+        foreach (var kvp in amounts)
+        {
+            if (!currencyDict.TryGetValue(kvp.Key, out var currency))
+                continue;
+
+            int old = currency.amount;
+            currency.amount -= kvp.Value;
+            changes[kvp.Key] = -kvp.Value;
+            OnCurrencySpent?.Invoke(kvp.Key, kvp.Value);
+            OnCurrencyChanged?.Invoke(kvp.Key, old, currency.amount);
+        }
+
+        FinalizeTransaction(changes, false, showNotification);
+        return true;
+    }
+
+    public void Add(CurrencyType type, int amount, bool showNotification = true)
+    {
+        if (amount <= 0 || !currencyDict.TryGetValue(type, out var currency))
+            return;
+
+        int old = currency.amount;
+        currency.amount = Mathf.Min(currency.amount + amount, currency.maxAmount);
+        int delta = currency.amount - old;
+
+        if (delta <= 0)
+            return;
+
+        OnCurrencyAdded?.Invoke(type, delta);
+        OnCurrencyChanged?.Invoke(type, old, currency.amount);
+        FinalizeSingle(isGain: true, showNotification, type, delta);
+    }
+
+    public bool Spend(CurrencyType type, int amount, bool showNotification = true)
+    {
+        if (!Has(type, amount))
+        {
+            OnInsufficientFunds?.Invoke(type);
+            PlaySound(insufficientFundsSound);
+            return false;
+        }
+
+        var currency = currencyDict[type];
+        int old = currency.amount;
+        currency.amount -= amount;
+        OnCurrencySpent?.Invoke(type, amount);
+        OnCurrencyChanged?.Invoke(type, old, currency.amount);
+        FinalizeSingle(isGain: false, showNotification, type, amount);
+        return true;
+    }
+
+    public void Set(CurrencyType type, int amount)
+    {
+        if (!currencyDict.TryGetValue(type, out var currency))
+            return;
+
+        int old = currency.amount;
+        currency.amount = Mathf.Clamp(amount, 0, currency.maxAmount);
+
+        if (old != currency.amount)
+        {
+            OnCurrencyChanged?.Invoke(type, old, currency.amount);
+            SaveSystem.SaveGame();
+        }
+    }
+
+    public void ResetAllCurrencies()
+    {
+        foreach (var currency in currencies)
+        {
+            int old = currency.amount;
+
+            if (old == 0)
+                continue;
+
+            currency.amount = 0;
+            OnCurrencyChanged?.Invoke(currency.type, old, 0);
+        }
+
+        SaveSystem.SaveGame();
+    }
+
+    public void GrantReward(MultiCurrencyReward reward)
+    {
+        reward?.GrantAll(true);
+    }
+
+    private void FinalizeTransaction(Dictionary<CurrencyType, int> changes, bool isGain, bool showNotification)
+    {
+        if (changes.Count == 0)
+            return;
+
+        if (showNotification && CurrencyNotificationUI.Instance != null)
+            CurrencyNotificationUI.Instance.Show(changes);
+
+        PlaySound(isGain ? gainSound : spendSound);
+        SaveSystem.SaveGame();
+    }
+
+    private void FinalizeSingle(bool isGain, bool showNotification, CurrencyType type = CurrencyType.Gold, int amount = 0)
+    {
+        PlaySound(isGain ? gainSound : spendSound);
+
+        if (showNotification && CurrencyNotificationUI.Instance != null && amount != 0)
+        {
+            var changes = new Dictionary<CurrencyType, int> { { type, isGain ? amount : -amount } };
+            CurrencyNotificationUI.Instance.Show(changes);
+        }
+
+        SaveSystem.SaveGame();
+    }
+
+    private void PlaySound(AudioClip clip)
+    {
+        if (clip != null && Camera.main != null)
+            AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, 0.5f);
     }
 }

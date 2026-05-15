@@ -1,46 +1,30 @@
-using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
-[CreateAssetMenu(fileName = "ItemDatabase", menuName = "Inventory/ItemDatabase")]
-public class ItemDatabase : ScriptableObject
+public class WorldItem : MonoBehaviour, IPointerClickHandler
 {
-    public static ItemDatabase Instance;
-    private readonly Dictionary<string, ItemData> dict = new();
+    public ItemData data;
+    public int quantity = 1;
 
-    [Header("All Items in the Game")]
-    public List<ItemData> items = new();
-
-    public void Initialize()
+    public void OnPointerClick(PointerEventData eventData)
     {
-        dict.Clear();
-
-        foreach (var i in items)
+        if (data == null)
         {
-            if (!dict.ContainsKey(i.itemID))
-                dict.Add(i.itemID, i);
-            else
-                Debug.LogError($"Duplicate itemID in database: {i.itemID}");
+            Debug.LogWarning($"[WorldItem] {name} has no ItemData assigned.");
+            return;
         }
-    }
 
-    public ItemData GetByID(string id)
-    {
-        if (!dict.TryGetValue(id, out var item))
+        if (InventoryManager.Instance == null)
         {
-            Debug.LogError($"ItemDatabase missing: {id}");
-            return null;
+            Debug.LogWarning("[WorldItem] InventoryManager not available.");
+            return;
         }
-        
-        return item;
-    }
 
-    public void SetInstance()
-    {
-        if (Instance == null)
-            Instance = this;
-        else if (Instance != this)
-            Debug.LogWarning("ItemDatabase Instance already set!");
+        InventoryManager.Instance.AddItem(data, quantity);
 
-        Initialize();
+        if (LootNotificationUI.Instance != null)
+            LootNotificationUI.Instance.ShowLoot(data);
+
+        Destroy(gameObject);
     }
 }

@@ -2,28 +2,23 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class FusionUI : MonoBehaviour
+public class ItemDetailPanel : MonoBehaviour
 {
-    public static FusionUI Instance;
-    private EquipmentData selectedA;
-    private EquipmentData selectedB;
+    public static ItemDetailPanel Instance;
+    private ItemData currentItem;
+    private int currentUpgradeLevel;
+    private bool isProcessingUse;
 
-    [Header("Slots")]
-    public Button slotA;
-    public Button slotB;
-    public Image iconA;
-    public Image iconB;
-    public TextMeshProUGUI nameA;
-    public TextMeshProUGUI nameB;
-
-    [Header("Result Preview")]
-    public Image resultIcon;
-    public TextMeshProUGUI resultName;
-    public TextMeshProUGUI successChanceText;
-
-    [Header("Controls")]
-    public Button fuseButton;
-    public TextMeshProUGUI statusText;
+    [Header("UI")]
+    public GameObject itemDetailPanel;
+    public TextMeshProUGUI title;
+    public Image icon;
+    public TextMeshProUGUI quantityText;
+    public TextMeshProUGUI description;
+    public Button useButton;
+    public Button equipButton;
+    public Button closeButton;
+    public UpgradeFusionButton upgradeFusionButton;
 
     void Awake()
     {
@@ -38,104 +33,200 @@ public class FusionUI : MonoBehaviour
 
     void OnEnable()
     {
-        fuseButton.onClick.RemoveAllListeners();
-        fuseButton.onClick.AddListener(OnFuseClicked);
-        ClearAll();
+        if (InventoryManager.Instance != null)
+            InventoryManager.Instance.OnInventoryChanged += RefreshQuantity;
     }
 
-    public void SelectItem(EquipmentData equipment)
+    void OnDisable()
     {
-        if (equipment == null)
+        if (InventoryManager.Instance != null)
+            InventoryManager.Instance.OnInventoryChanged -= RefreshQuantity;
+    }
+
+    public void ShowItemDetail(ItemData item, int quantity, int upgradeLevel = 0)
+    {
+        currentItem = item;
+        currentUpgradeLevel = upgradeLevel;
+        isProcessingUse = false;
+
+        if (useButton != null)
+            useButton.interactable = false;
+
+        if (equipButton != null)
+            equipButton.interactable = false;
+
+        if (title != null)
+        {
+            string upgradeStr = upgradeLevel > 0 ? $" <color=#FFD700>+{upgradeLevel}</color>" : "";
+            title.text = $"{item.itemName}{upgradeStr}";
+        }
+
+        if (description != null)
+            description.text = item.description;
+
+        if (icon != null)
+            icon.sprite = item.icon;
+
+        int qty = ResolveQuantity(item, quantity, upgradeLevel);
+
+        if (quantityText != null)
+            quantityText.text = $"Sahip olunan: {qty}";
+
+        if (upgradeFusionButton != null)
+            upgradeFusionButton.SetItem(item is EquipmentData eq ? eq : null);
+
+        ConfigureButtons(item, qty);
+        itemDetailPanel.SetActive(true);
+    }
+
+    public void RefreshPanel()
+    {
+        if (currentItem == null || itemDetailPanel == null || !itemDetailPanel.activeSelf)
             return;
 
-        if (selectedA == null)
-            selectedA = equipment;
-        else if (selectedB == null)
-            selectedB = equipment;
+        ShowItemDetail(currentItem, -1, currentUpgradeLevel);
+    }
+
+    private int ResolveQuantity(ItemData item, int quantity, int upgradeLevel)
+    {
+        if (quantity >= 0)
+            return quantity;
+
+        if (item is EquipmentData eqData)
+            return upgradeLevel > 0 ? InventoryManager.Instance.GetUpgradedQuantity(eqData, upgradeLevel) : InventoryManager.Instance.GetQuantity(eqData);
+
+        return InventoryManager.Instance.GetQuantity(item);
+    }
+
+    private void ConfigureButtons(ItemData item, int quantity)
+    {
+        if (closeButton != null)
+        {
+            closeButton.onClick.RemoveAllListeners();
+            closeButton.onClick.AddListener(Close);
+        }
+
+        if (equipButton == null || useButton == null)
+            return;
+
+        if (item.IsEquipment())
+        {
+            equipButton.gameObject.SetActive(true);
+            equipButton.interactable = item.useable && quantity > 0;
+            useButton.gameObject.SetActive(false);
+            equipButton.onClick.RemoveAllListeners();
+            equipButton.onClick.AddListener(UseItem);
+        }
         else
         {
-            selectedA = selectedB;
-            selectedB = equipment;
-        }
-
-        RefreshSlots();
-        RefreshPreview();
-    }
-
-    void RefreshSlots()
-    {
-        SetSlot(iconA, nameA, selectedA);
-        SetSlot(iconB, nameB, selectedB);
-    }
-
-    void SetSlot(Image icon, TextMeshProUGUI label, EquipmentData eq)
-    {
-        if (eq != null)
-        {
-            icon.sprite = eq.icon;
-            icon.enabled = true;
-            label.text = eq.itemName;
-        }
-        else
-        {
-            icon.enabled = false;
-            label.text = "—";
+            useButton.gameObject.SetActive(true);
+            useButton.interactable = item.useable && quantity > 0;
+            equipButton.gameObject.SetActive(false);
+            useButton.onClick.RemoveAllListeners();
+            useButton.onClick.AddListener(UseItem);
         }
     }
 
-    void RefreshPreview()
+    private void EquipEquipment(EquipmentData equipment)
     {
-        if (selectedA == null || selectedB == null)
+        var em = EquipmentManager.Instance;
+
+        if (em == null)
+            return;
+
+        if (!em.Equip(new EquipmentInstance(equipment, currentUpgradeLevel)))
+            Debug.Log("Cannot equip this item!");
+    }
+
+    public void UseItem()
+    {
+        if (isProcessingUse || currentItem == null || !currentItem.useable)
+            return;
+
+        isProcessingUse = true;
+
+        if (useButton != null)
+            useButton.interactable = false;
+
+        if (equipButton != null)
+            equipButton.interactable = false;
+
+        currentItem.onUse?.Invoke();
+
+        if (currentItem.IsEquipment())
         {
-            resultIcon.enabled = false;
-            resultName.text = "";
-            successChanceText.text = "";
-            fuseButton.interactable = false;
+            if (currentItem is EquipmentData eq)
+                EquipEquipment(eq);
+            else
+                Debug.LogError($"{currentItem.itemID} IsEquipment() true ama EquipmentData değil");
+
+            RefreshQuantity();
             return;
         }
 
-        var recipe = FusionManager.Instance.FindRecipe(selectedA, selectedB);
+        if (currentItem is StatModifierItem statMod)
+            statMod.Use();
 
-        if (recipe != null)
-        {
-            resultIcon.sprite = recipe.result.icon;
-            resultIcon.enabled = true;
-            resultName.text = recipe.result.itemName;
-            successChanceText.text = $"Success: {recipe.successChance * 100:0}%";
-            fuseButton.interactable = FusionManager.Instance.CanFuse(selectedA, selectedB);
-            statusText.text = "";
-        }
-        else
-        {
-            resultIcon.enabled = false;
-            resultName.text = "No recipe found";
-            successChanceText.text = "";
-            fuseButton.interactable = false;
-        }
-    }
+        bool removed = InventoryManager.Instance.RemoveItem(currentItem, 1);
 
-    void OnFuseClicked()
-    {
-        if (selectedA == null || selectedB == null || FusionManager.Instance == null)
+        if (!removed)
         {
-            statusText.text = "Select two items to fuse.";
+            isProcessingUse = false;
+
+            if (useButton != null)
+                useButton.interactable = true;
+
             return;
         }
 
-        var result = FusionManager.Instance.Fuse(selectedA, selectedB);
-        ClearAll();
-
-        if (result != null)
-            statusText.text = $"Created: {result.itemName}!";
-        else
-            statusText.text = "Fusion failed — items were not consumed.";
+        RefreshQuantity();
     }
 
-    void ClearAll()
+    void RefreshQuantity()
     {
-        selectedA = null;
-        selectedB = null;
-        RefreshSlots();
-        RefreshPreview();
+        if (currentItem == null || InventoryManager.Instance == null)
+            return;
+
+        int qty = ResolveQuantity(currentItem, -1, currentUpgradeLevel);
+
+        if (quantityText != null)
+            quantityText.text = $"Sahip olunan: {qty}";
+
+        isProcessingUse = false;
+
+        if (qty <= 0)
+        {
+            Close();
+            return;
+        }
+
+        if (useButton != null && currentItem.useable)
+            useButton.interactable = true;
+
+        if (equipButton != null && currentItem.useable)
+            equipButton.interactable = true;
+    }
+
+    public void Close()
+    {
+        if (useButton != null)
+        {
+            useButton.onClick.RemoveAllListeners();
+            useButton.interactable = false;
+        }
+
+        if (equipButton != null)
+        {
+            equipButton.onClick.RemoveAllListeners();
+            equipButton.interactable = false;
+        }
+
+        if (upgradeFusionButton != null)
+            upgradeFusionButton.SetItem(null);
+
+        currentItem = null;
+        currentUpgradeLevel = 0;
+        isProcessingUse = false;
+        itemDetailPanel.SetActive(false);
     }
 }

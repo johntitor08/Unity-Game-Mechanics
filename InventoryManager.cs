@@ -1,278 +1,212 @@
-using UnityEngine;
-using TMPro;
+﻿using System;
 using System.Collections.Generic;
+using UnityEngine;
 
-public class EquipmentUI : MonoBehaviour
+public class InventoryManager : MonoBehaviour
 {
-    public static EquipmentUI Instance { get; private set; }
-    private Dictionary<EquipmentSlot, EquipmentSlotUI> slotUIMap;
-    private readonly List<TextMeshProUGUI> setBonusTexts = new();
-    private readonly List<TextMeshProUGUI> setBonusPool = new();
-    private bool gameStarted = false;
-
-    [Header("Panels")]
-    public GameObject equipmentPanel;
-    public GameObject equipmentInfoPanel;
-
-    [Header("Equipment Slots")]
-    public EquipmentSlotUI weaponSlot;
-    public EquipmentSlotUI armorSlot;
-    public EquipmentSlotUI helmetSlot;
-    public EquipmentSlotUI accessorySlot;
-    public EquipmentSlotUI shieldSlot;
-    public EquipmentSlotUI bootsSlot;
-
-    [Header("Stats Display")]
-    public TextMeshProUGUI totalDamageText;
-    public TextMeshProUGUI totalDefenseText;
-    public Transform setBonusesParent;
-    public TextMeshProUGUI setBonusTextPrefab;
-
-    [Header("Settings")]
-    public KeyCode toggleKey = KeyCode.E;
+    public static InventoryManager Instance;
+    public static event Action OnReady;
+    public event Action OnInventoryChanged;
+    private readonly Dictionary<string, int> stock = new();
+    private readonly Dictionary<string, int> totalByItemID = new();
 
     void Awake()
     {
-        if (Instance == null)
-            Instance = this;
-        else
+        if (Instance != null)
+        {
             Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+        OnReady?.Invoke();
     }
 
-    void Start()
-    {
-        if (equipmentPanel != null)
-            equipmentPanel.SetActive(false);
+    static string Key(string itemID, int upgradeLevel) => $"{itemID}:{upgradeLevel}";
 
-        InitializeSlots();
-        SubscribeToEvents();
-        RefreshUI();
-    }
+    static string Key(ItemData item, int upgradeLevel) => Key(item.itemID, upgradeLevel);
 
-    void Update()
+    public void AddItem(ItemData item, int amount = 1)
     {
-        if (!gameStarted)
+        if (item == null || amount <= 0)
             return;
 
-        if (Input.GetKeyDown(toggleKey))
-            TogglePanel();
+        AddInternal(Key(item, 0), amount);
     }
 
-    void OnDestroy() => UnsubscribeFromEvents();
-
-    void SubscribeToEvents()
+    public void AddUpgradedItem(EquipmentData data, int upgradeLevel, int amount = 1)
     {
-        if (EquipmentManager.Instance != null)
-        {
-            EquipmentManager.Instance.OnEquipmentChanged += RefreshUI;
-        }
+        if (data == null || amount <= 0)
+            return;
+
+        AddInternal(Key(data, upgradeLevel), amount);
+    }
+
+    public void AddInstance(EquipmentInstance inst, int amount = 1)
+    {
+        if (inst == null || amount <= 0)
+            return;
+
+        AddInternal(Key(inst.baseData, inst.upgradeLevel), amount);
+    }
+
+    void AddInternal(string key, int amount)
+    {
+        stock[key] = stock.TryGetValue(key, out int cur) ? cur + amount : amount;
+        string itemID = key.Substring(0, key.LastIndexOf(':'));
+        totalByItemID[itemID] = totalByItemID.TryGetValue(itemID, out int t) ? t + amount : amount;
+        OnInventoryChanged?.Invoke();
+    }
+
+    public bool RemoveItem(ItemData item, int amount = 1) => RemoveInternal(Key(item, 0), amount);
+
+    public bool RemoveInstance(EquipmentInstance inst, int amount = 1) => RemoveInternal(Key(inst.baseData, inst.upgradeLevel), amount);
+
+    public bool RemoveUpgradedItem(EquipmentData data, int upgradeLevel, int amount = 1) => RemoveInternal(Key(data, upgradeLevel), amount);
+
+    bool RemoveInternal(string key, int amount)
+    {
+        if (!stock.TryGetValue(key, out int cur) || cur < amount)
+            return false;
+
+        if (cur == amount)
+            stock.Remove(key);
         else
+            stock[key] = cur - amount;
+
+        string itemID = key.Substring(0, key.LastIndexOf(':'));
+
+        if (totalByItemID.TryGetValue(itemID, out int t))
         {
-            EquipmentManager.OnReady += OnEquipmentManagerReady;
-        }
+            int newTotal = t - amount;
 
-        if (CombatManager.Instance != null)
-            CombatManager.Instance.OnCombatStateChanged += RefreshCombatStats;
-    }
-
-    void OnEquipmentManagerReady()
-    {
-        EquipmentManager.OnReady -= OnEquipmentManagerReady;
-        EquipmentManager.Instance.OnEquipmentChanged += RefreshUI;
-        RefreshUI();
-    }
-
-    void UnsubscribeFromEvents()
-    {
-        EquipmentManager.OnReady -= OnEquipmentManagerReady;
-
-        if (EquipmentManager.Instance != null)
-            EquipmentManager.Instance.OnEquipmentChanged -= RefreshUI;
-
-        if (CombatManager.Instance != null)
-            CombatManager.Instance.OnCombatStateChanged -= RefreshCombatStats;
-    }
-
-    public void OnGameStarted()
-    {
-        gameStarted = true;
-    }
-
-    void InitializeSlots()
-    {
-        slotUIMap = new Dictionary<EquipmentSlot, EquipmentSlotUI>
-        {
-            {
-                EquipmentSlot.Weapon, weaponSlot
-            },
-            {
-                EquipmentSlot.Armor, armorSlot
-            },
-            {
-                EquipmentSlot.Helmet, helmetSlot
-            },
-            {
-                EquipmentSlot.Accessory, accessorySlot
-            },
-            {
-                EquipmentSlot.Shield, shieldSlot
-            },
-            {
-                EquipmentSlot.Boots, bootsSlot
-            },
-        };
-
-        foreach (var (slot, ui) in slotUIMap)
-        {
-            if (ui != null)
-                ui.Setup(slot);
+            if (newTotal <= 0)
+                totalByItemID.Remove(itemID);
             else
-                Debug.LogWarning($"EquipmentSlotUI for {slot} is not assigned!");
+                totalByItemID[itemID] = newTotal;
         }
 
-        foreach (var ui in slotUIMap.Values)
+        OnInventoryChanged?.Invoke();
+        return true;
+    }
+
+    public int GetQuantity(ItemData item) => item == null ? 0 : stock.TryGetValue(Key(item, 0), out int q) ? q : 0;
+
+    public int GetQuantity(EquipmentData data) => GetQuantity(data as ItemData);
+
+    public int GetQuantity(EquipmentInstance inst) => inst == null ? 0 : stock.TryGetValue(Key(inst.baseData, inst.upgradeLevel), out int q) ? q : 0;
+
+    public int GetUpgradedQuantity(EquipmentData data, int upgradeLevel) => data == null ? 0 : stock.TryGetValue(Key(data, upgradeLevel), out int q) ? q : 0;
+
+    public int GetTotalQuantity(string itemID) => totalByItemID.TryGetValue(itemID, out int total) ? total : 0;
+
+    public bool HasDuplicates(EquipmentData data) => GetTotalQuantity(data.itemID) >= 2;
+
+    public List<(EquipmentInstance inst, int qty)> GetEquipmentInstances()
+    {
+        var result = new List<(EquipmentInstance, int)>();
+        var db = ItemDatabase.Instance;
+
+        if (db == null)
+            return result;
+
+        foreach (var kv in stock)
         {
-            if (ui == null)
+            if (kv.Value <= 0)
                 continue;
 
-            ui.OnItemClicked += OpenItemPanel;
-            ui.OnDetailClicked += OpenDetailPanel;
+            int sep = kv.Key.LastIndexOf(':');
+
+            if (sep < 0)
+                continue;
+
+            string id = kv.Key[..sep];
+
+            if (!int.TryParse(kv.Key[(sep + 1)..], out int lvl))
+                continue;
+
+            var data = db.GetByID(id) as EquipmentData;
+
+            if (data == null)
+                continue;
+
+            result.Add((new EquipmentInstance(data, lvl), kv.Value));
         }
+
+        return result;
     }
 
-    public void TogglePanel()
+    public List<(ItemData item, int qty)> GetNonEquipmentItems()
     {
-        if (equipmentPanel == null)
-            return;
+        var result = new List<(ItemData, int)>();
+        var db = ItemDatabase.Instance;
 
-        bool newState = !equipmentPanel.activeSelf;
-        equipmentPanel.SetActive(newState);
+        if (db == null)
+            return result;
 
-        if (newState)
-            RefreshUI();
-    }
-
-    public void ShowPanel()
-    {
-        if (equipmentPanel != null)
+        foreach (var kv in stock)
         {
-            equipmentPanel.SetActive(true);
-        }
+            if (kv.Value <= 0)
+                continue;
 
-        RefreshUI();
+            int sep = kv.Key.LastIndexOf(':');
+
+            if (sep < 0)
+                continue;
+
+            string id = kv.Key[..sep];
+
+            if (!int.TryParse(kv.Key[(sep + 1)..], out int lvl))
+                continue;
+
+            var item = db.GetByID(id);
+
+            if (item == null || item is EquipmentData)
+                continue;
+
+            result.Add((item, kv.Value));
+        }
+        return result;
     }
 
-    public void HidePanel()
+    public IReadOnlyDictionary<string, int> GetItems()
     {
-        if (equipmentPanel != null)
+        var dict = new Dictionary<string, int>();
+
+        foreach (var kv in stock)
         {
-            equipmentPanel.SetActive(false);
-        }
-    }
+            int sep = kv.Key.LastIndexOf(':');
 
-    public bool IsPanelVisible() => equipmentPanel != null && equipmentPanel.activeSelf;
+            if (sep < 0)
+                continue;
 
-    public void OpenItemPanel(EquipmentInstance instance)
-    {
-        if (equipmentInfoPanel == null || instance == null)
-            return;
+            string id = kv.Key[..sep];
 
-        equipmentInfoPanel.SetActive(true);
-        EquipmentInfoPanel.Instance.ShowPanel(instance);
-    }
+            if (!int.TryParse(kv.Key[(sep + 1)..], out int lvl) || lvl != 0)
+                continue;
 
-    public void OpenDetailPanel(EquipmentInstance instance)
-    {
-        if (equipmentInfoPanel == null || instance == null)
-            return;
-
-        equipmentInfoPanel.SetActive(true);
-        EquipmentInfoPanel.Instance.ShowPanel(instance);
-    }
-
-    public void OpenItemPanel(EquipmentData data)
-    {
-        if (data == null)
-            return;
-
-        OpenItemPanel(new EquipmentInstance(data));
-    }
-
-    public void OpenDetailPanel(EquipmentData data)
-    {
-        if (data == null)
-            return;
-
-        OpenDetailPanel(new EquipmentInstance(data));
-    }
-
-    public void RefreshUI()
-    {
-        if (EquipmentManager.Instance == null)
-            return;
-
-        RefreshSlots();
-        RefreshStats();
-        RefreshSetBonuses();
-    }
-
-    public void RefreshCombatStats()
-    {
-        if (equipmentPanel != null && !equipmentPanel.activeSelf)
-            return;
-
-        RefreshStats();
-        RefreshSetBonuses();
-    }
-
-    void RefreshSlots()
-    {
-        foreach (var ui in slotUIMap.Values)
-            if (ui != null)
-                ui.Refresh();
-    }
-
-    void RefreshStats()
-    {
-        if (EquipmentManager.Instance == null)
-            return;
-
-        if (totalDamageText != null)
-            totalDamageText.text = $"Total Damage: +{EquipmentManager.Instance.GetTotalDamageBonus()}";
-
-        if (totalDefenseText != null)
-            totalDefenseText.text = $"Total Defense: +{EquipmentManager.Instance.GetTotalDefenseBonus()}";
-    }
-
-    void RefreshSetBonuses()
-    {
-        if (setBonusesParent == null || setBonusTextPrefab == null || EquipmentManager.Instance == null)
-            return;
-
-        var bonuses = EquipmentManager.Instance.GetActiveSetBonusDescriptions();
-
-        if (bonuses.Count == 0)
-            bonuses = new System.Collections.Generic.List<string> { "<color=#888888>No set bonuses active</color>" };
-
-        while (setBonusTexts.Count < bonuses.Count)
-        {
-            var t = Instantiate(setBonusTextPrefab, setBonusesParent);
-            setBonusTexts.Add(t);
+            dict[id] = kv.Value;
         }
 
-        for (int i = 0; i < setBonusTexts.Count; i++)
-        {
-            if (i < bonuses.Count)
-            {
-                setBonusTexts[i].text = bonuses[i];
-                setBonusTexts[i].gameObject.SetActive(true);
-            }
-            else
-            {
-                setBonusTexts[i].gameObject.SetActive(false);
-            }
-        }
+        return dict;
     }
 
-    public EquipmentSlotUI GetSlotUI(EquipmentSlot slot) => slotUIMap.TryGetValue(slot, out var ui) ? ui : null;
+    public IReadOnlyDictionary<string, int> GetRawStock() => stock;
+
+    public ItemData GetItem(string id)
+    {
+        if (string.IsNullOrEmpty(id))
+            return null;
+
+        var db = ItemDatabase.Instance;
+        return db == null ? null : db.GetByID(id);
+    }
+
+    public void Clear()
+    {
+        stock.Clear();
+        totalByItemID.Clear();
+        OnInventoryChanged?.Invoke();
+    }
 }

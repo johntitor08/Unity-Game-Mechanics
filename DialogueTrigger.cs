@@ -1,74 +1,85 @@
 using UnityEngine;
-using System;
 
-public class DailyCurrencyReward : MonoBehaviour
+public class DialogueTrigger : MonoBehaviour
 {
-    [Header("Daily Reward")]
-    public CurrencyType rewardType = CurrencyType.Gold;
-    public int baseRewardAmount = 100;
-    public int streakBonus = 50;
-    public int maxStreak = 30;
+    [Header("Dialogue")]
+    public DialogueNode startNode;
 
-    private DateTime lastClaimDate;
-    private int currentStreak = 0;
+    [Header("Trigger Settings")]
+    public bool triggerOnce = true;
+    public bool requireInteraction = true;
+    public KeyCode interactionKey = KeyCode.E;
+    public float interactionRange = 2f;
 
-    void Start() => LoadLastClaimDate();
+    [Header("Visual")]
+    public GameObject interactionPrompt;
+    public Sprite npcPortrait;
 
-    public bool CanClaim()
+    private bool isExhausted = false;
+    private bool playerInRange = false;
+
+    void Start()
     {
-        if (lastClaimDate == DateTime.MinValue || DateTime.Now < lastClaimDate)
-            return true;
-
-        return (DateTime.Now - lastClaimDate).TotalHours >= 24;
+        if (interactionPrompt != null)
+            interactionPrompt.SetActive(false);
     }
 
-    public void ClaimDailyReward()
+    void Update()
     {
-        if (!CanClaim())
+        if (requireInteraction && playerInRange && !isExhausted)
         {
-            Debug.Log("Daily reward already claimed today!");
+            if (Input.GetKeyDown(interactionKey))
+            {
+                TriggerDialogue();
+            }
+        }
+    }
+
+    void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            playerInRange = true;
+
+            if (interactionPrompt != null && requireInteraction)
+            {
+                interactionPrompt.SetActive(true);
+            }
+            else if (!requireInteraction && !isExhausted)
+            {
+                TriggerDialogue();
+            }
+        }
+    }
+
+    void OnTriggerExit2D(Collider2D other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            playerInRange = false;
+
+            if (interactionPrompt != null)
+            {
+                interactionPrompt.SetActive(false);
+            }
+        }
+    }
+
+    void TriggerDialogue()
+    {
+        if (DialogueManager.Instance == null || DialogueManager.Instance.IsInDialogue())
             return;
-        }
 
-        bool isFirstClaim = lastClaimDate == DateTime.MinValue;
-        TimeSpan timeSinceClaim = isFirstClaim ? TimeSpan.Zero : DateTime.Now - lastClaimDate;
-        bool maintainsStreak = !isFirstClaim && timeSinceClaim.TotalHours >= 24 && timeSinceClaim.TotalHours < 48;
-        currentStreak = maintainsStreak ? Mathf.Min(currentStreak + 1, maxStreak) : 1;
-        int totalReward = baseRewardAmount + (streakBonus * Mathf.Max(0, currentStreak - 1));
+        DialogueManager.Instance.StartDialogue(startNode);
 
-        if (CurrencyManager.Instance != null)
+        if (triggerOnce)
         {
-            CurrencyManager.Instance.AddMultiple(
-                new System.Collections.Generic.Dictionary<CurrencyType, int>
-                {
-                    { rewardType, totalReward }
-                }
-            );
+            isExhausted = true;
+
+            if (interactionPrompt != null)
+            {
+                interactionPrompt.SetActive(false);
+            }
         }
-
-        lastClaimDate = DateTime.Now;
-        SaveLastClaimDate();
-        Debug.Log($"Daily reward claimed! {totalReward} {rewardType} (Streak: {currentStreak}/{maxStreak})");
     }
-
-    void SaveLastClaimDate()
-    {
-        PlayerPrefs.SetString("LastDailyRewardClaim", lastClaimDate.ToString());
-        PlayerPrefs.SetInt("DailyRewardStreak", currentStreak);
-        PlayerPrefs.Save();
-    }
-
-    void LoadLastClaimDate()
-    {
-        string saved = PlayerPrefs.GetString("LastDailyRewardClaim", "");
-
-        if (!string.IsNullOrEmpty(saved))
-            DateTime.TryParse(saved, out lastClaimDate);
-
-        currentStreak = PlayerPrefs.GetInt("DailyRewardStreak", 0);
-    }
-
-    public int GetCurrentStreak() => currentStreak;
-
-    public TimeSpan GetTimeUntilNextReward() => CanClaim() ? TimeSpan.Zero : TimeSpan.FromHours(24) - (DateTime.Now - lastClaimDate);
 }

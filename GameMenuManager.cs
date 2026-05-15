@@ -1,173 +1,241 @@
+using System.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using TMPro;
-using UnityEngine.EventSystems;
 
-public class ItemSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+public class GameMenuManager : MonoBehaviour
 {
-    [Header("UI")]
-    public Image icon;
-    public TextMeshProUGUI title;
-    public TextMeshProUGUI quantityText;
-    public Image rarityBorder;
-    public TextMeshProUGUI upgradeLevelText;
-    public TextMeshProUGUI upgradeButtonText;
-    public Button upgradeButton;
+    private static readonly WaitForSeconds _halfSecondWait = new(0.5f);
+    public static GameMenuManager Instance { get; private set; }
+    private bool _isPaused;
+    private bool _isLoading;
+    private AudioSource _audioSource;
+    public static event System.Action OnGamePaused;
+    public static event System.Action OnGameResumed;
 
-    [Header("Tooltip")]
-    public ItemTooltip tooltip;
+    [Header("Menus")]
+    public GameObject pauseMenu;
+    public GameObject settingsMenu;
 
-    private ItemData currentItem;
-    private int currentUpgradeLevel;
-    private int currentQuantity;
+    [Header("Buttons")]
+    public Button resumeButton;
+    public Button settingsButton;
+    public Button mainMenuButton;
+
+    [Header("Loading Screen")]
+    public GameObject loadingScreen;
+    public Slider loadingBar;
+    public TMPro.TextMeshProUGUI loadingText;
+
+    [Header("Audio")]
+    public AudioClip buttonClickSound;
+    public AudioClip menuOpenSound;
+    public AudioClip menuCloseSound;
+
+    [Header("Settings")]
+    public string mainMenuSceneName = "MainMenu";
+    public KeyCode pauseKey = KeyCode.Escape;
 
     void Awake()
     {
-        if (upgradeButton != null)
-            upgradeButton.onClick.AddListener(OnUpgradeClicked);
-    }
-
-    void OnEnable()
-    {
-        if (InventoryManager.Instance != null)
-            InventoryManager.Instance.OnInventoryChanged += RefreshUpgradeButton;
-
-        if (EquipmentManager.Instance != null)
-            EquipmentManager.Instance.OnEquipmentChanged += RefreshUpgradeButton;
-    }
-
-    void OnDisable()
-    {
-        if (InventoryManager.Instance != null)
-            InventoryManager.Instance.OnInventoryChanged -= RefreshUpgradeButton;
-
-        if (EquipmentManager.Instance != null)
-            EquipmentManager.Instance.OnEquipmentChanged -= RefreshUpgradeButton;
-    }
-
-    public void Setup(string itemID, int qty = 1, int upgradeLevel = 0)
-    {
-        currentItem = ItemDatabase.Instance.GetByID(itemID);
-
-        if (currentItem == null)
+        if (Instance != null && Instance != this)
         {
-            Clear();
+            Destroy(gameObject);
             return;
         }
 
-        currentUpgradeLevel = upgradeLevel;
-        currentQuantity = qty;
-        icon.sprite = currentItem.icon;
-        icon.enabled = true;
-        string displayName = upgradeLevel > 0 ? $"{currentItem.itemName} <color=#FFD700>+{upgradeLevel}</color>" : currentItem.itemName;
-        title.text = displayName;
-        ApplyRarityUI(currentItem);
+        Instance = this;
+        _audioSource = gameObject.AddComponent<AudioSource>();
+    }
 
-        if (currentItem.stackable && qty > 1)
+    void Start()
+    {
+        SetupButtons();
+
+        if (pauseMenu != null)
+            pauseMenu.SetActive(false);
+
+        if (settingsMenu != null)
+            settingsMenu.SetActive(false);
+
+        if (loadingScreen != null)
+            loadingScreen.SetActive(false);
+    }
+
+    void Update()
+    {
+        if (_isLoading)
+            return;
+
+        if (Input.GetKeyDown(pauseKey))
         {
-            quantityText.gameObject.SetActive(true);
-            quantityText.text = $"x{qty}";
+            if (_isPaused)
+                ResumeGame();
+            else
+                PauseGame();
+        }
+    }
+
+    void SetupButtons()
+    {
+        if (resumeButton != null)
+        {
+            resumeButton.onClick.RemoveAllListeners();
+            resumeButton.onClick.AddListener(ResumeGame);
+        }
+
+        if (settingsButton != null)
+        {
+            settingsButton.onClick.RemoveAllListeners();
+            settingsButton.onClick.AddListener(OnSettingsClicked);
+        }
+
+        if (mainMenuButton != null)
+        {
+            mainMenuButton.onClick.RemoveAllListeners();
+            mainMenuButton.onClick.AddListener(OnMainMenuClicked);
+        }
+    }
+
+    public void PauseGame()
+    {
+        if (_isPaused)
+            return;
+
+        _isPaused = true;
+        Time.timeScale = 0f;
+
+        if (pauseMenu != null)
+            pauseMenu.SetActive(true);
+
+        PlaySound(menuOpenSound);
+        OnGamePaused?.Invoke();
+    }
+
+    public void ResumeGame()
+    {
+        if (!_isPaused)
+            return;
+
+        _isPaused = false;
+        Time.timeScale = 1f;
+
+        if (settingsMenu != null)
+            settingsMenu.SetActive(false);
+
+        if (pauseMenu != null)
+            pauseMenu.SetActive(false);
+
+        PlaySound(menuCloseSound);
+        OnGameResumed?.Invoke();
+    }
+
+    public void OnSettingsClicked()
+    {
+        PlayButtonSound();
+        PlaySound(menuOpenSound);
+
+        if (pauseMenu != null)
+            pauseMenu.SetActive(false);
+
+        if (settingsMenu != null)
+            settingsMenu.SetActive(true);
+    }
+
+    public void OnSettingsBack()
+    {
+        PlaySound(menuCloseSound);
+
+        if (settingsMenu != null)
+            settingsMenu.SetActive(false);
+
+        if (pauseMenu != null)
+            pauseMenu.SetActive(true);
+    }
+
+    public void OnMainMenuClicked()
+    {
+        PlayButtonSound();
+
+        if (ConfirmationDialog.Instance != null)
+        {
+            ConfirmationDialog.Instance.Show("Main Menu", "Unsaved progress will be lost.", ReturnToMainMenu, null);
         }
         else
         {
-            quantityText.gameObject.SetActive(false);
+            ReturnToMainMenu();
         }
+    }
 
-        if (upgradeLevelText != null)
+    void ReturnToMainMenu()
+    {
+        _isPaused = false;
+        Time.timeScale = 1f;
+        StartCoroutine(LoadSceneAsync(mainMenuSceneName));
+    }
+
+    IEnumerator LoadSceneAsync(string sceneName)
+    {
+        _isLoading = true;
+
+        if (loadingScreen != null)
+            loadingScreen.SetActive(true);
+
+        if (pauseMenu != null)
+            pauseMenu.SetActive(false);
+
+        if (settingsMenu != null)
+            settingsMenu.SetActive(false);
+
+        AsyncOperation op = SceneManager.LoadSceneAsync(sceneName);
+
+        if (op == null)
         {
-            upgradeLevelText.gameObject.SetActive(upgradeLevel > 0);
-            upgradeLevelText.text = $"+{upgradeLevel}";
+            Debug.LogError($"[GameMenuManager] Scene not found: {sceneName}");
+
+            if (loadingScreen != null)
+                loadingScreen.SetActive(false);
+
+            _isLoading = false;
+            yield break;
         }
 
-        RefreshUpgradeButton();
-    }
+        op.allowSceneActivation = false;
 
-    void RefreshUpgradeButton()
-    {
-        if (upgradeButton == null || currentItem is not EquipmentData equipData)
-            return;
-
-        bool canUpgrade = FusionManager.Instance != null && FusionManager.Instance.CanUpgradeFuse(equipData);
-        upgradeButton.gameObject.SetActive(canUpgrade);
-
-        if (!canUpgrade || upgradeButtonText == null)
-            return;
-
-        int bestLevel = currentUpgradeLevel;
-        var em = EquipmentManager.Instance;
-
-        if (em != null)
+        while (op.progress < 0.9f)
         {
-            var equipped = em.GetEquipped(equipData.slot);
+            float p = Mathf.Clamp01(op.progress / 0.9f);
 
-            if (equipped != null && equipped.baseData.itemID == equipData.itemID)
-                bestLevel = Mathf.Max(bestLevel, equipped.upgradeLevel);
+            if (loadingBar != null)
+                loadingBar.value = p;
+
+            if (loadingText != null)
+                loadingText.text = $"Loading {Mathf.RoundToInt(p * 100)}%";
+
+            yield return null;
         }
 
-        if (InventoryManager.Instance != null)
-        {
-            foreach (var (inst, _) in InventoryManager.Instance.GetEquipmentInstances())
-                if (inst.baseData.itemID == equipData.itemID)
-                    bestLevel = Mathf.Max(bestLevel, inst.upgradeLevel);
-        }
+        yield return _halfSecondWait;
+        op.allowSceneActivation = true;
 
-        upgradeButtonText.text = $"+{bestLevel + 1}";
+        while (!op.isDone)
+            yield return null;
+
+        if (loadingScreen != null)
+            loadingScreen.SetActive(false);
+
+        _isLoading = false;
     }
 
-    void OnUpgradeClicked()
+    public bool IsPaused() => _isPaused;
+
+    void PlayButtonSound() => PlaySound(buttonClickSound);
+
+    void PlaySound(AudioClip clip)
     {
-        if (currentItem is not EquipmentData equipData || FusionManager.Instance == null)
+        if (clip == null || _audioSource == null)
             return;
 
-        FusionManager.Instance.UpgradeFuse(equipData);
-    }
-
-    void ApplyRarityUI(ItemData item)
-    {
-        Color c = item.GetRarityColor();
-
-        if (rarityBorder != null)
-            rarityBorder.color = c;
-
-        if (title != null)
-            title.color = c;
-    }
-
-    public void OnClick()
-    {
-        if (currentItem == null)
-            return;
-
-        ItemDetailPanel.Instance.ShowItemDetail(currentItem, currentQuantity, currentUpgradeLevel);
-    }
-
-    public void OnPointerEnter(PointerEventData eventData)
-    {
-        if (currentItem != null && tooltip != null)
-            tooltip.Show(currentItem, currentUpgradeLevel);
-    }
-
-    public void OnPointerExit(PointerEventData eventData)
-    {
-        if (tooltip != null)
-            tooltip.Hide();
-    }
-
-    void Clear()
-    {
-        icon.sprite = null;
-        icon.enabled = false;
-        title.text = "";
-        quantityText.gameObject.SetActive(false);
-
-        if (upgradeLevelText != null)
-            upgradeLevelText.gameObject.SetActive(false);
-
-        if (upgradeButton != null)
-            upgradeButton.gameObject.SetActive(false);
-
-        currentItem = null;
-        currentUpgradeLevel = 0;
-        currentQuantity = 0;
+        _audioSource.PlayOneShot(clip, 0.5f);
     }
 }

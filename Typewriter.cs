@@ -2,366 +2,89 @@
 using System.Collections;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
-public enum DialogueState
+public class Typewriter : MonoBehaviour
 {
-    Idle,
-    Opening,
-    Typing,
-    WaitingInput,
-    Choices,
-    Closing
-}
-
-[RequireComponent(typeof(IDialoguePanelAnimator))]
-public class DialogueManager : MonoBehaviour
-{
-    public static DialogueManager Instance;
-    public DialogueState State { get; private set; } = DialogueState.Idle;
-    private DialogueNode currentNode;
-    private int currentLineIndex;
-    private Action onDialogueEnd;
-    private Coroutine autoAdvanceCoroutine;
-    private AudioSource audioSource;
-    public event Action<DialogueNode> OnDialogueStart;
-    public event Action<DialogueChoice> OnChoiceSelected;
-    public event Action<DialogueNode> OnDialogueEnd;
-    public event Action<DialogueNode, int> OnLineShown;
-    public IDialoguePanelAnimator PanelAnimator { get; set; }
-
-    [Header("UI")]
-    public GameObject dialoguePanel;
-    public TextMeshProUGUI speakerNameText;
-    public TextMeshProUGUI dialogueText;
-    public Image speakerPortrait;
-    public Image backgroundImage;
-    public GameObject continueButton;
-    public GameObject choicesPanel;
-    public Transform choicesContainer;
-    public Button choiceButtonPrefab;
-
-    [Header("Typewriter")]
-    public Typewriter typewriter;
+    [Header("Settings")]
+    public float speed = 0.03f;
+    public bool skipPunctuation = true;
+    public float punctuationDelay = 0.2f;
 
     [Header("Audio")]
-    public AudioClip dialogueOpenSound;
-    public AudioClip dialogueCloseSound;
-    public AudioClip choiceSelectSound;
+    public AudioClip typeSound;
+    public float typeSoundVolume = 0.3f;
+    public bool playSoundPerCharacter = true;
+
+    private Coroutine routine;
+    private bool isTyping;
+    private string cachedText;
+    private TextMeshProUGUI cachedTextUI;
+    public event Action OnTypingComplete;
+    public bool IsTyping => isTyping;
+
+    public void StartTyping(TextMeshProUGUI textUI, string text)
+    {
+        if (routine != null)
+            StopCoroutine(routine);
+
+        cachedText = text;
+        cachedTextUI = textUI;
+        routine = StartCoroutine(Type());
+    }
+
+    IEnumerator Type()
+    {
+        isTyping = true;
+        cachedTextUI.text = "";
+
+        foreach (char c in cachedText)
+        {
+            cachedTextUI.text += c;
+
+            if (playSoundPerCharacter && typeSound != null && !char.IsWhiteSpace(c))
+                PlayTypeSound();
+
+            if (skipPunctuation && IsPunctuation(c))
+                yield return new WaitForSeconds(punctuationDelay);
+            else
+                yield return new WaitForSeconds(speed);
+        }
+
+        isTyping = false;
+        routine = null;
+        OnTypingComplete?.Invoke();
+    }
+
+    public void Complete(TextMeshProUGUI textUI)
+    {
+        if (!isTyping)
+            return;
+
+        if (routine != null)
+            StopCoroutine(routine);
+
+        textUI.text = cachedText;
+        isTyping = false;
+        routine = null;
+        OnTypingComplete?.Invoke();
+    }
+
+    bool IsPunctuation(char c)
+    {
+        return c == '.' || c == ',' || c == '!' || c == '?' || c == ';' || c == ':';
+    }
+
+    private AudioSource _audioSource;
 
     void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-
-        Instance = this;
-        DontDestroyOnLoad(gameObject);
-        audioSource = gameObject.AddComponent<AudioSource>();
-        audioSource.playOnAwake = false;
-
-        if (typewriter != null)
-            typewriter.OnTypingComplete += OnTypingFinished;
-
-        PanelAnimator ??= GetComponent<IDialoguePanelAnimator>();
+        _audioSource = gameObject.AddComponent<AudioSource>();
+        _audioSource.playOnAwake = false;
     }
 
-    void Update()
+    void PlayTypeSound()
     {
-        if (State != DialogueState.Typing && State != DialogueState.WaitingInput)
-            return;
-
-        bool advance = Input.GetKeyDown(KeyCode.Space) || (Input.GetMouseButtonDown(0) && !UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject());
-
-        if (!advance)
-            return;
-
-        if (State == DialogueState.Typing && typewriter != null && typewriter.IsTyping)
-            typewriter.Complete(dialogueText);
-        else if (State == DialogueState.WaitingInput)
-            NextLine();
+        if (_audioSource != null && typeSound != null)
+            _audioSource.PlayOneShot(typeSound, typeSoundVolume);
     }
-
-    void SetupVisuals()
-    {
-        if (currentNode == null)
-        {
-            Debug.LogError("[DialogueManager] SetupVisuals: currentNode is null.");
-            return;
-        }
-
-        if (speakerNameText != null)
-        {
-            speakerNameText.text = currentNode.speakerName ?? "";
-            speakerNameText.color = currentNode.speakerNameColor;
-        }
-
-        if (speakerPortrait != null)
-        {
-            speakerPortrait.sprite = currentNode.speakerPortrait;
-            speakerPortrait.enabled = currentNode.speakerPortrait != null;
-        }
-
-        if (backgroundImage != null)
-        {
-            backgroundImage.sprite = currentNode.backgroundImage;
-            backgroundImage.enabled = currentNode.backgroundImage != null;
-        }
-    }
-
-    public void StartDialogue(DialogueNode startNode, Action callback = null)
-    {
-        if (startNode == null || State != DialogueState.Idle)
-            return;
-
-        StopAllCoroutines();
-        autoAdvanceCoroutine = null;
-        currentNode = startNode;
-        currentLineIndex = 0;
-        onDialogueEnd = callback;
-        State = DialogueState.Opening;
-        dialoguePanel.SetActive(true);
-        PanelAnimator?.OpenDialoguePanel();
-        PlaySound(dialogueOpenSound);
-        currentNode.onEnter?.Invoke();
-        OnDialogueStart?.Invoke(currentNode);
-        SetupVisuals();
-        ClearChoices();
-        ShowLine();
-    }
-
-    public bool IsInDialogue() => State != DialogueState.Idle;
-
-    void ShowLine()
-    {
-        if (currentNode == null)
-            return;
-
-        if (currentLineIndex >= currentNode.lines.Length)
-        {
-            ShowChoicesOrEnd();
-            return;
-        }
-
-        OnLineShown?.Invoke(currentNode, currentLineIndex);
-        State = DialogueState.Typing;
-
-        if (continueButton != null)
-            continueButton.SetActive(false);
-
-        string line = ParseLine();
-
-        if (typewriter != null)
-        {
-            typewriter.StartTyping(dialogueText, line);
-        }
-        else
-        {
-            dialogueText.text = line;
-
-            if (currentNode.autoAdvance)
-                autoAdvanceCoroutine = StartCoroutine(AutoAdvanceRoutine(currentNode.autoAdvanceDelay));
-            else
-                FinishTyping();
-        }
-    }
-
-    void FinishTyping()
-    {
-        State = DialogueState.WaitingInput;
-
-        if (continueButton != null)
-            continueButton.SetActive(true);
-    }
-
-    void OnTypingFinished()
-    {
-        if (State != DialogueState.Typing)
-            return;
-
-        if (currentNode != null && currentNode.autoAdvance)
-        {
-            autoAdvanceCoroutine = StartCoroutine(AutoAdvanceRoutine(currentNode.autoAdvanceDelay));
-            return;
-        }
-
-        FinishTyping();
-    }
-
-    IEnumerator AutoAdvanceRoutine(float delay)
-    {
-        yield return new WaitForSeconds(delay);
-        autoAdvanceCoroutine = null;
-        NextLine();
-    }
-
-    void NextLine()
-    {
-        if (State != DialogueState.WaitingInput)
-            return;
-
-        if (autoAdvanceCoroutine != null)
-        {
-            StopCoroutine(autoAdvanceCoroutine);
-            autoAdvanceCoroutine = null;
-        }
-
-        currentLineIndex++;
-        ShowLine();
-    }
-
-    void ShowChoicesOrEnd()
-    {
-        ClearChoices();
-
-        if (currentNode == null || currentNode.choices == null || currentNode.choices.Length == 0)
-        {
-            EndDialogue();
-            return;
-        }
-
-        State = DialogueState.Choices;
-
-        if (choicesPanel == null || choicesContainer == null || choiceButtonPrefab == null)
-        {
-            Debug.LogWarning("[DialogueManager] Choices UI references incomplete.");
-            EndDialogue();
-            return;
-        }
-
-        var panelRect = choicesPanel.GetComponent<RectTransform>();
-        var containerRect = choicesContainer.GetComponent<RectTransform>();
-
-        foreach (var choice in currentNode.choices)
-        {
-            Button btn = Instantiate(choiceButtonPrefab, choicesContainer);
-            btn.GetComponentInChildren<TextMeshProUGUI>().text = choice.choiceText;
-            btn.onClick.AddListener(() => SelectChoice(choice));
-        }
-
-        if (containerRect != null)
-        {
-            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(containerRect);
-
-            if (panelRect != null)
-                panelRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, containerRect.rect.height + 20f);
-        }
-
-        choicesPanel.SetActive(true);
-    }
-
-    void SelectChoice(DialogueChoice choice)
-    {
-        if (State != DialogueState.Choices)
-            return;
-
-        if (choicesPanel != null)
-            choicesPanel.SetActive(false);
-
-        ClearChoices();
-        PlaySound(choiceSelectSound);
-        OnChoiceSelected?.Invoke(choice);
-        currentNode.onExit?.Invoke();
-
-        if (choice.nextNode != null)
-        {
-            currentNode = choice.nextNode;
-            currentLineIndex = 0;
-            currentNode.onEnter?.Invoke();
-            SetupVisuals();
-            ShowLine();
-        }
-        else
-        {
-            EndDialogue();
-        }
-    }
-
-    void EndDialogue()
-    {
-        if (State == DialogueState.Closing)
-            return;
-
-        State = DialogueState.Closing;
-
-        if (autoAdvanceCoroutine != null)
-        {
-            StopCoroutine(autoAdvanceCoroutine);
-            autoAdvanceCoroutine = null;
-        }
-
-        DialogueNode endedNode = currentNode;
-
-        if (endedNode != null)
-            endedNode.onExit?.Invoke();
-
-        currentNode = null;
-
-        if (dialogueText != null)
-            dialogueText.text = "";
-
-        ClearChoices();
-        PlaySound(dialogueCloseSound);
-        PanelAnimator?.CloseDialoguePanel();
-        StartCoroutine(FinishDialogue(endedNode));
-    }
-
-    IEnumerator FinishDialogue(DialogueNode endedNode)
-    {
-        float closeDuration = PanelAnimator != null ? PanelAnimator.DialogueCloseAnimationDuration() : 0.25f;
-
-        if (closeDuration > 0)
-            yield return new WaitForSeconds(closeDuration);
-
-        if (dialoguePanel != null)
-            dialoguePanel.SetActive(false);
-
-        State = DialogueState.Idle;
-        OnDialogueEnd?.Invoke(endedNode);
-        onDialogueEnd?.Invoke();
-    }
-
-    void ClearChoices()
-    {
-        if (choicesContainer == null)
-            return;
-
-        foreach (Transform child in choicesContainer)
-            Destroy(child.gameObject);
-    }
-
-    string ParseLine()
-    {
-        if (currentNode == null || currentNode.lines == null || currentLineIndex < 0 || currentLineIndex >= currentNode.lines.Length)
-        {
-            Debug.LogWarning("[DialogueManager] ParseLine called with invalid index.");
-            return "";
-        }
-
-        string line = currentNode.lines[currentLineIndex];
-
-        if (ProfileManager.Instance != null)
-            line = line.Replace("{playerName}", ProfileManager.Instance.profile.playerName);
-
-        return line;
-    }
-
-    void PlaySound(AudioClip clip)
-    {
-        if (clip == null || audioSource == null)
-            return;
-
-        audioSource.PlayOneShot(clip, 0.5f);
-    }
-}
-
-public interface IDialoguePanelAnimator
-{
-    void OpenDialoguePanel();
-
-    void CloseDialoguePanel();
-
-    float DialogueCloseAnimationDuration();
 }

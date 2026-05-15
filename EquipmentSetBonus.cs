@@ -1,56 +1,27 @@
-using UnityEngine;
-
-[CreateAssetMenu(fileName = "EquipmentData", menuName = "Equipment/EquipmentData")]
-public class EquipmentData : ItemData
+[System.Serializable]
+public class EquipmentSetBonus
 {
-    [Header("Equipment Properties")]
-    public EquipmentSlot slot;
+    public EquipmentSetData data;
 
-    [Header("Combat Bonuses")]
-    public int damageBonus = 0;
-    public int defenseBonus = 0;
-
-    [Header("Stat Bonuses")]
-    public StatType primaryStat;
-    public int primaryStatBonus = 0;
-    public StatType secondaryStat;
-    public int secondaryStatBonus = 0;
-
-    [Header("Requirements")]
-    public int requiredLevel = 1;
-    public StatType requiredStat;
-    public int requiredStatValue = 0;
-
-    [Header("Set Data")]
-    public EquipmentSetData setData;
-
-    [Header("Upgrade")]
-    public int maxUpgradeLevel = 5;
-
-    void OnEnable()
+    public void Apply(int pieces, bool apply)
     {
-        itemType = ItemType.Equipment;
-        stackable = false;
-        maxStack = 1;
+        if (PlayerStats.Instance == null || data == null)
+            return;
+
+        int mult = apply ? 1 : -1;
+
+        foreach (var bonus in data.bonuses)
+            if (pieces >= bonus.requiredPieces)
+                PlayerStats.Instance.Modify(bonus.stat, bonus.value * mult, false);
     }
 
-    public override bool IsEquipment() => true;
-
-    public string GetStatsDescription()
+    public string GetDescription(int pieces)
     {
         string desc = "";
 
-        if (damageBonus > 0)
-            desc += $"Damage: +{damageBonus}\n";
-
-        if (defenseBonus > 0)
-            desc += $"Defense: +{defenseBonus}\n";
-
-        if (primaryStatBonus > 0)
-            desc += $"{primaryStat}: +{primaryStatBonus}\n";
-
-        if (secondaryStatBonus > 0)
-            desc += $"{secondaryStat}: +{secondaryStatBonus}\n";
+        foreach (var bonus in data.bonuses)
+            if (pieces >= bonus.requiredPieces)
+                desc += $"<color=#FFD966>{bonus.requiredPieces}-Piece:</color> " + $"+{bonus.value} {bonus.stat}\n";
 
         return desc;
     }

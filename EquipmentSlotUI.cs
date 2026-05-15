@@ -1,114 +1,217 @@
-using System.Collections.Generic;
-using System.Linq;
+using System;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
-[CreateAssetMenu(fileName = "EquipmentLootTable", menuName = "Equipment/Equipment Loot Table")]
-public class EquipmentLootTable : ScriptableObject
+public class EquipmentSlotUI : MonoBehaviour
 {
-    [System.Serializable]
-    public class EquipmentDrop
+    [Header("UI References")]
+    public Image iconImage;
+    public Image backgroundImage;
+    public TextMeshProUGUI slotNameText;
+    public TextMeshProUGUI upgradeBadgeText;
+    public GameObject emptyIndicator;
+    public Button slotButton;
+
+    [Header("Visual Feedback")]
+    public Color emptyColor = new(0.3f, 0.3f, 0.3f, 0.5f);
+
+    private Sprite emptySprite;
+    private Sprite commonSprite;
+    private Sprite rareSprite;
+    private Sprite epicSprite;
+    private Sprite legendarySprite;
+    private Sprite godlySprite;
+    private EquipmentSlot slotType;
+    private EquipmentInstance currentInstance;
+    private Button iconButton;
+    public event Action<EquipmentInstance> OnItemClicked;
+    public event Action<EquipmentInstance> OnDetailClicked;
+
+    void Awake()
     {
-        public EquipmentData equipment;
-        [Range(0f, 1f)]
-        public float baseDropChance = 0.5f;
-        [Tooltip("Bu drop için minimum luck deðeri")]
-        public int minLuckRequired = 0;
+        if (slotButton != null)
+            slotButton.onClick.AddListener(ShowDetailPanel);
+
+        if (iconImage != null && iconImage.TryGetComponent<Button>(out var ib))
+        {
+            iconButton = ib;
+            iconButton.onClick.AddListener(ShowEquipmentPanel);
+        }
     }
 
-    [Header("Equipment Pool")]
-    public List<EquipmentDrop> possibleEquipment = new();
-
-    [Header("Rarity Drop Chances")]
-    [Range(0f, 1f)] public float commonChance = 0.50f;
-    [Range(0f, 1f)] public float rareChance = 0.15f;
-    [Range(0f, 1f)] public float epicChance = 0.04f;
-    [Range(0f, 1f)] public float legendaryChance = 0.01f;
-
-    [Header("Drop Settings")]
-    public int minDrops = 0;
-    public int maxDrops = 2;
-    [Range(0f, 1f)]
-    public float equipmentDropChance = 0.3f;
-
-    [Header("Luck Bonus")]
-    [Tooltip("Her luck puaný için ekstra þans (%)")]
-    public float luckBonusPerPoint = 0.5f;
-
-    public List<EquipmentData> RollLoot(int playerLuck)
+    void OnEnable()
     {
-        List<EquipmentData> droppedItems = new();
-        float totalDropChance = equipmentDropChance + (playerLuck * luckBonusPerPoint / 100f);
+        if (EquipmentManager.Instance != null)
+            EquipmentManager.Instance.OnEquipmentChanged += Refresh;
+    }
 
-        if (Random.value > totalDropChance)
+    void OnDisable()
+    {
+        if (EquipmentManager.Instance != null)
+            EquipmentManager.Instance.OnEquipmentChanged -= Refresh;
+    }
+
+    public void Setup(EquipmentSlot slot)
+    {
+        slotType = slot;
+
+        if (slotNameText != null)
+            slotNameText.text = GetSlotDisplayName(slot);
+
+        Refresh();
+    }
+
+    public void SetRaritySprites(Sprite empty, Sprite common, Sprite rare, Sprite epic, Sprite legendary, Sprite godly)
+    {
+        emptySprite = empty;
+        commonSprite = common;
+        rareSprite = rare;
+        epicSprite = epic;
+        legendarySprite = legendary;
+        godlySprite = godly;
+    }
+
+    public void Refresh()
+    {
+        if (EquipmentManager.Instance == null)
+            return;
+
+        currentInstance = EquipmentManager.Instance.GetEquipped(slotType);
+
+        if (currentInstance != null)
+            ShowEquipped(currentInstance);
+        else
+            ShowEmpty();
+    }
+
+    void ShowEquipped(EquipmentInstance instance)
+    {
+        var data = instance.baseData;
+
+        if (iconImage != null)
         {
-            return droppedItems;
+            iconImage.sprite = data.icon;
+            iconImage.color = Color.white;
+            iconImage.enabled = true;
         }
 
-        int dropCount = Random.Range(minDrops, maxDrops + 1);
-
-        for (int i = 0; i < dropCount; i++)
+        if (backgroundImage != null)
         {
-            EquipmentData item = RollSingleItem(playerLuck);
+            Sprite s = GetRaritySprite(data.rarity);
 
-            if (item != null)
+            if (s != null)
             {
-                droppedItems.Add(item);
+                backgroundImage.sprite = s;
+                backgroundImage.color = Color.white;
+            }
+            else
+            {
+                backgroundImage.sprite = null;
+                Color c = data.GetRarityColor();
+                c.a = 0.7f;
+                backgroundImage.color = c;
             }
         }
 
-        return droppedItems;
-    }
-
-    EquipmentData RollSingleItem(int playerLuck)
-    {
-        Rarity targetRarity = RollRarity(playerLuck);
-        var eligibleItems = possibleEquipment.Where(e => e.equipment != null && e.equipment.rarity == targetRarity && playerLuck >= e.minLuckRequired).ToList();
-
-        if (eligibleItems.Count == 0)
+        if (upgradeBadgeText != null)
         {
-            eligibleItems = possibleEquipment.Where(e => e.equipment != null && playerLuck >= e.minLuckRequired).ToList();
-
-            if (eligibleItems.Count == 0)
-                return null;
+            upgradeBadgeText.gameObject.SetActive(instance.upgradeLevel > 0);
+            upgradeBadgeText.text = $"+{instance.upgradeLevel}";
         }
 
-        float totalWeight = eligibleItems.Sum(e => e.baseDropChance);
-        float roll = Random.value * totalWeight;
-        float current = 0f;
+        if (emptyIndicator != null)
+            emptyIndicator.SetActive(false);
 
-        foreach (var drop in eligibleItems)
+        if (slotButton != null)
+            slotButton.interactable = true;
+
+        if (iconButton != null)
+            iconButton.interactable = true;
+    }
+
+    void ShowEmpty()
+    {
+        if (iconImage != null)
         {
-            current += drop.baseDropChance;
+            iconImage.sprite = null;
+            iconImage.color = emptyColor;
+            iconImage.enabled = false;
+        }
 
-            if (roll <= current)
+        if (backgroundImage != null)
+        {
+            if (emptySprite != null)
             {
-                return drop.equipment;
+                backgroundImage.sprite = emptySprite;
+                backgroundImage.color = Color.white;
+            }
+            else
+            {
+                backgroundImage.sprite = null;
+                backgroundImage.color = emptyColor;
             }
         }
 
-        return eligibleItems[Random.Range(0, eligibleItems.Count)].equipment;
+        if (upgradeBadgeText != null)
+            upgradeBadgeText.gameObject.SetActive(false);
+
+        if (emptyIndicator != null)
+            emptyIndicator.SetActive(true);
+
+        if (slotButton != null)
+            slotButton.interactable = false;
+
+        if (iconButton != null)
+            iconButton.interactable = false;
     }
 
-    Rarity RollRarity(int playerLuck)
+    Sprite GetRaritySprite(Rarity rarity) => rarity switch
     {
-        float luckBonus = Mathf.Min(playerLuck * luckBonusPerPoint / 100f, 0.05f);
-        float roll = Random.value;
-        float cumulative = 0f;
-        cumulative += legendaryChance + luckBonus;
+        Rarity.Common => commonSprite,
+        Rarity.Rare => rareSprite,
+        Rarity.Epic => epicSprite,
+        Rarity.Legendary => legendarySprite,
+        Rarity.Godly => godlySprite,
+        _ => null
+    };
 
-        if (roll <= cumulative)
-            return Rarity.Legendary;
+    public void ShowEquipmentPanel()
+    {
+        if (currentInstance == null)
+            return;
 
-        cumulative += epicChance + luckBonus * 0.5f;
+        if (EquipmentUI.Instance != null)
+            EquipmentUI.Instance.OpenItemPanel(currentInstance);
 
-        if (roll <= cumulative)
-            return Rarity.Epic;
-
-        cumulative += rareChance + luckBonus * 0.3f;
-
-        if (roll <= cumulative)
-            return Rarity.Rare;
-
-        return Rarity.Common;
+        OnItemClicked?.Invoke(currentInstance);
     }
+
+    public void ShowDetailPanel()
+    {
+        if (currentInstance == null)
+            return;
+
+        if (EquipmentUI.Instance != null)
+            EquipmentUI.Instance.OpenDetailPanel(currentInstance);
+
+        OnDetailClicked?.Invoke(currentInstance);
+    }
+
+    static string GetSlotDisplayName(EquipmentSlot slot) => slot switch
+    {
+        EquipmentSlot.Weapon => "Weapon",
+        EquipmentSlot.Armor => "Armor",
+        EquipmentSlot.Helmet => "Helmet",
+        EquipmentSlot.Accessory => "Accessory",
+        EquipmentSlot.Shield => "Shield",
+        EquipmentSlot.Boots => "Boots",
+        _ => "Unknown"
+    };
+
+    public EquipmentData GetEquippedItem() => currentInstance?.baseData;
+
+    public EquipmentInstance GetEquippedInstance() => currentInstance;
+
+    public EquipmentSlot GetSlotType() => slotType;
 }

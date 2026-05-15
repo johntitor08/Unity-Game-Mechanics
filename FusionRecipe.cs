@@ -1,9 +1,10 @@
-public enum EquipmentSlot
+using UnityEngine;
+
+[CreateAssetMenu(fileName = "FusionRecipe", menuName = "Inventory/FusionRecipe")]
+public class FusionRecipe : ScriptableObject
 {
-    Weapon,
-    Armor,
-    Helmet,
-    Accessory,
-    Shield,
-    Boots
+    public EquipmentData ingredientA;
+    public EquipmentData ingredientB;
+    public EquipmentData result;
+    [Range(0f, 1f)] public float successChance = 1f;
 }

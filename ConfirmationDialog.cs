@@ -1,232 +1,87 @@
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
+using System;
 
-public class ItemDetailPanel : MonoBehaviour
+public class ConfirmationDialog : MonoBehaviour
 {
-    public static ItemDetailPanel Instance;
-    private ItemData currentItem;
-    private int currentUpgradeLevel;
-    private bool isProcessingUse;
+    public static ConfirmationDialog Instance;
+    private Action onConfirm;
+    private Action onCancel;
 
-    [Header("UI")]
-    public GameObject itemDetailPanel;
-    public TextMeshProUGUI title;
-    public Image icon;
-    public TextMeshProUGUI quantityText;
-    public TextMeshProUGUI description;
-    public Button useButton;
-    public Button equipButton;
-    public Button closeButton;
-    public UpgradeFusionButton upgradeFusionButton;
+    [Header("UI Elements")]
+    public GameObject confirmationPanel;
+    public TextMeshProUGUI titleText;
+    public TextMeshProUGUI messageText;
+    public Button confirmButton;
+    public Button cancelButton;
+    public TextMeshProUGUI confirmButtonText;
+    public TextMeshProUGUI cancelButtonText;
 
     void Awake()
     {
-        if (Instance != null)
+        if (Instance == null)
         {
-            Destroy(gameObject);
-            return;
-        }
-
-        Instance = this;
-    }
-
-    void OnEnable()
-    {
-        if (InventoryManager.Instance != null)
-            InventoryManager.Instance.OnInventoryChanged += RefreshQuantity;
-    }
-
-    void OnDisable()
-    {
-        if (InventoryManager.Instance != null)
-            InventoryManager.Instance.OnInventoryChanged -= RefreshQuantity;
-    }
-
-    public void ShowItemDetail(ItemData item, int quantity, int upgradeLevel = 0)
-    {
-        currentItem = item;
-        currentUpgradeLevel = upgradeLevel;
-        isProcessingUse = false;
-
-        if (useButton != null)
-            useButton.interactable = false;
-
-        if (equipButton != null)
-            equipButton.interactable = false;
-
-        if (title != null)
-        {
-            string upgradeStr = upgradeLevel > 0 ? $" <color=#FFD700>+{upgradeLevel}</color>" : "";
-            title.text = $"{item.itemName}{upgradeStr}";
-        }
-
-        if (description != null)
-            description.text = item.description;
-
-        if (icon != null)
-            icon.sprite = item.icon;
-
-        int qty = ResolveQuantity(item, quantity, upgradeLevel);
-
-        if (quantityText != null)
-            quantityText.text = $"Sahip olunan: {qty}";
-
-        if (upgradeFusionButton != null)
-            upgradeFusionButton.SetItem(item is EquipmentData eq ? eq : null);
-
-        ConfigureButtons(item, qty);
-        itemDetailPanel.SetActive(true);
-    }
-
-    public void RefreshPanel()
-    {
-        if (currentItem == null || itemDetailPanel == null || !itemDetailPanel.activeSelf)
-            return;
-
-        ShowItemDetail(currentItem, -1, currentUpgradeLevel);
-    }
-
-    private int ResolveQuantity(ItemData item, int quantity, int upgradeLevel)
-    {
-        if (quantity >= 0)
-            return quantity;
-
-        if (item is EquipmentData eqData)
-            return upgradeLevel > 0 ? InventoryManager.Instance.GetUpgradedQuantity(eqData, upgradeLevel) : InventoryManager.Instance.GetQuantity(eqData);
-
-        return InventoryManager.Instance.GetQuantity(item);
-    }
-
-    private void ConfigureButtons(ItemData item, int quantity)
-    {
-        if (closeButton != null)
-        {
-            closeButton.onClick.RemoveAllListeners();
-            closeButton.onClick.AddListener(Close);
-        }
-
-        if (equipButton == null || useButton == null)
-            return;
-
-        if (item.IsEquipment())
-        {
-            equipButton.gameObject.SetActive(true);
-            equipButton.interactable = item.useable && quantity > 0;
-            useButton.gameObject.SetActive(false);
-            equipButton.onClick.RemoveAllListeners();
-            equipButton.onClick.AddListener(UseItem);
+            Instance = this;
         }
         else
         {
-            useButton.gameObject.SetActive(true);
-            useButton.interactable = item.useable && quantity > 0;
-            equipButton.gameObject.SetActive(false);
-            useButton.onClick.RemoveAllListeners();
-            useButton.onClick.AddListener(UseItem);
+            Destroy(gameObject);
         }
+
+        if (confirmationPanel != null)
+            confirmationPanel.SetActive(false);
     }
 
-    private void EquipEquipment(EquipmentData equipment)
+    void Start()
     {
-        var em = EquipmentManager.Instance;
+        if (confirmButton != null)
+            confirmButton.onClick.AddListener(OnConfirmClicked);
 
-        if (em == null)
-            return;
-
-        if (!em.Equip(new EquipmentInstance(equipment, currentUpgradeLevel)))
-            Debug.Log("Cannot equip this item!");
+        if (cancelButton != null)
+            cancelButton.onClick.AddListener(OnCancelClicked);
     }
 
-    public void UseItem()
+    public void Show(string title, string message, Action confirmAction, Action cancelAction = null, string confirmLabel = "Yes", string cancelLabel = "No")
     {
-        if (isProcessingUse || currentItem == null || !currentItem.useable)
-            return;
+        if (titleText != null)
+            titleText.text = title;
 
-        isProcessingUse = true;
+        if (messageText != null)
+            messageText.text = message;
 
-        if (useButton != null)
-            useButton.interactable = false;
+        onConfirm = confirmAction;
+        onCancel = cancelAction;
+        SetButtonText(confirmLabel, cancelLabel);
 
-        if (equipButton != null)
-            equipButton.interactable = false;
-
-        currentItem.onUse?.Invoke();
-
-        if (currentItem.IsEquipment())
-        {
-            if (currentItem is EquipmentData eq)
-                EquipEquipment(eq);
-            else
-                Debug.LogError($"{currentItem.itemID} IsEquipment() true ama EquipmentData değil");
-
-            RefreshQuantity();
-            return;
-        }
-
-        if (currentItem is StatModifierItem statMod)
-            statMod.Use();
-
-        bool removed = InventoryManager.Instance.RemoveItem(currentItem, 1);
-
-        if (!removed)
-        {
-            isProcessingUse = false;
-
-            if (useButton != null)
-                useButton.interactable = true;
-
-            return;
-        }
-
-        RefreshQuantity();
+        if (confirmationPanel != null)
+            confirmationPanel.SetActive(true);
     }
 
-    void RefreshQuantity()
+    void OnConfirmClicked()
     {
-        if (currentItem == null || InventoryManager.Instance == null)
-            return;
-
-        int qty = ResolveQuantity(currentItem, -1, currentUpgradeLevel);
-
-        if (quantityText != null)
-            quantityText.text = $"Sahip olunan: {qty}";
-
-        isProcessingUse = false;
-
-        if (qty <= 0)
-        {
-            Close();
-            return;
-        }
-
-        if (useButton != null && currentItem.useable)
-            useButton.interactable = true;
-
-        if (equipButton != null && currentItem.useable)
-            equipButton.interactable = true;
+        Hide();
+        onConfirm?.Invoke();
     }
 
-    public void Close()
+    void OnCancelClicked()
     {
-        if (useButton != null)
-        {
-            useButton.onClick.RemoveAllListeners();
-            useButton.interactable = false;
-        }
+        Hide();
+        onCancel?.Invoke();
+    }
 
-        if (equipButton != null)
-        {
-            equipButton.onClick.RemoveAllListeners();
-            equipButton.interactable = false;
-        }
+    void Hide()
+    {
+        if (confirmationPanel != null)
+            confirmationPanel.SetActive(false);
+    }
 
-        if (upgradeFusionButton != null)
-            upgradeFusionButton.SetItem(null);
+    public void SetButtonText(string confirm = "Yes", string cancel = "No")
+    {
+        if (confirmButtonText != null)
+            confirmButtonText.text = confirm;
 
-        currentItem = null;
-        currentUpgradeLevel = 0;
-        isProcessingUse = false;
-        itemDetailPanel.SetActive(false);
+        if (cancelButtonText != null)
+            cancelButtonText.text = cancel;
     }
 }
