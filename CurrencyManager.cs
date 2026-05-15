@@ -167,7 +167,7 @@ public class CurrencyManager : MonoBehaviour
 
         OnCurrencyAdded?.Invoke(type, delta);
         OnCurrencyChanged?.Invoke(type, old, currency.amount);
-        FinalizeSingle(isGain: true, showNotification);
+        FinalizeSingle(isGain: true, showNotification, type, delta);
     }
 
     public bool Spend(CurrencyType type, int amount, bool showNotification = true)
@@ -184,7 +184,7 @@ public class CurrencyManager : MonoBehaviour
         currency.amount -= amount;
         OnCurrencySpent?.Invoke(type, amount);
         OnCurrencyChanged?.Invoke(type, old, currency.amount);
-        FinalizeSingle(isGain: false, showNotification);
+        FinalizeSingle(isGain: false, showNotification, type, amount);
         return true;
     }
 
@@ -236,14 +236,14 @@ public class CurrencyManager : MonoBehaviour
         SaveSystem.SaveGame();
     }
 
-    private void FinalizeSingle(bool isGain, bool showNotification)
+    private void FinalizeSingle(bool isGain, bool showNotification, CurrencyType type = CurrencyType.Gold, int amount = 0)
     {
         PlaySound(isGain ? gainSound : spendSound);
 
-        if (showNotification && CurrencyNotificationUI.Instance != null)
+        if (showNotification && CurrencyNotificationUI.Instance != null && amount != 0)
         {
-            // Notification display is handled by FinalizeTransaction for multi-currency.
-            // For single currency, we can trigger a simple notification or skip if not needed.
+            var changes = new Dictionary<CurrencyType, int> { { type, isGain ? amount : -amount } };
+            CurrencyNotificationUI.Instance.Show(changes);
         }
 
         SaveSystem.SaveGame();

@@ -57,16 +57,15 @@ public class FusionManager : MonoBehaviour
             return null;
 
         var recipe = FindRecipe(a, b);
+        bool success = Random.value <= recipe.successChance;
+
+        if (!success)
+            return null;
+
         InventoryManager.Instance.RemoveItem(a, 1);
         InventoryManager.Instance.RemoveItem(b, 1);
-
-        if (Random.value <= recipe.successChance)
-        {
-            InventoryManager.Instance.AddItem(recipe.result, 1);
-            return recipe.result;
-        }
-
-        return null;
+        InventoryManager.Instance.AddItem(recipe.result, 1);
+        return recipe.result;
     }
 
     public bool CanUpgradeFuse(EquipmentData data)
@@ -199,7 +198,8 @@ public class FusionManager : MonoBehaviour
         {
             foreach (var (inst, qty) in InventoryManager.Instance.GetEquipmentInstances())
             {
-                if (inst.baseData.itemID != data.itemID) continue;
+                if (inst.baseData.itemID != data.itemID)
+                    continue;
 
                 for (int i = 0; i < qty; i++)
                     copies.Add(new EquipmentInstance(data, inst.upgradeLevel));

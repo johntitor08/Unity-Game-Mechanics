@@ -5,7 +5,7 @@ public class UndoRedoManager : MonoBehaviour
 {
     public static UndoRedoManager Instance { get; private set; }
     private readonly int maxHistory = 50;
-    private Stack<Texture2D[]> _undoStack = new();
+    private readonly LinkedList<Texture2D[]> _undoHistory = new();
     private readonly Stack<Texture2D[]> _redoStack = new();
 
     void Awake()
@@ -18,25 +18,25 @@ public class UndoRedoManager : MonoBehaviour
 
     public void Push(Texture2D[] layerSnapshots)
     {
-        if (_undoStack.Count >= maxHistory)
+        if (_undoHistory.Count >= maxHistory)
         {
-            var list = new List<Texture2D[]>(_undoStack);
-            list.RemoveAt(list.Count - 1);
-            _undoStack = new Stack<Texture2D[]>(list);
+            DestroySnapshot(_undoHistory.Last.Value);
+            _undoHistory.RemoveLast();
         }
 
-        _undoStack.Push(layerSnapshots);
-        _redoStack.Clear();
+        _undoHistory.AddFirst(layerSnapshots);
+        ClearRedoStack();
     }
 
     public Texture2D[] Undo()
     {
-        if (_undoStack.Count <= 1)
+        if (_undoHistory.Count <= 1)
             return null;
 
-        var current = _undoStack.Pop();
+        var current = _undoHistory.First.Value;
+        _undoHistory.RemoveFirst();
         _redoStack.Push(current);
-        return _undoStack.Peek();
+        return _undoHistory.First.Value;
     }
 
     public Texture2D[] Redo()
@@ -45,13 +45,37 @@ public class UndoRedoManager : MonoBehaviour
             return null;
 
         var state = _redoStack.Pop();
-        _undoStack.Push(state);
+        _undoHistory.AddFirst(state);
         return state;
     }
 
-    public bool CanUndo => _undoStack.Count > 1;
-
+    public bool CanUndo => _undoHistory.Count > 1;
     public bool CanRedo => _redoStack.Count > 0;
+
+    void ClearRedoStack()
+    {
+        while (_redoStack.Count > 0)
+            DestroySnapshot(_redoStack.Pop());
+    }
+
+    void DestroySnapshot(Texture2D[] snapshot)
+    {
+        if (snapshot == null)
+            return;
+
+        foreach (var tex in snapshot)
+            if (tex != null)
+                Destroy(tex);
+    }
+
+    void OnDestroy()
+    {
+        foreach (var snap in _undoHistory)
+            DestroySnapshot(snap);
+
+        _undoHistory.Clear();
+        ClearRedoStack();
+    }
 
     public static Texture2D[] TakeSnapshot(List<LayerManager.Layer> layers)
     {

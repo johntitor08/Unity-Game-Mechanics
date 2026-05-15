@@ -1,44 +1,52 @@
-using System;
+using UnityEngine;
+using TMPro;
 using System.Collections.Generic;
 
-[Serializable]
-public class SaveData
+public class QuestTrackerEntry : MonoBehaviour
 {
-    public int version = 1;
-    public string savedAt = "";
-    public string playerName = "Player";
-    public int playerLevel = 1;
-    public int playerExperience = 0;
-    public int playerExperienceToNext = 100;
-    public string currentScene;
-    public int sceneProgress;
-    public List<string> storyFlags = new();
-    public TimePhase currentTimePhase = TimePhase.Morning;
-    public int currentDay = 1;
-    public float phaseProgress = 0f;
-    public bool resumeDialogueOnLoad;
-    public List<string> inventoryKeys = new();
-    public List<int> inventoryCounts = new();
-    public List<EquippedItemSave> equippedItems = new();
-    public List<CurrencyType> currencyTypes = new();
-    public List<int> currencyAmounts = new();
-    public List<string> shopStockIDs = new();
-    public List<int> shopStockAmounts = new();
-    public List<StatType> statTypes = new();
-    public List<int> statValues = new();
-    public List<string> activeQuestIDs = new();
-    public List<QuestRuntimeState> activeQuests = new();
-    public List<string> completedQuests = new();
-    public List<string> trackedQuests = new();
-    public string activeScenarioID = "";
-    public int activeScenarioStep = 0;
-    public List<string> completedScenarios = new();
-}
+    [Header("UI Elements")]
+    public TextMeshProUGUI questNameText;
+    public Transform objectivesParent;
+    public TextMeshProUGUI objectiveTextPrefab;
 
-[Serializable]
-public class EquippedItemSave
-{
-    public EquipmentSlot slot;
-    public string itemID;
-    public int upgradeLevel;
+    private readonly List<TextMeshProUGUI> objectiveTexts = new();
+
+    public void Setup(QuestData quest)
+    {
+        if (QuestManager.Instance == null)
+            return;
+
+        if (questNameText != null)
+            questNameText.text = quest.questName;
+
+        var incompleteObjectives = new List<(QuestObjective obj, ObjectiveRuntimeState state)>();
+
+        foreach (var objective in quest.objectives)
+        {
+            var state = QuestManager.Instance.GetObjectiveState(quest.questID, objective.objectiveID);
+
+            if (!state.isCompleted)
+                incompleteObjectives.Add((objective, state));
+        }
+
+        while (objectiveTexts.Count < incompleteObjectives.Count)
+        {
+            var t = Instantiate(objectiveTextPrefab, objectivesParent);
+            objectiveTexts.Add(t);
+        }
+
+        for (int i = 0; i < objectiveTexts.Count; i++)
+        {
+            if (i < incompleteObjectives.Count)
+            {
+                var (obj, state) = incompleteObjectives[i];
+                objectiveTexts[i].text = $"• {obj.description} ({state.currentProgress}/{obj.GetRequiredCount()})";
+                objectiveTexts[i].gameObject.SetActive(true);
+            }
+            else
+            {
+                objectiveTexts[i].gameObject.SetActive(false);
+            }
+        }
+    }
 }

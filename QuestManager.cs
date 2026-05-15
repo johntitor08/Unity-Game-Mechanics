@@ -1,415 +1,623 @@
-using UnityEngine;
+﻿using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
 
-public class QuestManager : MonoBehaviour
+public class ProfileUI : MonoBehaviour
 {
-    public static QuestManager Instance;
-    public event Action<QuestData> OnQuestStarted;
-    public event Action<QuestData> OnQuestCompleted;
-    public event Action<QuestData> OnQuestFailed;
-    public event Action<QuestData> OnQuestAbandoned;
-    public event Action<QuestData, QuestObjective> OnObjectiveUpdated;
-    public event Action<QuestData, QuestObjective> OnObjectiveCompleted;
-    public event Action<QuestData> OnTrackingToggleRequested;
-    public event Action<QuestSaveData> OnSaveDataRequested;
-    public event Action<List<string>> OnTrackedQuestsLoaded;
-    public static event Action OnReady;
-    private readonly List<QuestData> activeQuests = new();
-    private readonly List<QuestData> completedQuests = new();
-    private readonly Dictionary<string, QuestRuntimeState> runtimeStates = new();
-    private readonly Dictionary<string, float> questTimers = new();
+    public static ProfileUI Instance;
+    private bool statsSubscribed = false;
+    private readonly int[] pendingStatIncreases = new int[6];
+    private readonly Dictionary<StatType, Vector3> _originalTextScales = new();
+    private readonly Dictionary<StatType, Coroutine> _pulseCoroutines = new();
+    private bool gameStarted = false;
 
-    [Header("Available Quests")]
-    public QuestData[] allQuests;
+    [Header("Panel")]
+    public GameObject profilePanel;
 
-    [Header("Quest Tracking")]
-    public int maxActiveQuests = 5;
-    public int maxDailyQuests = 3;
+    [Header("Profile Texts")]
+    public TextMeshProUGUI playerNameText;
+    public TextMeshProUGUI levelText;
+    public TextMeshProUGUI currencyText;
+    public TextMeshProUGUI expText;
+    public Slider expBar;
+    public TextMeshProUGUI statPointsText;
+
+    [Header("Profile Icon")]
+    public Image profileIcon;
+
+    [Header("Health Bar")]
+    public Slider healthBar;
+    public TextMeshProUGUI healthText;
+    public Image healthFillImage;
+    public Color healthHighColor = Color.green;
+    public Color healthMediumColor = Color.yellow;
+    public Color healthLowColor = Color.red;
+
+    [Header("Energy Bar")]
+    public Slider energyBar;
+    public TextMeshProUGUI energyText;
+    public Image energyFillImage;
+    public Color energyColor = new(0.3f, 0.5f, 1f);
+
+    [Header("Stats Display")]
+    public TextMeshProUGUI strengthText;
+    public TextMeshProUGUI intelligenceText;
+    public TextMeshProUGUI charismaText;
+    public TextMeshProUGUI defenseText;
+    public TextMeshProUGUI speedText;
+    public TextMeshProUGUI luckText;
+    public TextMeshProUGUI powerScoreText;
+
+    [Header("Stats Buttons")]
+    public Button strengthIncrementButton;
+    public Button intelligenceIncrementButton;
+    public Button charismaIncrementButton;
+    public Button defenseIncrementButton;
+    public Button speedIncrementButton;
+    public Button luckIncrementButton;
+    public Button strengthDecrementButton;
+    public Button intelligenceDecrementButton;
+    public Button charismaDecrementButton;
+    public Button defenseDecrementButton;
+    public Button speedDecrementButton;
+    public Button luckDecrementButton;
+
+    [Header("Stat Button Sprites")]
+    public Sprite incrementButtonDefault;
+    public Sprite incrementButtonAvailable;
+
+    [Header("Equipment Slots")]
+    public Button slot1; public Image slot1Icon;
+    public Button slot2; public Image slot2Icon;
+    public Button slot3; public Image slot3Icon;
+    public Button slot4; public Image slot4Icon;
+    public Button slot5; public Image slot5Icon;
+    public Button slot6; public Image slot6Icon;
+
+    [Header("Rarity Border Sprites")]
+    public Sprite commonBorder;
+    public Sprite rareBorder;
+    public Sprite epicBorder;
+    public Sprite legendaryBorder;
+    public Sprite godlyBorder;
+    public Sprite emptyBorder;
+
+    [Header("Settings")]
+    public KeyCode toggleKey = KeyCode.P;
+
+    [Header("Database")]
+    public ProfileIconDatabase iconDatabase;
 
     void Awake()
     {
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-            OnReady?.Invoke();
-        }
-        else
+        if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
+            return;
         }
-    }
 
-    void Start()
-    {
-        if (CombatManager.Instance != null)
-            CombatManager.Instance.OnCombatVictory += CheckKillObjectives;
-
-        if (InventoryManager.Instance != null)
-            InventoryManager.Instance.OnInventoryChanged += CheckCollectObjectives;
-
-        if (CurrencyManager.Instance != null)
-            CurrencyManager.Instance.OnCurrencySpent += CheckSpendObjectives;
+        Instance = this;
     }
 
     void Update()
     {
-        UpdateQuestTimers();
-    }
-
-    QuestRuntimeState GetOrCreateRuntimeState(string questID)
-    {
-        if (!runtimeStates.TryGetValue(questID, out var state))
-        {
-            state = new QuestRuntimeState(questID);
-            runtimeStates[questID] = state;
-        }
-
-        return state;
-    }
-
-    public ObjectiveRuntimeState GetObjectiveState(string questID, string objectiveID)
-    {
-        return GetOrCreateRuntimeState(questID).GetObjective(objectiveID);
-    }
-
-    void UpdateQuestTimers()
-    {
-        List<string> expiredQuests = new();
-
-        foreach (var kvp in questTimers)
-        {
-            questTimers[kvp.Key] -= Time.deltaTime;
-
-            if (questTimers[kvp.Key] <= 0)
-                expiredQuests.Add(kvp.Key);
-        }
-
-        foreach (var questID in expiredQuests)
-        {
-            var quest = GetActiveQuest(questID);
-
-            if (quest != null)
-                FailQuest(quest);
-        }
-    }
-
-    public bool CanStartQuest(QuestData quest)
-    {
-        if (IsQuestActive(quest.questID) || (IsQuestCompleted(quest.questID) && quest.questType != QuestType.Repeatable && quest.questType != QuestType.Daily) || activeQuests.Count >= maxActiveQuests || (ProfileManager.Instance != null && ProfileManager.Instance.profile.level < quest.requiredLevel))
-            return false;
-
-        if (quest.requiredFlags != null)
-            foreach (var flag in quest.requiredFlags)
-                if (!StoryFlags.Has(flag))
-                    return false;
-
-        if (quest.prerequisiteQuests != null)
-            foreach (var prereq in quest.prerequisiteQuests)
-                if (!IsQuestCompleted(prereq.questID))
-                    return false;
-
-        return true;
-    }
-
-    public bool StartQuest(QuestData quest)
-    {
-        if (!CanStartQuest(quest))
-            return false;
-
-        var runtimeState = new QuestRuntimeState(quest.questID);
-
-        foreach (var objective in quest.objectives)
-        {
-            var objState = runtimeState.GetObjective(objective.objectiveID);
-            objState.currentProgress = 0;
-            objState.isCompleted = false;
-            objective.onObjectiveStart?.Invoke();
-        }
-
-        runtimeStates[quest.questID] = runtimeState;
-        activeQuests.Add(quest);
-
-        if (quest.flagsToSetOnStart != null)
-            foreach (var flag in quest.flagsToSetOnStart)
-                StoryFlags.Add(flag);
-
-        if (quest.hasTimeLimit)
-            questTimers[quest.questID] = quest.timeLimitSeconds;
-
-        quest.onQuestStart?.Invoke();
-        OnQuestStarted?.Invoke(quest);
-        Debug.Log($"Quest started: {quest.questName}");
-        SaveSystem.SaveGame();
-        return true;
-    }
-
-    public void UpdateObjectiveProgress(string questID, string objectiveID, int amount = 1)
-    {
-        var quest = GetActiveQuest(questID);
-
-        if (quest == null)
+        if (!gameStarted)
             return;
 
-        var objective = GetObjective(quest, objectiveID);
-
-        if (objective == null)
-            return;
-
-        var objState = GetObjectiveState(questID, objectiveID);
-
-        if (objState.isCompleted)
-            return;
-
-        objState.currentProgress += amount;
-        int required = objective.GetRequiredCount();
-
-        if (objState.currentProgress >= required)
+        if (Input.GetKeyDown(toggleKey) && profilePanel != null)
         {
-            objState.currentProgress = required;
-            CompleteObjective(quest, objective, objState);
+            profilePanel.SetActive(!profilePanel.activeSelf);
+
+            if (profilePanel.activeSelf)
+                RefreshAll();
+        }
+    }
+
+    void OnEnable()
+    {
+        if (ProfileManager.Instance != null)
+        {
+            ProfileManager.Instance.OnProfileChanged -= RefreshProfile;
+            ProfileManager.Instance.OnProfileChanged += RefreshProfile;
+            ProfileManager.Instance.OnCurrencyChanged -= RefreshProfile;
+            ProfileManager.Instance.OnCurrencyChanged += RefreshProfile;
         }
         else
         {
-            OnObjectiveUpdated?.Invoke(quest, objective);
+            ProfileManager.OnReady -= OnProfileManagerReady;
+            ProfileManager.OnReady += OnProfileManagerReady;
         }
 
+        if (EquipmentManager.Instance != null)
+        {
+            EquipmentManager.Instance.OnEquipmentChanged -= RefreshEquipmentSlots;
+            EquipmentManager.Instance.OnEquipmentChanged += RefreshEquipmentSlots;
+            EquipmentManager.Instance.OnEquipmentChanged -= RefreshPowerScore;
+            EquipmentManager.Instance.OnEquipmentChanged += RefreshPowerScore;
+        }
+        else
+            EquipmentManager.OnReady += OnEquipmentManagerReady;
+
+        SetupEquipmentSlots();
+
+        if (PlayerStats.Instance != null)
+            SubscribeToStats();
+        else
+            PlayerStats.OnReady += SubscribeToStats;
+
+        WireStatButtons();
+        RefreshAll();
+    }
+
+    void OnDisable()
+    {
+        if (ProfileManager.Instance != null)
+        {
+            ProfileManager.Instance.OnProfileChanged -= RefreshProfile;
+            ProfileManager.Instance.OnCurrencyChanged -= RefreshProfile;
+        }
+
+        ProfileManager.OnReady -= OnProfileManagerReady;
+
+        if (EquipmentManager.Instance != null)
+        {
+            EquipmentManager.Instance.OnEquipmentChanged -= RefreshEquipmentSlots;
+            EquipmentManager.Instance.OnEquipmentChanged -= RefreshPowerScore;
+        }
+
+        EquipmentManager.OnReady -= OnEquipmentManagerReady;
+
+        if (statsSubscribed && PlayerStats.Instance != null)
+        {
+            PlayerStats.Instance.OnHealthChanged -= UpdateHealthBar;
+            PlayerStats.Instance.OnEnergyChanged -= UpdateEnergyBar;
+            PlayerStats.Instance.OnStatChanged -= OnStatChanged;
+            statsSubscribed = false;
+        }
+
+        PlayerStats.OnReady -= SubscribeToStats;
+
+        foreach (var kvp in _pulseCoroutines)
+            if (kvp.Value != null)
+                StopCoroutine(kvp.Value);
+
+        foreach (var kvp in _originalTextScales)
+        {
+            var t = GetTextForStat(kvp.Key);
+
+            if (t != null)
+                t.transform.localScale = kvp.Value;
+        }
+
+        _pulseCoroutines.Clear();
+        System.Array.Clear(pendingStatIncreases, 0, pendingStatIncreases.Length);
+    }
+
+    public void OnGameStarted()
+    {
+        gameStarted = true;
+    }
+
+    (Button btn, Image icon, EquipmentSlot slot)[] SlotDefs() => new[]
+    {
+        (slot1, slot1Icon, EquipmentSlot.Weapon),
+        (slot2, slot2Icon, EquipmentSlot.Armor),
+        (slot3, slot3Icon, EquipmentSlot.Helmet),
+        (slot4, slot4Icon, EquipmentSlot.Accessory),
+        (slot5, slot5Icon, EquipmentSlot.Shield),
+        (slot6, slot6Icon, EquipmentSlot.Boots),
+    };
+
+    void SetupEquipmentSlots()
+    {
+        foreach (var (btn, _, slotType) in SlotDefs())
+        {
+            if (btn == null)
+                continue;
+
+            EquipmentSlot captured = slotType;
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => OnSlotClicked(captured));
+        }
+
+        RefreshEquipmentSlots();
+    }
+
+    void OnSlotClicked(EquipmentSlot slotType)
+    {
+        if (EquipmentManager.Instance == null || EquipmentInfoPanel.Instance == null)
+            return;
+
+        EquipmentInstance inst = EquipmentManager.Instance.GetEquipped(slotType);
+
+        if (inst == null)
+            return;
+
+        EquipmentInfoPanel.Instance.ShowPanel(inst);
+    }
+
+    public void RefreshEquipmentSlots()
+    {
+        if (EquipmentManager.Instance == null)
+            return;
+
+        foreach (var (btn, icon, slotType) in SlotDefs())
+        {
+            if (btn == null)
+                continue;
+
+            EquipmentInstance inst = EquipmentManager.Instance.GetEquipped(slotType);
+            bool filled = inst != null;
+            var data = inst?.baseData;
+
+            if (icon != null)
+            {
+                icon.sprite = filled ? data.icon : null;
+                icon.enabled = filled;
+            }
+
+            if (btn.TryGetComponent<Image>(out var slotImg))
+            {
+                slotImg.sprite = filled ? GetRarityBorder(data.rarity) : emptyBorder;
+                slotImg.color = Color.white;
+            }
+
+            var clickable = btn.GetComponent<ClickableIcon>();
+
+            if (filled)
+            {
+                if (clickable == null)
+                    clickable = btn.gameObject.AddComponent<ClickableIcon>();
+            }
+            else
+            {
+                if (clickable != null)
+                    Destroy(clickable);
+            }
+
+            btn.interactable = filled;
+        }
+
+        UpdateHealthBar();
+    }
+
+    Sprite GetRarityBorder(Rarity rarity) => rarity switch
+    {
+        Rarity.Common => commonBorder,
+        Rarity.Rare => rareBorder,
+        Rarity.Epic => epicBorder,
+        Rarity.Legendary => legendaryBorder,
+        Rarity.Godly => godlyBorder,
+        _ => emptyBorder
+    };
+
+    void SubscribeToStats()
+    {
+        if (PlayerStats.Instance == null || statsSubscribed)
+            return;
+
+        PlayerStats.Instance.OnHealthChanged += UpdateHealthBar;
+        PlayerStats.Instance.OnEnergyChanged += UpdateEnergyBar;
+        PlayerStats.Instance.OnStatChanged += OnStatChanged;
+        statsSubscribed = true;
+        RefreshAll();
+    }
+
+    void OnProfileManagerReady()
+    {
+        ProfileManager.OnReady -= OnProfileManagerReady;
+        ProfileManager.Instance.OnProfileChanged -= RefreshProfile;
+        ProfileManager.Instance.OnProfileChanged += RefreshProfile;
+        ProfileManager.Instance.OnCurrencyChanged -= RefreshProfile;
+        ProfileManager.Instance.OnCurrencyChanged += RefreshProfile;
+        RefreshAll();
+    }
+
+    void OnEquipmentManagerReady()
+    {
+        EquipmentManager.OnReady -= OnEquipmentManagerReady;
+        EquipmentManager.Instance.OnEquipmentChanged -= RefreshEquipmentSlots;
+        EquipmentManager.Instance.OnEquipmentChanged += RefreshEquipmentSlots;
+        EquipmentManager.Instance.OnEquipmentChanged -= RefreshPowerScore;
+        EquipmentManager.Instance.OnEquipmentChanged += RefreshPowerScore;
+        SetupEquipmentSlots();
+    }
+
+    void WireStatButtons()
+    {
+        WireIncrDec(strengthIncrementButton, strengthDecrementButton, StatType.Strength, 0);
+        WireIncrDec(intelligenceIncrementButton, intelligenceDecrementButton, StatType.Intelligence, 1);
+        WireIncrDec(charismaIncrementButton, charismaDecrementButton, StatType.Charisma, 2);
+        WireIncrDec(defenseIncrementButton, defenseDecrementButton, StatType.Defense, 3);
+        WireIncrDec(speedIncrementButton, speedDecrementButton, StatType.Speed, 4);
+        WireIncrDec(luckIncrementButton, luckDecrementButton, StatType.Luck, 5);
+        RefreshStatButtons();
+    }
+
+    void WireIncrDec(Button incr, Button decr, StatType type, int index)
+    {
+        if (incr != null)
+        {
+            incr.onClick.RemoveAllListeners(); incr.onClick.AddListener(() => IncrementStat(type, index));
+        }
+
+        if (decr != null)
+        {
+            decr.onClick.RemoveAllListeners(); decr.onClick.AddListener(() => DecrementStat(type, index));
+        }
+
+    }
+
+    void IncrementStat(StatType type, int index)
+    {
+        if (ProfileManager.Instance == null)
+            return;
+
+        var profile = ProfileManager.Instance.profile;
+
+        if (profile == null || profile.statPoints <= 0 || PlayerStats.Instance == null)
+            return;
+
+        PlayerStats.Instance.Modify(type, 1);
+        profile.statPoints--;
+        pendingStatIncreases[index]++;
+        RefreshStatButtons();
+        RefreshStatPointsText();
         SaveSystem.SaveGame();
     }
 
-    void CompleteObjective(QuestData quest, QuestObjective objective, ObjectiveRuntimeState objState)
+    void DecrementStat(StatType type, int index)
     {
-        objState.isCompleted = true;
-        objective.onObjectiveComplete?.Invoke();
-        OnObjectiveCompleted?.Invoke(quest, objective);
-        Debug.Log($"Objective completed: {objective.description}");
-
-        bool allComplete = quest.objectives.All(obj =>
-            obj.isOptional || GetObjectiveState(quest.questID, obj.objectiveID).isCompleted);
-
-        if (allComplete)
-            CompleteQuest(quest);
-    }
-
-    public void CompleteQuest(QuestData quest)
-    {
-        if (!IsQuestActive(quest.questID))
+        if (pendingStatIncreases[index] <= 0 || PlayerStats.Instance == null)
             return;
 
-        activeQuests.Remove(quest);
+        PlayerStats.Instance.Modify(type, -1);
 
-        if (quest.questType != QuestType.Repeatable && quest.questType != QuestType.Daily)
-            completedQuests.Add(quest);
+        if (ProfileManager.Instance != null)
+            ProfileManager.Instance.profile.statPoints++;
 
-        if (questTimers.ContainsKey(quest.questID))
-            questTimers.Remove(quest.questID);
-
-        GiveQuestRewards(quest);
-
-        if (quest.flagsToSetOnComplete != null)
-            foreach (var flag in quest.flagsToSetOnComplete)
-                StoryFlags.Add(flag);
-
-        quest.onQuestComplete?.Invoke();
-        OnQuestCompleted?.Invoke(quest);
-
-        if (quest.completeDialogue != null && DialogueManager.Instance != null)
-            DialogueManager.Instance.StartDialogue(quest.completeDialogue);
-
-        Debug.Log($"Quest completed: {quest.questName}");
+        pendingStatIncreases[index]--;
+        RefreshStatButtons();
+        RefreshStatPointsText();
         SaveSystem.SaveGame();
     }
 
-    void GiveQuestRewards(QuestData quest)
+    void RefreshStatButtons()
     {
-        if (quest.experienceReward > 0 && ProfileManager.Instance != null)
-            ProfileManager.Instance.AddExperience(quest.experienceReward);
-
-        if (quest.currencyRewards != null)
-            foreach (var reward in quest.currencyRewards)
-                reward.Grant();
-
-        if (quest.itemRewards != null && InventoryManager.Instance != null)
-        {
-            for (int i = 0; i < quest.itemRewards.Length; i++)
-            {
-                int qty = (quest.itemRewardQuantities != null && i < quest.itemRewardQuantities.Length) ? quest.itemRewardQuantities[i] : 1;
-                InventoryManager.Instance.AddItem(quest.itemRewards[i], qty);
-            }
-        }
-
-        if (QuestRewardUI.Instance != null)
-            QuestRewardUI.Instance.ShowRewards(quest);
-    }
-
-    public void FailQuest(QuestData quest)
-    {
-        if (!IsQuestActive(quest.questID))
+        if (ProfileManager.Instance == null)
             return;
 
-        activeQuests.Remove(quest);
-
-        if (questTimers.ContainsKey(quest.questID))
-            questTimers.Remove(quest.questID);
-
-        quest.onQuestFail?.Invoke();
-        OnQuestFailed?.Invoke(quest);
-        Debug.Log($"Quest failed: {quest.questName}");
-        SaveSystem.SaveGame();
+        int pts = ProfileManager.Instance.profile?.statPoints ?? 0;
+        bool can = pts > 0;
+        SetIncrementButton(strengthIncrementButton, can);
+        SetIncrementButton(intelligenceIncrementButton, can);
+        SetIncrementButton(charismaIncrementButton, can);
+        SetIncrementButton(defenseIncrementButton, can);
+        SetIncrementButton(speedIncrementButton, can);
+        SetIncrementButton(luckIncrementButton, can);
+        SetButtonInteractable(strengthDecrementButton, pendingStatIncreases[0] > 0);
+        SetButtonInteractable(intelligenceDecrementButton, pendingStatIncreases[1] > 0);
+        SetButtonInteractable(charismaDecrementButton, pendingStatIncreases[2] > 0);
+        SetButtonInteractable(defenseDecrementButton, pendingStatIncreases[3] > 0);
+        SetButtonInteractable(speedDecrementButton, pendingStatIncreases[4] > 0);
+        SetButtonInteractable(luckDecrementButton, pendingStatIncreases[5] > 0);
     }
 
-    public void AbandonQuest(QuestData quest)
+    void SetIncrementButton(Button btn, bool canIncrement)
     {
-        if (!IsQuestActive(quest.questID))
+        if (btn == null)
             return;
 
-        activeQuests.Remove(quest);
+        btn.interactable = canIncrement;
 
-        if (questTimers.ContainsKey(quest.questID))
-            questTimers.Remove(quest.questID);
-
-        OnQuestAbandoned?.Invoke(quest);
-        Debug.Log($"Quest abandoned: {quest.questName}");
-        SaveSystem.SaveGame();
+        if (btn.TryGetComponent<Image>(out var img))
+            img.sprite = canIncrement && incrementButtonAvailable != null ? incrementButtonAvailable : incrementButtonDefault;
     }
 
-    public void ToggleTracking(QuestData quest)
+    static void SetButtonInteractable(Button btn, bool state)
     {
-        OnTrackingToggleRequested?.Invoke(quest);
+        if (btn != null)
+            btn.interactable = state;
     }
 
-    void CheckKillObjectives(EnemyData killedEnemy)
+    public void RefreshAll()
     {
-        if (killedEnemy == null)
+        RefreshProfile();
+        UpdateHealthBar();
+        UpdateEnergyBar();
+        RefreshAllStats();
+        RefreshEquipmentSlots();
+        RefreshPowerScore();
+    }
+
+    public void RefreshProfile(PlayerProfile profile = null)
+    {
+        if (ProfileManager.Instance == null)
             return;
 
-        foreach (var quest in activeQuests.ToList())
-        {
-            foreach (var objective in quest.objectives)
-            {
-                if (objective.type == QuestObjectiveType.KillEnemies && objective.targetEnemy == killedEnemy)
-                {
-                    var state = GetObjectiveState(quest.questID, objective.objectiveID);
+        profile ??= ProfileManager.Instance.profile;
 
-                    if (!state.isCompleted)
-                        UpdateObjectiveProgress(quest.questID, objective.objectiveID, 1);
-                }
-            }
-        }
-    }
-
-    void CheckCollectObjectives()
-    {
-        foreach (var quest in activeQuests.ToList())
-        {
-            foreach (var objective in quest.objectives)
-            {
-                if (objective.type != QuestObjectiveType.CollectItems)
-                    continue;
-
-                var state = GetObjectiveState(quest.questID, objective.objectiveID);
-
-                if (state.isCompleted)
-                    continue;
-
-                int currentCount = InventoryManager.Instance.GetQuantity(objective.targetItem);
-                int delta = currentCount - state.currentProgress;
-
-                if (delta > 0)
-                    UpdateObjectiveProgress(quest.questID, objective.objectiveID, delta);
-
-                var updatedState = GetObjectiveState(quest.questID, objective.objectiveID);
-
-                if (updatedState.isCompleted && objective.consumeItems)
-                    InventoryManager.Instance.RemoveItem(objective.targetItem, objective.itemCount);
-            }
-        }
-    }
-
-    void CheckSpendObjectives(CurrencyType type, int amount)
-    {
-        foreach (var quest in activeQuests)
-        {
-            foreach (var objective in quest.objectives)
-            {
-                if (objective.type == QuestObjectiveType.SpendCurrency && objective.currencyType == type)
-                {
-                    var state = GetObjectiveState(quest.questID, objective.objectiveID);
-
-                    if (!state.isCompleted)
-                        UpdateObjectiveProgress(quest.questID, objective.objectiveID, amount);
-                }
-            }
-        }
-    }
-
-    public QuestSaveData GetSaveData()
-    {
-        var data = new QuestSaveData
-        {
-            activeQuestIDs = activeQuests.Select(q => q.questID).ToList(),
-            completedQuestIDs = completedQuests.Select(q => q.questID).ToList(),
-            runtimeStates = runtimeStates.Values.ToList()
-        };
-
-        foreach (var kvp in questTimers)
-        {
-            data.questTimerKeys.Add(kvp.Key);
-            data.questTimerValues.Add(kvp.Value);
-        }
-
-        OnSaveDataRequested?.Invoke(data);
-
-        return data;
-    }
-
-    public void LoadSaveData(QuestSaveData data)
-    {
-        if (data == null)
+        if (profile == null)
             return;
 
-        activeQuests.Clear();
-        completedQuests.Clear();
-        runtimeStates.Clear();
-        questTimers.Clear();
+        playerNameText.text = profile.playerName;
+        levelText.text = $"Level {profile.level}";
+        int gold = CurrencyManager.Instance != null ? CurrencyManager.Instance.Get(CurrencyType.Gold) : 0;
+        currencyText.text = $"{gold} Gold";
+        expBar.maxValue = Mathf.Max(1, profile.experienceToNextLevel);
+        expBar.value = Mathf.Clamp(profile.experience, 0, profile.experienceToNextLevel);
+        expText.text = $"{profile.experience} / {profile.experienceToNextLevel} XP";
 
-        var questLookup = allQuests.ToDictionary(q => q.questID);
+        if (profileIcon != null && iconDatabase != null)
+        {
+            Sprite icon = iconDatabase.GetIconSprite(profile.profileIconID);
 
-        foreach (var id in data.activeQuestIDs)
-            if (questLookup.TryGetValue(id, out var q)) activeQuests.Add(q);
+            if (icon != null)
+                profileIcon.sprite = icon;
+        }
 
-        foreach (var id in data.completedQuestIDs)
-            if (questLookup.TryGetValue(id, out var q)) completedQuests.Add(q);
-
-        if (data.runtimeStates != null)
-            foreach (var state in data.runtimeStates)
-            {
-                state.RebuildLookup();
-                runtimeStates[state.questID] = state;
-            }
-
-        for (int i = 0; i < data.questTimerKeys.Count; i++)
-            questTimers[data.questTimerKeys[i]] = data.questTimerValues[i];
-
-        OnTrackedQuestsLoaded?.Invoke(data.trackedQuestIDs);
+        RefreshStatPointsText();
+        RefreshStatButtons();
     }
 
-    public bool IsQuestActive(string questID) => activeQuests.Any(q => q.questID == questID);
+    void RefreshStatPointsText()
+    {
+        if (statPointsText == null || ProfileManager.Instance == null)
+            return;
 
-    public bool IsQuestCompleted(string questID) => completedQuests.Any(q => q.questID == questID);
+        int pts = ProfileManager.Instance.profile?.statPoints ?? 0;
+        statPointsText.text = pts > 0 ? $"Stat Points: {pts}" : "Stat Points: 0";
+        statPointsText.color = pts > 0 ? Color.yellow : Color.white;
+    }
 
-    public QuestData GetActiveQuest(string questID) => activeQuests.FirstOrDefault(q => q.questID == questID);
+    void RefreshAllStats()
+    {
+        if (PlayerStats.Instance == null)
+            return;
 
-    public QuestObjective GetObjective(QuestData quest, string objectiveID) => quest.objectives.FirstOrDefault(o => o.objectiveID == objectiveID);
+        strengthText.text = $"Strength: {PlayerStats.Instance.Get(StatType.Strength)}";
+        intelligenceText.text = $"Intelligence: {PlayerStats.Instance.Get(StatType.Intelligence)}";
+        charismaText.text = $"Charisma: {PlayerStats.Instance.Get(StatType.Charisma)}";
+        defenseText.text = $"Defense: {PlayerStats.Instance.Get(StatType.Defense)}";
+        speedText.text = $"Speed: {PlayerStats.Instance.Get(StatType.Speed)}";
+        luckText.text = $"Luck: {PlayerStats.Instance.Get(StatType.Luck)}";
+    }
 
-    public List<QuestData> GetActiveQuests() => new(activeQuests);
+    void OnStatChanged(StatType type, int oldValue, int newValue)
+    {
+        if (PlayerStats.Instance == null)
+            return;
 
-    public List<QuestData> GetCompletedQuests() => new(completedQuests);
+        int val = PlayerStats.Instance.Get(type);
 
-    public List<QuestData> GetAvailableQuests() => allQuests.Where(CanStartQuest).ToList();
+        switch (type)
+        {
+            case StatType.Strength:
+                strengthText.text = $"Strength: {val}";
+                break;
 
-    public float GetQuestTimeRemaining(string questID) =>
-        questTimers.TryGetValue(questID, out float t) ? t : 0f;
+            case StatType.Intelligence:
+                intelligenceText.text = $"Intelligence: {val}";
+                break;
+
+            case StatType.Charisma:
+                charismaText.text = $"Charisma: {val}";
+                break;
+
+            case StatType.Defense:
+                defenseText.text = $"Defense: {val}";
+                break;
+
+            case StatType.Speed:
+                speedText.text = $"Speed: {val}";
+                break;
+
+            case StatType.Luck:
+                luckText.text = $"Luck: {val}";
+                break;
+        }
+
+        if (type == StatType.Health || type == StatType.Energy)
+            return;
+
+        if (_pulseCoroutines.TryGetValue(type, out var existing) && existing != null)
+            StopCoroutine(existing);
+
+        _pulseCoroutines[type] = StartCoroutine(PulseText(type, GetTextForStat(type)));
+        RefreshPowerScore();
+    }
+
+    TextMeshProUGUI GetTextForStat(StatType type) => type switch
+    {
+        StatType.Strength => strengthText,
+        StatType.Intelligence => intelligenceText,
+        StatType.Charisma => charismaText,
+        StatType.Defense => defenseText,
+        StatType.Speed => speedText,
+        StatType.Luck => luckText,
+        _ => null
+    };
+
+    void UpdateHealthBar()
+    {
+        if (PlayerStats.Instance == null)
+            return;
+
+        int cur = PlayerStats.Instance.Get(StatType.Health);
+        int max = PlayerStats.Instance.Get(StatType.MaxHealth);
+        float pct = PlayerStats.Instance.GetHealthPercentage();
+
+        if (healthBar != null)
+        {
+            healthBar.maxValue = max;
+            healthBar.value = cur;
+        }
+
+        if (healthText != null)
+            healthText.text = $"Health: {cur} / {max}";
+
+        if (healthFillImage != null)
+            healthFillImage.color = pct > 0.6f ? healthHighColor : pct > 0.3f ? healthMediumColor : healthLowColor;
+    }
+
+    void UpdateEnergyBar()
+    {
+        if (PlayerStats.Instance == null)
+            return;
+
+        int cur = PlayerStats.Instance.Get(StatType.Energy);
+        int max = PlayerStats.Instance.Get(StatType.MaxEnergy);
+
+        if (energyBar != null)
+        {
+            energyBar.maxValue = max;
+            energyBar.value = cur;
+        }
+
+        if (energyText != null)
+            energyText.text = $"Energy: {cur} / {max}";
+
+        if (energyFillImage != null)
+            energyFillImage.color = energyColor;
+    }
+
+    void RefreshPowerScore()
+    {
+        if (powerScoreText == null || PlayerStats.Instance == null)
+            return;
+
+        int score = (int)PlayerStats.Instance.GetPowerScore();
+        powerScoreText.text = $"Güç: {score}";
+    }
+
+    IEnumerator PulseText(StatType type, TextMeshProUGUI text)
+    {
+        if (text == null)
+            yield break;
+
+        if (!_originalTextScales.ContainsKey(type))
+            _originalTextScales[type] = text.transform.localScale;
+
+        Vector3 original = _originalTextScales[type];
+        Vector3 target = original * 1.2f;
+        float dur = 0.2f, t = 0f;
+
+        while (t < dur)
+        {
+            t += Time.deltaTime; text.transform.localScale = Vector3.Lerp(original, target, t / dur);
+            yield return null;
+        }
+
+        t = 0f;
+
+        while (t < dur)
+        {
+            t += Time.deltaTime; text.transform.localScale = Vector3.Lerp(target, original, t / dur);
+            yield return null;
+        }
+
+        text.transform.localScale = original;
+    }
 }

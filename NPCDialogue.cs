@@ -1,12 +1,15 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 
-public class NPCDialogue : MonoBehaviour
+public class NPCDialogue : MonoBehaviour, IPointerClickHandler
 {
     public DialogueNode startNode;
 
-    void OnMouseDown()
+    public void OnPointerClick(PointerEventData eventData)
     {
-        if (DialogueManager.Instance != null)
-            DialogueManager.Instance.StartDialogue(startNode);
+        if (DialogueManager.Instance == null || DialogueManager.Instance.State != DialogueState.Idle)
+            return;
+
+        DialogueManager.Instance.StartDialogue(startNode);
     }
 }

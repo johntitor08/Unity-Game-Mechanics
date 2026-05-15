@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 [System.Serializable]
@@ -9,6 +10,7 @@ public class ActiveStatusEffect
     public int currentStacks;
     public GameObject particleInstance;
     public int remainingRounds;
+    public readonly Dictionary<int, int> appliedModifierAmounts = new();
 
     public ActiveStatusEffect(StatusEffectData effectData)
     {

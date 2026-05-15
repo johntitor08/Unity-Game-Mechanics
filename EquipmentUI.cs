@@ -7,6 +7,7 @@ public class EquipmentUI : MonoBehaviour
     public static EquipmentUI Instance { get; private set; }
     private Dictionary<EquipmentSlot, EquipmentSlotUI> slotUIMap;
     private readonly List<TextMeshProUGUI> setBonusTexts = new();
+    private readonly List<TextMeshProUGUI> setBonusPool = new();
     private bool gameStarted = false;
 
     [Header("Panels")]
@@ -62,14 +63,29 @@ public class EquipmentUI : MonoBehaviour
     void SubscribeToEvents()
     {
         if (EquipmentManager.Instance != null)
+        {
             EquipmentManager.Instance.OnEquipmentChanged += RefreshUI;
+        }
+        else
+        {
+            EquipmentManager.OnReady += OnEquipmentManagerReady;
+        }
 
         if (CombatManager.Instance != null)
             CombatManager.Instance.OnCombatStateChanged += RefreshCombatStats;
     }
 
+    void OnEquipmentManagerReady()
+    {
+        EquipmentManager.OnReady -= OnEquipmentManagerReady;
+        EquipmentManager.Instance.OnEquipmentChanged += RefreshUI;
+        RefreshUI();
+    }
+
     void UnsubscribeFromEvents()
     {
+        EquipmentManager.OnReady -= OnEquipmentManagerReady;
+
         if (EquipmentManager.Instance != null)
             EquipmentManager.Instance.OnEquipmentChanged -= RefreshUI;
 
@@ -230,33 +246,32 @@ public class EquipmentUI : MonoBehaviour
 
     void RefreshSetBonuses()
     {
-        ClearSetBonusTexts();
-
         if (setBonusesParent == null || setBonusTextPrefab == null || EquipmentManager.Instance == null)
             return;
 
         var bonuses = EquipmentManager.Instance.GetActiveSetBonusDescriptions();
 
         if (bonuses.Count == 0)
-            CreateSetBonusText("<color=#888888>No set bonuses active</color>");
-        else
-            foreach (var b in bonuses) CreateSetBonusText(b);
-    }
+            bonuses = new System.Collections.Generic.List<string> { "<color=#888888>No set bonuses active</color>" };
 
-    void ClearSetBonusTexts()
-    {
-        foreach (var t in setBonusTexts)
-            if (t != null)
-                Destroy(t.gameObject);
+        while (setBonusTexts.Count < bonuses.Count)
+        {
+            var t = Instantiate(setBonusTextPrefab, setBonusesParent);
+            setBonusTexts.Add(t);
+        }
 
-        setBonusTexts.Clear();
-    }
-
-    void CreateSetBonusText(string text)
-    {
-        var t = Instantiate(setBonusTextPrefab, setBonusesParent);
-        t.text = text;
-        setBonusTexts.Add(t);
+        for (int i = 0; i < setBonusTexts.Count; i++)
+        {
+            if (i < bonuses.Count)
+            {
+                setBonusTexts[i].text = bonuses[i];
+                setBonusTexts[i].gameObject.SetActive(true);
+            }
+            else
+            {
+                setBonusTexts[i].gameObject.SetActive(false);
+            }
+        }
     }
 
     public EquipmentSlotUI GetSlotUI(EquipmentSlot slot) => slotUIMap.TryGetValue(slot, out var ui) ? ui : null;

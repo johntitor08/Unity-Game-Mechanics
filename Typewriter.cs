@@ -74,9 +74,17 @@ public class Typewriter : MonoBehaviour
         return c == '.' || c == ',' || c == '!' || c == '?' || c == ';' || c == ':';
     }
 
+    private AudioSource _audioSource;
+
+    void Awake()
+    {
+        _audioSource = gameObject.AddComponent<AudioSource>();
+        _audioSource.playOnAwake = false;
+    }
+
     void PlayTypeSound()
     {
-        if (Camera.main != null)
-            AudioSource.PlayClipAtPoint(typeSound, Camera.main.transform.position, typeSoundVolume);
+        if (_audioSource != null && typeSound != null)
+            _audioSource.PlayOneShot(typeSound, typeSoundVolume);
     }
 }

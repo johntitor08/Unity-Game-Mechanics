@@ -1,70 +1,98 @@
-using System.Collections.Generic;
+using UnityEngine;
 
-[System.Serializable]
-public class QuestRuntimeState
+public class QuestMarker : MonoBehaviour
 {
+    [Header("Quest")]
     public string questID;
-    public List<string> objectiveIDs = new();
-    public List<ObjectiveRuntimeState> objectiveStates = new();
-    [System.NonSerialized] private Dictionary<string, ObjectiveRuntimeState> objectives;
+    public string objectiveID;
 
-    public QuestRuntimeState(string questID)
+    [Header("Visual")]
+    public GameObject markerVisual;
+    public float floatHeight = 0.5f;
+    public float floatSpeed = 1f;
+
+    private Vector3 startPos;
+    private bool isVisible = false;
+    private System.Action<QuestData> onQuestStarted;
+    private System.Action<QuestData> onQuestCompleted;
+    private System.Action<QuestData, QuestObjective> onObjectiveCompleted;
+
+    void Start()
     {
-        this.questID = questID;
+        startPos = transform.position;
+        onQuestStarted = _ => RefreshVisibility();
+        onQuestCompleted = _ => RefreshVisibility();
+        onObjectiveCompleted = (_, __) => RefreshVisibility();
+        RefreshVisibility();
+
+        if (QuestManager.Instance != null)
+            Subscribe(QuestManager.Instance);
+        else
+            QuestManager.OnReady += OnQuestManagerReady;
     }
 
-    public void RebuildLookup()
+    void Update()
     {
-        objectives = new Dictionary<string, ObjectiveRuntimeState>();
+        if (!isVisible || markerVisual == null)
+            return;
 
-        for (int i = 0; i < objectiveIDs.Count && i < objectiveStates.Count; i++)
-            objectives[objectiveIDs[i]] = objectiveStates[i];
+        float newY = startPos.y + Mathf.Sin(Time.time * floatSpeed) * floatHeight;
+        transform.position = new Vector3(startPos.x, newY, startPos.z);
     }
 
-    void EnsureLookup()
+    void OnDestroy()
     {
-        if (objectives == null)
-            RebuildLookup();
+        QuestManager.OnReady -= OnQuestManagerReady;
+
+        if (QuestManager.Instance != null)
+            Unsubscribe(QuestManager.Instance);
     }
 
-    public ObjectiveRuntimeState GetObjective(string objectiveID)
+    void OnQuestManagerReady()
     {
-        EnsureLookup();
+        QuestManager.OnReady -= OnQuestManagerReady;
+        Subscribe(QuestManager.Instance);
+        RefreshVisibility();
+    }
 
-        if (!objectives.TryGetValue(objectiveID, out var state))
+    void Subscribe(QuestManager qm)
+    {
+        qm.OnQuestStarted += onQuestStarted;
+        qm.OnQuestCompleted += onQuestCompleted;
+        qm.OnObjectiveCompleted += onObjectiveCompleted;
+    }
+
+    void Unsubscribe(QuestManager qm)
+    {
+        qm.OnQuestStarted -= onQuestStarted;
+        qm.OnQuestCompleted -= onQuestCompleted;
+        qm.OnObjectiveCompleted -= onObjectiveCompleted;
+    }
+
+    void RefreshVisibility()
+    {
+        if (QuestManager.Instance == null)
+            return;
+
+        if (string.IsNullOrEmpty(objectiveID))
         {
-            state = new ObjectiveRuntimeState(objectiveID);
-            objectives[objectiveID] = state;
-            objectiveIDs.Add(objectiveID);
-            objectiveStates.Add(state);
+            isVisible = QuestManager.Instance.IsQuestActive(questID);
+        }
+        else
+        {
+            var quest = QuestManager.Instance.GetActiveQuest(questID);
+            isVisible = false;
+
+            if (quest != null)
+            {
+                var objective = QuestManager.Instance.GetObjective(quest, objectiveID);
+
+                if (objective != null)
+                    isVisible = !QuestManager.Instance.GetObjectiveState(questID, objectiveID).isCompleted;
+            }
         }
 
-        return state;
+        if (markerVisual != null)
+            markerVisual.SetActive(isVisible);
     }
-}
-
-[System.Serializable]
-public class ObjectiveRuntimeState
-{
-    public string objectiveID;
-    public int currentProgress;
-    public bool isCompleted;
-
-    public ObjectiveRuntimeState(string objectiveID)
-    {
-        this.objectiveID = objectiveID;
-        currentProgress = 0;
-        isCompleted = false;
-    }
-}
-
-[System.Serializable]
-public class QuestSaveData
-{
-    public List<string> activeQuestIDs = new();
-    public List<string> completedQuestIDs = new();
-    public List<QuestRuntimeState> runtimeStates = new();
-    public List<string> trackedQuestIDs = new();
-    public List<float> questTimerValues = new();
-    public List<string> questTimerKeys = new();
 }

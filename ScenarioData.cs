@@ -1,69 +1,43 @@
-using UnityEngine;
+using System;
+using System.Collections.Generic;
 
-[CreateAssetMenu(menuName = "Scenario/Scenario Data")]
-public class ScenarioData : ScriptableObject
+[Serializable]
+public class SaveData
 {
-    [Header("Scenario Info")]
-    public string scenarioID;
-    public string scenarioName;
-    [TextArea] public string description;
-    public Sprite thumbnail;
-
-    [Header("Requirements")]
-    public int requiredLevel = 1;
-    public string[] requiredFlags;
-    public ScenarioData[] prerequisiteScenarios;
-
-    [Header("Scenario Flow")]
-    public DialogueNode introDialogue;
-    public ScenarioStep[] steps;
-    public DialogueNode outroDialogue;
-
-    [Header("Rewards")]
-    public int experienceReward;
-    public CurrencyReward[] currencyRewards;
-    public ItemReward[] itemRewards;
-    public string[] flagsToSet;
-
-    [Header("Failure")]
-    public bool canFail = false;
-    public DialogueNode failureDialogue;
+    public int version = 1;
+    public string savedAt = "";
+    public string playerName = "Player";
+    public int playerLevel = 1;
+    public int playerExperience = 0;
+    public int playerExperienceToNext = 100;
+    public string currentScene;
+    public int sceneProgress;
+    public List<string> storyFlags = new();
+    public TimePhase currentTimePhase = TimePhase.Morning;
+    public int currentDay = 1;
+    public float phaseProgress = 0f;
+    public bool resumeDialogueOnLoad;
+    public List<string> inventoryKeys = new();
+    public List<int> inventoryCounts = new();
+    public List<EquippedItemSave> equippedItems = new();
+    public List<CurrencyType> currencyTypes = new();
+    public List<int> currencyAmounts = new();
+    public List<string> shopStockIDs = new();
+    public List<int> shopStockAmounts = new();
+    public List<StatType> statTypes = new();
+    public List<int> statValues = new();
+    public List<QuestRuntimeState> activeQuests = new();
+    public List<string> completedQuests = new();
+    public List<string> trackedQuests = new();
+    public string activeScenarioID = "";
+    public int activeScenarioStep = 0;
+    public List<string> completedScenarios = new();
 }
 
-[System.Serializable]
-public class ScenarioStep
+[Serializable]
+public class EquippedItemSave
 {
-    public string stepName;
-    [TextArea] public string stepDescription;
-    public ScenarioStepType type;
-
-    [Header("Step Data")]
-    public EnemyData enemy;
-    public DialogueNode dialogue;
-    public ItemData requiredItem;
-    [Min(1)] public int requiredQuantity = 1;
-    public string targetLocationTag;
-    [Min(0f)] public float waitDuration = 5f;
-
-    [Header("Events")]
-    public UnityEngine.Events.UnityEvent onStepStart;
-    public UnityEngine.Events.UnityEvent onStepComplete;
-    public UnityEngine.Events.UnityEvent onCustomStepEvent;
-}
-
-public enum ScenarioStepType
-{
-    Dialogue,
-    Combat,
-    CollectItem,
-    GoToLocation,
-    Wait,
-    Custom
-}
-
-[System.Serializable]
-public class ItemReward
-{
-    public ItemData item;
-    public int quantity = 1;
+    public EquipmentSlot slot;
+    public string itemID;
+    public int upgradeLevel;
 }

@@ -1,33 +1,37 @@
 using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 
-public class QuestTrackerEntry : MonoBehaviour
+public class QuestObjectiveUI : MonoBehaviour
 {
     [Header("UI Elements")]
-    public TextMeshProUGUI questNameText;
-    public Transform objectivesParent;
-    public TextMeshProUGUI objectiveTextPrefab;
+    public TextMeshProUGUI descriptionText;
+    public TextMeshProUGUI progressText;
+    public Slider progressBar;
+    public Image checkmarkIcon;
 
-    public void Setup(QuestData quest)
+    public void Setup(QuestObjective objective, ObjectiveRuntimeState state)
     {
-        if (QuestManager.Instance == null)
-            return;
+        if (descriptionText != null)
+            descriptionText.text = objective.description;
 
-        if (questNameText != null)
-            questNameText.text = quest.questName;
+        UpdateProgress(objective, state);
+    }
 
-        foreach (Transform child in objectivesParent)
-            Destroy(child.gameObject);
+    public void UpdateProgress(QuestObjective objective, ObjectiveRuntimeState state)
+    {
+        int required = objective.GetRequiredCount();
 
-        foreach (var objective in quest.objectives)
+        if (progressText != null)
+            progressText.text = $"{state.currentProgress}/{required}";
+
+        if (progressBar != null)
         {
-            var state = QuestManager.Instance.GetObjectiveState(quest.questID, objective.objectiveID);
-
-            if (state.isCompleted)
-                continue;
-
-            var objText = Instantiate(objectiveTextPrefab, objectivesParent);
-            objText.text = $"• {objective.description} ({state.currentProgress}/{objective.GetRequiredCount()})";
+            float pct = required == 0 ? 1f : Mathf.Clamp01((float)state.currentProgress / required);
+            progressBar.value = pct;
         }
+
+        if (checkmarkIcon != null)
+            checkmarkIcon.gameObject.SetActive(state.isCompleted);
     }
 }

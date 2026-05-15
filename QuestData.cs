@@ -1,77 +1,30 @@
 using UnityEngine;
-using UnityEngine.Events;
+using System.Collections.Generic;
 
-[CreateAssetMenu(fileName = "Quest", menuName = "Quest/Quest Data")]
-public class QuestData : ScriptableObject
+[CreateAssetMenu(fileName = "ProfileIconDatabase", menuName = "Database/ProfileIconDatabase")]
+public class ProfileIconDatabase : ScriptableObject
 {
-    [Header("Quest Info")]
-    public string questID;
-    public string questName;
-    [TextArea(3, 6)]
-    public string description;
-    public Sprite icon;
-    public QuestType questType = QuestType.Main;
-    public QuestDifficulty difficulty = QuestDifficulty.Normal;
+    public List<IconEntry> icons;
+    private static ProfileIconDatabase _instance;
+    public static ProfileIconDatabase Instance => _instance;
+    private void OnEnable() => _instance = this;
 
-    [Header("Requirements")]
-    public int requiredLevel = 1;
-    public string[] requiredFlags;
-    public QuestData[] prerequisiteQuests;
+    public Sprite GetIconSprite(string id)
+    {
+        foreach (var icon in icons)
+            if (icon.id == id) return icon.sprite;
 
-    [Header("Quest Objectives")]
-    public QuestObjective[] objectives;
+        return null;
+    }
 
-    [Header("Dialogue")]
-    public DialogueNode startDialogue;
-    public DialogueNode progressDialogue;
-    public DialogueNode completeDialogue;
-    public DialogueNode failureDialogue;
-
-    [Header("Rewards")]
-    public int experienceReward = 100;
-    public CurrencyReward[] currencyRewards;
-    public ItemData[] itemRewards;
-    public int[] itemRewardQuantities;
-
-    [Header("Optional Rewards (Choose One)")]
-    public ItemData[] optionalRewards;
-
-    [Header("Quest Tracking")]
-    public bool trackObjectives = true;
-    public bool showOnMap = true;
-    public Vector3 questMarkerPosition;
-
-    [Header("Time Limit")]
-    public bool hasTimeLimit = false;
-    public float timeLimitSeconds = 300f;
-
-    [Header("Failure")]
-    public bool canFail = false;
-
-    [Header("Events")]
-    public UnityEvent onQuestStart;
-    public UnityEvent onQuestComplete;
-    public UnityEvent onQuestFail;
-
-    [Header("Flags")]
-    public string[] flagsToSetOnStart;
-    public string[] flagsToSetOnComplete;
+    public static Sprite GetSprite(string id) => _instance != null ? _instance.GetIconSprite(id) : null;
 }
 
-public enum QuestType
+[System.Serializable]
+public struct IconEntry
 {
-    Main,
-    Side,
-    Daily,
-    Repeatable,
-    Event
-}
-
-public enum QuestDifficulty
-{
-    Easy,
-    Normal,
-    Hard,
-    Elite,
-    Epic
+    public string id;
+    public Sprite sprite;
+    public int cost;
+    public string displayName;
 }

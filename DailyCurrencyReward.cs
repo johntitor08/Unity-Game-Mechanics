@@ -7,13 +7,20 @@ public class DailyCurrencyReward : MonoBehaviour
     public CurrencyType rewardType = CurrencyType.Gold;
     public int baseRewardAmount = 100;
     public int streakBonus = 50;
+    public int maxStreak = 30;
 
     private DateTime lastClaimDate;
     private int currentStreak = 0;
 
     void Start() => LoadLastClaimDate();
 
-    public bool CanClaim() => lastClaimDate == DateTime.MinValue || (DateTime.Now - lastClaimDate).TotalHours >= 24;
+    public bool CanClaim()
+    {
+        if (lastClaimDate == DateTime.MinValue || DateTime.Now < lastClaimDate)
+            return true;
+
+        return (DateTime.Now - lastClaimDate).TotalHours >= 24;
+    }
 
     public void ClaimDailyReward()
     {
@@ -25,7 +32,8 @@ public class DailyCurrencyReward : MonoBehaviour
 
         bool isFirstClaim = lastClaimDate == DateTime.MinValue;
         TimeSpan timeSinceClaim = isFirstClaim ? TimeSpan.Zero : DateTime.Now - lastClaimDate;
-        currentStreak = (!isFirstClaim && timeSinceClaim.TotalHours >= 24 && timeSinceClaim.TotalHours < 48) ? currentStreak + 1 : 1;
+        bool maintainsStreak = !isFirstClaim && timeSinceClaim.TotalHours >= 24 && timeSinceClaim.TotalHours < 48;
+        currentStreak = maintainsStreak ? Mathf.Min(currentStreak + 1, maxStreak) : 1;
         int totalReward = baseRewardAmount + (streakBonus * Mathf.Max(0, currentStreak - 1));
 
         if (CurrencyManager.Instance != null)
@@ -40,7 +48,7 @@ public class DailyCurrencyReward : MonoBehaviour
 
         lastClaimDate = DateTime.Now;
         SaveLastClaimDate();
-        Debug.Log($"Daily reward claimed! {totalReward} {rewardType} (Streak: {currentStreak})");
+        Debug.Log($"Daily reward claimed! {totalReward} {rewardType} (Streak: {currentStreak}/{maxStreak})");
     }
 
     void SaveLastClaimDate()

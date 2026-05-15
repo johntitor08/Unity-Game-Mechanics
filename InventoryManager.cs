@@ -8,6 +8,7 @@ public class InventoryManager : MonoBehaviour
     public static event Action OnReady;
     public event Action OnInventoryChanged;
     private readonly Dictionary<string, int> stock = new();
+    private readonly Dictionary<string, int> totalByItemID = new();
 
     void Awake()
     {
@@ -53,6 +54,8 @@ public class InventoryManager : MonoBehaviour
     void AddInternal(string key, int amount)
     {
         stock[key] = stock.TryGetValue(key, out int cur) ? cur + amount : amount;
+        string itemID = key.Substring(0, key.LastIndexOf(':'));
+        totalByItemID[itemID] = totalByItemID.TryGetValue(itemID, out int t) ? t + amount : amount;
         OnInventoryChanged?.Invoke();
     }
 
@@ -72,6 +75,18 @@ public class InventoryManager : MonoBehaviour
         else
             stock[key] = cur - amount;
 
+        string itemID = key.Substring(0, key.LastIndexOf(':'));
+
+        if (totalByItemID.TryGetValue(itemID, out int t))
+        {
+            int newTotal = t - amount;
+
+            if (newTotal <= 0)
+                totalByItemID.Remove(itemID);
+            else
+                totalByItemID[itemID] = newTotal;
+        }
+
         OnInventoryChanged?.Invoke();
         return true;
     }
@@ -84,16 +99,7 @@ public class InventoryManager : MonoBehaviour
 
     public int GetUpgradedQuantity(EquipmentData data, int upgradeLevel) => data == null ? 0 : stock.TryGetValue(Key(data, upgradeLevel), out int q) ? q : 0;
 
-    public int GetTotalQuantity(string itemID)
-    {
-        int total = 0;
-
-        foreach (var kv in stock)
-            if (kv.Key.StartsWith(itemID + ":"))
-                total += kv.Value;
-
-        return total;
-    }
+    public int GetTotalQuantity(string itemID) => totalByItemID.TryGetValue(itemID, out int total) ? total : 0;
 
     public bool HasDuplicates(EquipmentData data) => GetTotalQuantity(data.itemID) >= 2;
 
@@ -194,13 +200,13 @@ public class InventoryManager : MonoBehaviour
             return null;
 
         var db = ItemDatabase.Instance;
-
         return db == null ? null : db.GetByID(id);
     }
 
     public void Clear()
     {
         stock.Clear();
+        totalByItemID.Clear();
         OnInventoryChanged?.Invoke();
     }
 }

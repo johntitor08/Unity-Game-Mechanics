@@ -1,124 +1,562 @@
 using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
-using System.Collections.Generic;
+using UnityEngine.UI;
+using System.Collections;
 
-public class IconSelectionUI : MonoBehaviour
+public class GameStartNameInput : MonoBehaviour
 {
-    [Header("Panel")]
-    public GameObject selectionPanel;
-    public KeyCode toggleKey = KeyCode.I;
+    private static readonly WaitForSeconds _waitForSeconds1 = new(1f);
+    private static readonly WaitForSeconds _waitForSeconds1_5 = new(1.5f);
+    private static readonly WaitForSeconds _waitForSeconds0_5 = new(0.5f);
+    public static GameStartNameInput Instance;
+    private bool typewriterFinished = false;
+    private bool hasStarted = false;
 
-    [Header("Grid")]
-    public Transform iconGrid;
-    public GameObject iconSlotPrefab;
+    [Header("Panels")]
+    public GameObject nameInputPanel;
 
-    [Header("Database")]
-    public ProfileIconDatabase iconDatabase;
+    [Header("Input Fields")]
+    public TMP_InputField nameInputField;
+    public TextMeshProUGUI characterCountText;
+    public TextMeshProUGUI errorMessageText;
 
-    [Header("Selected Preview")]
-    public Image previewImage;
-    public TextMeshProUGUI previewNameText;
-    public TextMeshProUGUI previewCostText;
-    public Button selectButton;
-    public TextMeshProUGUI selectButtonText;
-    private string hoveredIconID;
-    private readonly List<IconSlotUI> spawnedSlots = new();
+    [Header("Buttons")]
+    public Button confirmButton;
+    public Button randomNameButton;
 
-    private void OnEnable()
+    [Header("Visual Elements")]
+    public Image playerPreviewImage;
+    public TextMeshProUGUI welcomeText;
+    public TextMeshProUGUI instructionText;
+
+    [Header("Name Settings")]
+    public int minNameLength = 3;
+    public int maxNameLength = 15;
+    public bool allowSpaces = true;
+    public bool allowNumbers = false;
+    public bool allowSpecialCharacters = false;
+
+    [Header("Start Dialogue")]
+    public DialogueNode startDialogueNode;
+
+    [Header("Random Names")]
+    public string[] randomNames = new string[]
     {
-        ProfileManager.Instance.OnProfileChanged += OnProfileChanged;
-        BuildGrid();
-    }
+        "Raven",
+        "Blaze",
+        "Shadow",
+        "Storm",
+        "Ash",
+        "Viper",
+        "Fang",
+        "Drake",
+        "Phoenix",
+        "Ghost",
+        "Onyx",
+        "Nova",
+        "Reaper",
+        "Wolf",
+        "Hawk",
+        "Valor",
+        "Iron",
+        "Steel",
+        "Crusader",
+        "Knightfall",
+        "Bulwark",
+        "Sentinel",
+        "Warden",
+        "Paladin",
+        "Vanguard",
+        "Shade",
+        "Night",
+        "Blade",
+        "Silent",
+        "Rift",
+        "Specter",
+        "Venom",
+        "Whisper",
+        "Obsidian",
+        "Hex",
+        "Void",
+        "Arcane",
+        "Eclipse",
+        "Runeblade",
+        "Frost",
+        "Inferno",
+        "Aether",
+        "Oracle",
+        "Zephyr",
+        "Tempest",
+        "Titan",
+        "Colossus",
+        "Juggernaut",
+        "Phantom",
+        "Mirage",
+        "Cipher",
+        "NovaStrike",
+        "ShadowFang",
+        "CrimsonWolf",
+        "SilverHawk",
+        "GoldenDragon",
+        "DarkPhoenix",
+        "StormRider",
+        "LunarKnight",
+        "SolarFlare",
+        "ThunderClaw",
+        "BlazingArrow",
+        "FrostBite",
+        "VenomousViper",
+        "SilentShadow",
+        "ObsidianBlade",
+        "ArcaneMage",
+        "VoidWalker",
+        "NightStalker",
+        "RiftRunner",
+        "SpectralWraith",
+        "CelestialGuardian",
+        "GalacticRanger",
+        "CosmicSorcerer",
+        "StellarWarrior",
+        "QuantumAssassin",
+        "NeonNinja",
+        "CyberSamurai",
+        "TechnoMage",
+        "DigitalDruid",
+        "PixelPaladin",
+        "VirtualValkyrie",
+        "MatrixMonk",
+        "DataDemon",
+        "CodeCrusader",
+        "ScriptSage",
+        "BinaryBerserker",
+        "AlgorithmArcher",
+        "LogicLancer",
+        "SyntaxSwordsman"
+    };
 
-    private void OnDisable()
-    {
-        if (ProfileManager.Instance != null)
-            ProfileManager.Instance.OnProfileChanged -= OnProfileChanged;
-    }
+    [Header("Audio")]
+    public AudioClip confirmSound;
+    public AudioClip errorSound;
+    public AudioClip typeSound;
 
-    private void Update()
+    [Header("Animation")]
+    public Animator panelAnimator;
+    public bool useTypewriterEffect = true;
+    public float typewriterSpeed = 0.05f;
+
+    void Awake()
     {
-        if (Input.GetKeyDown(toggleKey) && selectionPanel != null)
+        if (Instance == null)
         {
-            selectionPanel.SetActive(!selectionPanel.activeSelf);
-
-            if (selectionPanel.activeSelf)
-                BuildGrid();
-        }
-    }
-
-    private void BuildGrid()
-    {
-        foreach (var slot in spawnedSlots)
-            if (slot != null) Destroy(slot.gameObject);
-
-        spawnedSlots.Clear();
-        if (iconDatabase == null || iconGrid == null || iconSlotPrefab == null) return;
-
-        foreach (var entry in iconDatabase.icons)
-        {
-            var go = Instantiate(iconSlotPrefab, iconGrid);
-            var slot = go.GetComponent<IconSlotUI>();
-            if (slot == null) continue;
-            bool unlocked = ProfileManager.Instance.IsIconUnlocked(entry.id);
-            bool selected = ProfileManager.Instance.profile.profileIconID == entry.id;
-            slot.Setup(entry, unlocked, selected, OnSlotClicked);
-            spawnedSlots.Add(slot);
-        }
-    }
-
-    private void OnSlotClicked(string iconID)
-    {
-        hoveredIconID = iconID;
-        var entry = iconDatabase.icons.Find(e => e.id == iconID);
-        bool unlocked = ProfileManager.Instance.IsIconUnlocked(iconID);
-        bool selected = ProfileManager.Instance.profile.profileIconID == iconID;
-
-        if (previewImage != null)
-            previewImage.sprite = entry.sprite;
-
-        if (previewNameText != null)
-            previewNameText.text = entry.displayName;
-
-        if (previewCostText != null)
-            previewCostText.text = unlocked ? "Unlocked" : $"{entry.cost} Gold";
-
-        if (selectButton != null)
-        {
-            selectButton.interactable = !selected;
-
-            if (selectButtonText != null)
-            {
-                if (selected) selectButtonText.text = "Selected";
-                else if (unlocked) selectButtonText.text = "Select";
-                else selectButtonText.text = $"Buy ({entry.cost} Gold)";
-            }
-        }
-    }
-
-    public void OnSelectButtonClicked()
-    {
-        if (string.IsNullOrEmpty(hoveredIconID)) return;
-        bool unlocked = ProfileManager.Instance.IsIconUnlocked(hoveredIconID);
-
-        if (unlocked)
-        {
-            ProfileManager.Instance.SelectIcon(hoveredIconID);
+            Instance = this;
         }
         else
         {
-            var entry = iconDatabase.icons.Find(e => e.id == hoveredIconID);
-            bool success = ProfileManager.Instance.PurchaseIcon(hoveredIconID, entry.cost);
+            Destroy(gameObject);
+            return;
+        }
+    }
 
-            if (success)
-                ProfileManager.Instance.SelectIcon(hoveredIconID);
+    void Start()
+    {
+        SetupUI();
+        CheckExistingProfile();
+    }
+
+    void SetupUI()
+    {
+        typewriterFinished = !useTypewriterEffect;
+
+        if (confirmButton != null)
+        {
+            confirmButton.onClick.AddListener(TryConfirm);
+            confirmButton.interactable = false;
+        }
+
+        if (randomNameButton != null)
+            randomNameButton.onClick.AddListener(OnRandomNameClicked);
+
+        if (nameInputField != null)
+        {
+            nameInputField.characterLimit = maxNameLength;
+            nameInputField.onValueChanged.AddListener(OnNameChanged);
+            nameInputField.onSubmit.AddListener(OnSubmit);
+        }
+
+        if (errorMessageText != null)
+            errorMessageText.gameObject.SetActive(false);
+
+        if (useTypewriterEffect && welcomeText != null)
+        {
+            string originalText = welcomeText.text;
+            welcomeText.text = "";
+            StartCoroutine(TypewriterEffect(welcomeText, originalText, typewriterSpeed));
+        }
+    }
+
+    void CheckExistingProfile()
+    {
+        if (SaveSystem.HasSaveFile())
+        {
+            if (nameInputPanel != null)
+                nameInputPanel.SetActive(false);
+
+            InitializeGameContinue();
+            return;
+        }
+
+        if (nameInputPanel != null)
+        {
+            nameInputPanel.SetActive(true);
+
+            if (nameInputField != null)
+                StartCoroutine(FocusInputField());
+        }
+    }
+
+    void InitializeGame()
+    {
+        if (PlayerStats.Instance != null)
+            PlayerStats.Instance.FullRestore();
+
+        if (DialogueManager.Instance != null && startDialogueNode != null)
+            DialogueManager.Instance.StartDialogue(startDialogueNode);
+
+        InitializeGameContinue();
+    }
+
+    void InitializeGameContinue()
+    {
+        if (ProfileUI.Instance != null)
+            ProfileUI.Instance.OnGameStarted();
+
+        if (InventoryUI.Instance != null)
+            InventoryUI.Instance.OnGameStarted();
+
+        if (EquipmentUI.Instance != null)
+            EquipmentUI.Instance.OnGameStarted();
+
+        if (MarketUI.Instance != null)
+            MarketUI.Instance.OnGameStarted();
+
+        if (CurrencyUI.Instance != null)
+            CurrencyUI.Instance.OnGameStarted();
+    }
+
+    IEnumerator FocusInputField()
+    {
+        yield return _waitForSeconds0_5;
+
+        if (nameInputField != null)
+        {
+            nameInputField.ActivateInputField();
+        }
+    }
+
+    void OnNameChanged(string newName)
+    {
+        if (characterCountText != null)
+        {
+            characterCountText.text = $"{newName.Length} / {maxNameLength}";
+        }
+
+        bool isValid = ValidateName(newName, out string errorMessage);
+
+        if (errorMessageText != null)
+        {
+            if (!isValid && newName.Length > 0)
+            {
+                errorMessageText.text = errorMessage;
+                errorMessageText.gameObject.SetActive(true);
+            }
             else
             {
-                Debug.Log("Not enough currency.");
+                errorMessageText.gameObject.SetActive(false);
+            }
+        }
+
+        if (confirmButton != null)
+        {
+            confirmButton.interactable = isValid && typewriterFinished;
+        }
+
+        if (typeSound != null && newName.Length > 0)
+        {
+            PlaySound(typeSound);
+        }
+    }
+
+    bool ValidateName(string name, out string errorMessage)
+    {
+        errorMessage = "";
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            errorMessage = "Ýsim boþ olamaz!";
+            return false;
+        }
+
+        if (name.Length < minNameLength)
+        {
+            errorMessage = $"Ýsim en az {minNameLength} karakter olmalý!";
+            return false;
+        }
+
+        if (name.Length > maxNameLength)
+        {
+            errorMessage = $"Ýsim en fazla {maxNameLength} karakter olabilir!";
+            return false;
+        }
+
+        if (!allowSpaces && name.Contains(" "))
+        {
+            errorMessage = "Ýsimde boþluk kullanýlamaz!";
+            return false;
+        }
+
+        if (!allowNumbers && ContainsNumbers(name))
+        {
+            errorMessage = "Ýsimde sayý kullanýlamaz!";
+            return false;
+        }
+
+        if (!allowSpecialCharacters && ContainsSpecialCharacters(name))
+        {
+            errorMessage = "Ýsimde özel karakter kullanýlamaz!";
+            return false;
+        }
+
+        if (IsProfane(name))
+        {
+            errorMessage = "Lütfen uygun bir isim seçin!";
+            return false;
+        }
+
+        return true;
+    }
+
+    bool ContainsNumbers(string text)
+    {
+        foreach (char c in text)
+        {
+            if (char.IsDigit(c))
+                return true;
+        }
+
+        return false;
+    }
+
+    bool ContainsSpecialCharacters(string text)
+    {
+        foreach (char c in text)
+        {
+            if (!char.IsLetterOrDigit(c) && c != ' ' && c != '_')
+                return true;
+        }
+
+        return false;
+    }
+
+    bool IsProfane(string text)
+    {
+        string[] badWords = { };
+        string lowerText = text.ToLower();
+
+        foreach (string badWord in badWords)
+        {
+            if (lowerText.Contains(badWord.ToLower()))
+                return true;
+        }
+
+        return false;
+    }
+
+    void OnSubmit(string value)
+    {
+        if (!typewriterFinished)
+            return;
+
+        TryConfirm();
+    }
+
+    void TryConfirm()
+    {
+        if (!typewriterFinished || nameInputField == null)
+            return;
+
+        string playerName = nameInputField.text.Trim();
+
+        if (!ValidateName(playerName, out string error))
+        {
+            ShowError(error);
+            return;
+        }
+
+        OnConfirmClicked();
+    }
+
+    void OnConfirmClicked()
+    {
+        string playerName = nameInputField.text.Trim();
+
+        if (!ValidateName(playerName, out string errorMessage))
+        {
+            ShowError(errorMessage);
+            PlaySound(errorSound);
+            return;
+        }
+
+        confirmButton.gameObject.SetActive(false);
+        randomNameButton.gameObject.SetActive(false);
+        StartGame(playerName);
+        PlaySound(confirmSound);
+    }
+
+    void OnRandomNameClicked()
+    {
+        if (randomNames.Length == 0)
+            return;
+
+        string randomName = randomNames[Random.Range(0, randomNames.Length)];
+
+        if (nameInputField != null)
+        {
+            nameInputField.text = randomName;
+        }
+    }
+
+    void StartGame(string playerName)
+    {
+        if (hasStarted)
+            return;
+
+        hasStarted = true;
+
+        if (ProfileManager.Instance != null)
+        {
+            ProfileManager.Instance.SetPlayerName(playerName);
+        }
+
+        if (ProfileUI.Instance != null)
+        {
+            ProfileUI.Instance.RefreshAll();
+        }
+
+        if (welcomeText != null)
+            StartCoroutine(ShowWelcomeMessage(playerName));
+        else
+            CompleteStart();
+
+        PlaySound(confirmSound);
+    }
+
+    IEnumerator ShowWelcomeMessage(string playerName)
+    {
+        string welcomeMessage = $"Hoþ geldin, {playerName}!";
+
+        if (welcomeText != null)
+        {
+            welcomeText.text = "";
+            yield return StartCoroutine(TypewriterEffect(welcomeText, welcomeMessage, typewriterSpeed));
+            yield return _waitForSeconds1_5;
+        }
+
+        CompleteStart();
+    }
+
+    void CompleteStart()
+    {
+        if (panelAnimator != null)
+        {
+            panelAnimator.SetTrigger("FadeOut");
+            StartCoroutine(WaitForAnimation());
+        }
+        else
+        {
+            FinalizeStart();
+        }
+    }
+
+    IEnumerator WaitForAnimation()
+    {
+        yield return _waitForSeconds1;
+        FinalizeStart();
+    }
+
+    void FinalizeStart()
+    {
+        if (nameInputPanel != null)
+            nameInputPanel.SetActive(false);
+
+        InitializeGame();
+    }
+
+    void ShowError(string message)
+    {
+        if (errorMessageText != null)
+        {
+            errorMessageText.text = message;
+            errorMessageText.gameObject.SetActive(true);
+            StartCoroutine(ShakeEffect(errorMessageText.gameObject));
+        }
+    }
+
+    IEnumerator ShakeEffect(GameObject target)
+    {
+        Vector3 originalPos = target.transform.localPosition;
+        float duration = 0.5f;
+        float magnitude = 5f;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            float x = Random.Range(-1f, 1f) * magnitude;
+            target.transform.localPosition = originalPos + new Vector3(x, 0, 0);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        target.transform.localPosition = originalPos;
+    }
+
+    IEnumerator TypewriterEffect(TextMeshProUGUI text, string fullText, float speed)
+    {
+        foreach (char c in fullText)
+        {
+            text.text += c;
+            yield return new WaitForSeconds(speed);
+        }
+
+        typewriterFinished = true;
+
+        if (confirmButton != null && nameInputField != null)
+        {
+            if (ValidateName(nameInputField.text, out _))
+            {
+                confirmButton.interactable = true;
             }
         }
     }
 
-    private void OnProfileChanged(PlayerProfile _) => BuildGrid();
+    void PlaySound(AudioClip clip)
+    {
+        if (clip != null && Camera.main != null)
+        {
+            AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, 0.7f);
+        }
+    }
+
+    public void ShowNameInput()
+    {
+        hasStarted = false;
+
+        if (nameInputPanel != null)
+            nameInputPanel.SetActive(true);
+
+        if (nameInputField != null)
+        {
+            nameInputField.text = "";
+            nameInputField.ActivateInputField();
+        }
+    }
 }

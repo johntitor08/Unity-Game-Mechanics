@@ -1,161 +1,60 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.UI;
 
-[RequireComponent(typeof(Image))]
-public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
+public class CircleOutlineOnHit : MonoBehaviour
 {
-    [Header("Visual Feedback")]
-    public bool enableHoverEffect = true;
-    public bool enableClickEffect = true;
-    public bool enablePulseEffect = false;
+    public Camera cam;
+    public LayerMask hitLayers;
+    public LineRenderer circleRenderer;
+    public float radius = 0.3f;
+    public int segments = 60;
 
-    [Header("Hover Settings")]
-    public float hoverScale = 1.15f;
-    public float hoverDuration = 0.2f;
-    public Color hoverTintColor = new(1f, 1f, 0.8f);
-
-    [Header("Click Settings")]
-    public float clickScale = 0.9f;
-    public float clickDuration = 0.1f;
-
-    [Header("Pulse Settings")]
-    public float pulseSpeed = 2f;
-    public float pulseAmount = 0.1f;
-
-    [Header("Audio")]
-    public AudioClip hoverSound;
-    public AudioClip clickSound;
-
-    private Vector3 originalScale;
-    private Image iconImage;
-    private Color originalColor;
-    private bool isHovering = false;
+    private Vector3 lastHitCenter = Vector3.positiveInfinity;
 
     void Awake()
     {
-        originalScale = transform.localScale;
-        iconImage = GetComponent<Image>();
-
-        if (iconImage != null)
-            originalColor = iconImage.color;
+        if (circleRenderer != null)
+            circleRenderer.loop = true;
     }
 
     void Update()
     {
-        if (enablePulseEffect && !isHovering)
-        {
-            float scale = 1f + Mathf.Sin(Time.time * pulseSpeed) * pulseAmount;
-            transform.localScale = originalScale * scale;
-        }
-    }
-
-    void OnDisable()
-    {
-        ResetVisual();
-    }
-
-    public void OnPointerEnter(PointerEventData eventData)
-    {
-        if (!isActiveAndEnabled || !enableHoverEffect)
+        if (cam == null)
             return;
 
-        isHovering = true;
-        StopAllCoroutines();
-        StartCoroutine(ScaleEffect(hoverScale, hoverDuration));
+        Vector3 mouseWorld = cam.ScreenToWorldPoint(Input.mousePosition);
+        mouseWorld.z = 0;
+        RaycastHit2D hit = Physics2D.Raycast(mouseWorld, Vector2.zero, Mathf.Infinity, hitLayers);
 
-        if (iconImage != null)
-            iconImage.color = hoverTintColor;
-
-        PlaySound(hoverSound);
-    }
-
-    public void OnPointerExit(PointerEventData eventData)
-    {
-        if (!isActiveAndEnabled || !enableHoverEffect)
-            return;
-
-        isHovering = false;
-        StopAllCoroutines();
-        StartCoroutine(ScaleEffect(1f, hoverDuration));
-
-        if (iconImage != null)
-            iconImage.color = originalColor;
-    }
-
-    public void OnPointerClick(PointerEventData eventData)
-    {
-        if (!isActiveAndEnabled || !enableClickEffect)
-            return;
-
-        StopAllCoroutines();
-        StartCoroutine(ClickEffect());
-        PlaySound(clickSound);
-    }
-
-    System.Collections.IEnumerator ScaleEffect(float targetScale, float duration)
-    {
-        if (gameObject == null)
-            yield break;
-
-        Vector3 startScale = transform.localScale;
-        Vector3 endScale = originalScale * targetScale;
-        float elapsed = 0f;
-
-        while (elapsed < duration)
+        if (hit.collider != null)
         {
-            elapsed += Time.deltaTime;
-            transform.localScale = Vector3.Lerp(startScale, endScale, elapsed / duration);
-            yield return null;
+            circleRenderer.gameObject.SetActive(true);
+            Vector3 center = hit.collider.bounds.center;
+            center.z = 0f;
+
+            if (center != lastHitCenter)
+            {
+                DrawCircle(center);
+                lastHitCenter = center;
+            }
         }
-
-        transform.localScale = endScale;
-    }
-
-    System.Collections.IEnumerator ClickEffect()
-    {
-        if (gameObject == null)
-            yield break;
-
-        bool wasHovering = isHovering;
-        Vector3 startScale = transform.localScale;
-        Vector3 clickedScale = originalScale * clickScale;
-        float elapsed = 0f;
-
-        while (elapsed < clickDuration)
+        else
         {
-            elapsed += Time.deltaTime;
-            transform.localScale = Vector3.Lerp(startScale, clickedScale, elapsed / clickDuration);
-            yield return null;
+            circleRenderer.gameObject.SetActive(false);
+            lastHitCenter = Vector3.positiveInfinity;
         }
+    }
 
-        elapsed = 0f;
-        Vector3 endScale = originalScale * (wasHovering ? hoverScale : 1f);
+    void DrawCircle(Vector3 center)
+    {
+        circleRenderer.positionCount = segments;
+        float angleStep = (2f * Mathf.PI) / segments;
 
-        while (elapsed < clickDuration)
+        for (int i = 0; i < segments; i++)
         {
-            elapsed += Time.deltaTime;
-            transform.localScale = Vector3.Lerp(clickedScale, endScale, elapsed / clickDuration);
-            yield return null;
+            float angle = angleStep * i;
+            float x = center.x + Mathf.Cos(angle) * radius;
+            float y = center.y + Mathf.Sin(angle) * radius;
+            circleRenderer.SetPosition(i, new Vector3(x, y, 0f));
         }
-
-        transform.localScale = endScale;
-    }
-
-    void PlaySound(AudioClip clip)
-    {
-        if (clip != null && Camera.main != null)
-            AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, 0.5f);
-    }
-
-    public void ResetVisual()
-    {
-        StopAllCoroutines();
-        transform.localScale = originalScale;
-
-        if (iconImage != null)
-            iconImage.color = originalColor;
-
-        isHovering = false;
     }
 }

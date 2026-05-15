@@ -1,74 +1,78 @@
 using UnityEngine;
+using UnityEngine.Events;
 
-[System.Serializable]
-public class QuestObjective
+[CreateAssetMenu(fileName = "Quest", menuName = "Quest/Quest Data")]
+public class QuestData : ScriptableObject
 {
-    public ItemData targetItem;
-    public int itemCount = 1;
-    public bool consumeItems = true;
-    public string npcTag;
-    public string locationTag;
-    public float locationRadius = 2f;
-    public string interactObjectTag;
-    public ItemData craftTarget;
-    public int craftCount = 1;
-    public CurrencyType currencyType;
-    public int currencyAmount = 100;
-
-    [Header("Objective Info")]
-    public string objectiveID;
+    [Header("Quest Info")]
+    public string questID;
+    public string questName;
+    [TextArea(3, 6)]
     public string description;
-    public QuestObjectiveType type;
+    public Sprite icon;
+    public QuestType questType = QuestType.Main;
+    public QuestDifficulty difficulty = QuestDifficulty.Normal;
 
-    [Header("Target")]
-    public EnemyData targetEnemy;
-    public int targetCount = 1;
+    [Header("Requirements")]
+    public int requiredLevel = 1;
+    public string[] requiredFlags;
+    public QuestData[] prerequisiteQuests;
 
-    [Header("Progress")]
-    [System.NonSerialized] public int currentProgress = 0;
-    [System.NonSerialized] public bool isCompleted = false;
-    public bool isOptional = false;
+    [Header("Quest Objectives")]
+    public QuestObjective[] objectives;
+
+    [Header("Dialogue")]
+    public DialogueNode startDialogue;
+    public DialogueNode progressDialogue;
+    public DialogueNode completionDialogue;
+    public DialogueNode completeDialogue;
+    public DialogueNode failureDialogue;
+
+    [Header("Rewards")]
+    public int experienceReward = 100;
+    public CurrencyReward[] currencyRewards;
+    public ItemData[] itemRewards;
+    public int[] itemRewardQuantities;
+
+    [Header("Optional Rewards (Choose One)")]
+    public ItemData[] optionalRewards;
+
+    [Header("Quest Tracking")]
+    public bool trackObjectives = true;
+    public bool showOnMap = true;
+    public Vector3 questMarkerPosition;
+
+    [Header("Time Limit")]
+    public bool hasTimeLimit = false;
+    public float timeLimitSeconds = 300f;
+
+    [Header("Failure")]
+    public bool canFail = false;
 
     [Header("Events")]
-    public UnityEngine.Events.UnityEvent onObjectiveStart;
-    public UnityEngine.Events.UnityEvent onObjectiveComplete;
+    public UnityEvent onQuestStart;
+    public UnityEvent onQuestComplete;
+    public UnityEvent onQuestFail;
 
-    public bool IsComplete()
-    {
-        return currentProgress >= GetRequiredCount();
-    }
-
-    public int GetRequiredCount()
-    {
-        return type switch
-        {
-            QuestObjectiveType.KillEnemies => targetCount,
-            QuestObjectiveType.CollectItems => itemCount,
-            QuestObjectiveType.CraftItems => craftCount,
-            QuestObjectiveType.SpendCurrency => currencyAmount,
-            _ => 1
-        };
-    }
-
-    public float GetProgressPercentage()
-    {
-        int required = GetRequiredCount();
-
-        if (required == 0)
-            return 1f;
-
-        return Mathf.Clamp01((float)currentProgress / required);
-    }
+    [Header("Flags")]
+    public string[] flagsToSetOnStart;
+    public string[] flagsToSetOnComplete;
 }
 
-public enum QuestObjectiveType
+public enum QuestType
 {
-    KillEnemies,
-    CollectItems,
-    TalkToNPC,
-    GoToLocation,
-    InteractWithObject,
-    CraftItems,
-    SpendCurrency,
-    Custom
+    Main,
+    Side,
+    Daily,
+    Repeatable,
+    Event
+}
+
+public enum QuestDifficulty
+{
+    Easy,
+    Normal,
+    Hard,
+    Elite,
+    Epic
 }

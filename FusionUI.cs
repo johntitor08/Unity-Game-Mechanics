@@ -116,13 +116,19 @@ public class FusionUI : MonoBehaviour
 
     void OnFuseClicked()
     {
+        if (selectedA == null || selectedB == null || FusionManager.Instance == null)
+        {
+            statusText.text = "Select two items to fuse.";
+            return;
+        }
+
         var result = FusionManager.Instance.Fuse(selectedA, selectedB);
         ClearAll();
 
         if (result != null)
             statusText.text = $"Created: {result.itemName}!";
         else
-            statusText.text = "Fusion failed — items lost.";
+            statusText.text = "Fusion failed — items were not consumed.";
     }
 
     void ClearAll()

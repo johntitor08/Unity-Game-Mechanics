@@ -1,182 +1,163 @@
-using UnityEngine;
-using UnityEngine.EventSystems;
+using System;
 using System.Collections.Generic;
+using UnityEngine;
 
-public class QuestGiver : MonoBehaviour, IPointerClickHandler
+[Serializable]
+public class PlayerProfile
 {
-    [Header("Quests")]
-    public List<QuestData> availableQuests;
+    public string playerName = "Player";
+    public int level = 1;
+    public int experience = 0;
+    public int experienceToNextLevel = 100;
+    public string profileIconID = "default";
+    public List<string> unlockedIconIDs = new() { "default" };
+    public int statPoints = 0;
+}
 
-    [Header("Interaction")]
-    public GameObject exclamationMark;
-    public GameObject questionMark;
-    public GameObject goldExclamation;
-    public float interactionRange = 2f;
-    public KeyCode interactionKey = KeyCode.E;
+public class ProfileManager : MonoBehaviour
+{
+    public static ProfileManager Instance;
+    public PlayerProfile profile;
+    public event Action<PlayerProfile> OnProfileChanged;
+    public event Action<PlayerProfile> OnLevelUp;
+    public event Action<PlayerProfile> OnCurrencyChanged;
+    public static event Action OnReady;
+    public bool IsLoaded { get; private set; }
 
-    [Header("Visual")]
-    public GameObject interactionPrompt;
-
-    private bool playerInRange = false;
-
-    void Start()
+    void Awake()
     {
-        if (interactionPrompt != null)
-            interactionPrompt.SetActive(false);
-
-        if (QuestManager.Instance != null)
-            Subscribe();
-        else
-            QuestManager.OnReady += OnQuestManagerReady;
-
-        UpdateQuestIndicators();
-    }
-
-    void OnDestroy()
-    {
-        QuestManager.OnReady -= OnQuestManagerReady;
-
-        if (QuestManager.Instance != null)
+        if (Instance != null && Instance != this)
         {
-            QuestManager.Instance.OnQuestStarted -= OnQuestChanged;
-            QuestManager.Instance.OnQuestCompleted -= OnQuestChanged;
-            QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveChanged;
-        }
-    }
-
-    void OnQuestManagerReady()
-    {
-        QuestManager.OnReady -= OnQuestManagerReady;
-        Subscribe();
-        UpdateQuestIndicators();
-    }
-
-    void Subscribe()
-    {
-        QuestManager.Instance.OnQuestStarted += OnQuestChanged;
-        QuestManager.Instance.OnQuestCompleted += OnQuestChanged;
-        QuestManager.Instance.OnObjectiveCompleted += OnObjectiveChanged;
-    }
-
-    void OnQuestChanged(QuestData _) => UpdateQuestIndicators();
-
-    void OnObjectiveChanged(QuestData _, QuestObjective __) => UpdateQuestIndicators();
-
-    void Update()
-    {
-        if (playerInRange && Input.GetKeyDown(interactionKey))
-            Interact();
-    }
-
-    public void OnPointerClick(PointerEventData eventData)
-    {
-        if (playerInRange)
-            Interact();
-    }
-
-    void OnTriggerEnter2D(Collider2D other)
-    {
-        if (other.CompareTag("Player"))
-        {
-            playerInRange = true;
-
-            if (interactionPrompt != null)
-                interactionPrompt.SetActive(true);
-        }
-    }
-
-    void OnTriggerExit2D(Collider2D other)
-    {
-        if (other.CompareTag("Player"))
-        {
-            playerInRange = false;
-
-            if (interactionPrompt != null)
-                interactionPrompt.SetActive(false);
-        }
-    }
-
-    bool AreAllObjectivesComplete(QuestData quest)
-    {
-        foreach (var obj in quest.objectives)
-        {
-            if (!obj.isOptional)
-            {
-                var state = QuestManager.Instance.GetObjectiveState(quest.questID, obj.objectiveID);
-
-                if (!state.isCompleted)
-                    return false;
-            }
+            Destroy(gameObject);
+            return;
         }
 
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+        profile ??= new PlayerProfile();
+        OnReady?.Invoke();
+    }
+
+    public void CreateNewProfile(string playerName = "Player")
+    {
+        profile = new PlayerProfile
+        {
+            playerName = playerName
+        };
+
+        OnProfileChanged?.Invoke(profile);
+        SaveSystem.SaveGame();
+    }
+
+    public void SetPlayerName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return;
+
+        profile.playerName = name;
+        OnProfileChanged?.Invoke(profile);
+        SaveSystem.SaveGame();
+    }
+
+    public void AddExperience(int amount)
+    {
+        if (amount <= 0)
+            return;
+
+        profile.experience += amount;
+        bool leveledUp = false;
+
+        while (profile.experience >= profile.experienceToNextLevel)
+        {
+            LevelUp();
+            leveledUp = true;
+        }
+
+        OnProfileChanged?.Invoke(profile);
+
+        if (amount > 0 || leveledUp)
+            SaveSystem.SaveGame();
+    }
+
+    void LevelUp()
+    {
+        profile.experience -= profile.experienceToNextLevel;
+        profile.level++;
+        profile.experienceToNextLevel = Mathf.RoundToInt(profile.experienceToNextLevel * 1.5f);
+        profile.statPoints += 3;
+
+        if (PlayerStats.Instance != null)
+        {
+            PlayerStats.Instance.Modify(StatType.Health, 10);
+            PlayerStats.Instance.Modify(StatType.Energy, 5);
+            PlayerStats.Instance.Modify(StatType.Strength, 2);
+            PlayerStats.Instance.Modify(StatType.Intelligence, 2);
+        }
+
+        OnLevelUp?.Invoke(profile);
+    }
+
+    public void AddCurrency(int amount)
+    {
+        CurrencyManager.Instance.Add(CurrencyType.Gold, amount);
+        OnProfileChanged?.Invoke(profile);
+    }
+
+    public bool SpendCurrency(int amount)
+    {
+        bool success = CurrencyManager.Instance.Spend(CurrencyType.Gold, amount);
+
+        if (success)
+            OnProfileChanged?.Invoke(profile);
+
+        return success;
+    }
+
+    public void ApplyLoadedProfile(PlayerProfile saved)
+    {
+        profile.playerName = saved.playerName;
+        profile.level = saved.level;
+        profile.experience = saved.experience;
+        profile.experienceToNextLevel = saved.experienceToNextLevel;
+        profile.profileIconID = saved.profileIconID;
+        profile.statPoints = saved.statPoints;
+        profile.unlockedIconIDs = saved.unlockedIconIDs;
+        OnCurrencyChanged?.Invoke(profile);
+        OnProfileChanged?.Invoke(profile);
+        IsLoaded = true;
+    }
+
+    public bool PurchaseIcon(string iconID, int cost)
+    {
+        if (profile.unlockedIconIDs.Contains(iconID) || !CurrencyManager.Instance.Spend(CurrencyType.Gold, cost))
+            return false;
+
+        profile.unlockedIconIDs.Add(iconID);
+        OnProfileChanged?.Invoke(profile);
+        SaveSystem.SaveGame();
         return true;
     }
 
-    void UpdateQuestIndicators()
+    public void UnlockIcon(string iconID)
     {
-        if (QuestManager.Instance == null)
+        if (profile.unlockedIconIDs.Contains(iconID))
             return;
 
-        bool hasNewQuest = false;
-        bool hasActiveQuest = false;
-        bool hasCompleteQuest = false;
-
-        foreach (var quest in availableQuests)
-        {
-            if (QuestManager.Instance.CanStartQuest(quest))
-            {
-                hasNewQuest = true;
-            }
-            else if (QuestManager.Instance.IsQuestActive(quest.questID))
-            {
-                if (AreAllObjectivesComplete(quest))
-                    hasCompleteQuest = true;
-                else
-                    hasActiveQuest = true;
-            }
-        }
-
-        if (exclamationMark != null)
-            exclamationMark.SetActive(hasNewQuest);
-
-        if (questionMark != null)
-            questionMark.SetActive(hasActiveQuest && !hasCompleteQuest);
-
-        if (goldExclamation != null)
-            goldExclamation.SetActive(hasCompleteQuest);
+        profile.unlockedIconIDs.Add(iconID);
+        OnProfileChanged?.Invoke(profile);
+        SaveSystem.SaveGame();
     }
 
-    void Interact()
+    public bool SelectIcon(string iconID)
     {
-        foreach (var quest in availableQuests)
-        {
-            if (!QuestManager.Instance.IsQuestActive(quest.questID))
-                continue;
+        if (!profile.unlockedIconIDs.Contains(iconID))
+            return false;
 
-            if (AreAllObjectivesComplete(quest))
-            {
-                QuestManager.Instance.CompleteQuest(quest);
-                return;
-            }
-
-            if (quest.progressDialogue != null)
-            {
-                DialogueManager.Instance.StartDialogue(quest.progressDialogue);
-                return;
-            }
-        }
-
-        foreach (var quest in availableQuests)
-        {
-            if (QuestManager.Instance.CanStartQuest(quest))
-            {
-                if (quest.startDialogue != null)
-                    DialogueManager.Instance.StartDialogue(quest.startDialogue, () => QuestManager.Instance.StartQuest(quest));
-                else
-                    QuestManager.Instance.StartQuest(quest);
-
-                return;
-            }
-        }
+        profile.profileIconID = iconID;
+        OnProfileChanged?.Invoke(profile);
+        SaveSystem.SaveGame();
+        return true;
     }
+
+    public bool IsIconUnlocked(string iconID) => profile.unlockedIconIDs.Contains(iconID);
 }

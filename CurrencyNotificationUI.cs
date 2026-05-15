@@ -17,6 +17,12 @@ public class CurrencyNotificationUI : MonoBehaviour
 
     void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         Instance = this;
     }
 
@@ -80,6 +86,9 @@ public class CurrencyNotificationUI : MonoBehaviour
 
         while (elapsed < notificationDuration)
         {
+            if (notification == null)
+                yield break;
+
             elapsed += Time.deltaTime;
             float t = elapsed / notificationDuration;
             notification.transform.position = startPos + Vector3.up * (moveSpeed * t);
@@ -95,6 +104,9 @@ public class CurrencyNotificationUI : MonoBehaviour
             notification.transform.localScale = Vector3.one * scale;
             yield return null;
         }
+
+        if (notification == null)
+            yield break;
 
         notification.SetActive(false);
         activeNotifications.Remove(notification);

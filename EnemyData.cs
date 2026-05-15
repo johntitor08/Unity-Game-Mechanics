@@ -1,42 +1,189 @@
+using System.Collections;
 using UnityEngine;
+using UnityEngine.UI;
 
-[CreateAssetMenu(fileName = "Enemy", menuName = "Combat/Enemy Data")]
-public class EnemyData : ScriptableObject
+[RequireComponent(typeof(CanvasGroup))]
+public class DamageFlash : MonoBehaviour
 {
-    [Header("Basic Info")]
-    public string enemyName = "Enemy";
-    public Sprite sprite;
-    [TextArea] public string description;
+    private static readonly WaitForSeconds _waitForSeconds0_05 = new(0.05f);
+    private Coroutine flashRoutine;
+    private Vector2 originalPosition;
+    private bool isSubscribed = false;
+    private StatsBase subscribedTarget;
 
-    [Header("Stats")]
-    public int maxHealth = 100;
-    public int attack = 15;
-    public int defense = 5;
-    public int speed = 10;
+    [Header("Target Stats")]
+    [SerializeField] private StatsBase _statsTarget;
+    public StatsBase StatsTarget
+    {
+        get => _statsTarget;
+        set
+        {
+            if (_statsTarget != null)
+                _statsTarget.OnStatChanged -= HandleStatChanged;
 
-    [Header("Rewards")]
-    public int experienceReward = 50;
-    public int currencyReward = 25;
+            _statsTarget = value;
+            isSubscribed = false;
+            TrySubscribe();
+        }
+    }
 
-    [Header("Loot")]
-    public ItemData[] possibleLoot;
-    [Range(0f, 1f)]
-    public float[] lootChances;
+    [Header("Flash Settings")]
+    public Image flashImage;
+    public Color damageColor = new(1f, 0f, 0f, 1f);
+    public Color healColor = new(0f, 1f, 0f, 1f);
+    public float flashDuration = 0.2f;
 
-    [Header("AI Behavior")]
-    public bool isAggressive = true;
-    public float defendChance = 0.2f;
-    public float specialAttackChance = 0.3f;
+    [Header("Shake Settings")]
+    public bool enableShake = false;
+    public RectTransform shakeTarget;
+    public float shakeMagnitude = 5f;
+    public float shakeDuration = 0.1f;
 
-    [Header("Equipment Drops")]
-    public EquipmentLootTable equipmentLootTable;
+    [Header("Health Bar")]
+    public Image healthBarFill;
 
-    [Header("AI Pattern")]
-    public EnemyAIPattern aiPattern = EnemyAIPattern.Random;
+    void Awake()
+    {
+        if (_statsTarget == null)
+        {
+            StatsBase localStats = GetComponentInParent<StatsBase>();
+            _statsTarget = localStats != null ? localStats : PlayerStats.Instance;
+        }
 
-    [Range(0f, 1f)]
-    public float lowHealthThreshold = 0.3f;
+        if (flashImage != null)
+            flashImage.color = Color.white;
 
-    [Range(0f, 1f)]
-    public float finisherThreshold = 0.25f;
+        if (shakeTarget == null && flashImage != null)
+            shakeTarget = flashImage.rectTransform;
+
+        if (shakeTarget != null)
+            originalPosition = shakeTarget.anchoredPosition;
+    }
+
+    void OnEnable()
+    {
+        TrySubscribe();
+    }
+
+    void OnDisable()
+    {
+        if (isSubscribed && subscribedTarget != null)
+        {
+            subscribedTarget.OnStatChanged -= HandleStatChanged;
+            isSubscribed = false;
+            subscribedTarget = null;
+        }
+
+        if (flashRoutine != null)
+        {
+            StopCoroutine(flashRoutine);
+            flashRoutine = null;
+        }
+
+        if (flashImage != null)
+            flashImage.color = Color.white;
+    }
+
+    void TrySubscribe()
+    {
+        if (subscribedTarget != null && subscribedTarget != _statsTarget)
+        {
+            subscribedTarget.OnStatChanged -= HandleStatChanged;
+            isSubscribed = false;
+            subscribedTarget = null;
+        }
+
+        if (_statsTarget != null && !isSubscribed)
+        {
+            _statsTarget.OnStatChanged += HandleStatChanged;
+            isSubscribed = true;
+            subscribedTarget = _statsTarget;
+
+            if (healthBarFill != null)
+            {
+                int health = _statsTarget.Get(StatType.Health);
+                int maxHealth = _statsTarget.Get(StatType.MaxHealth);
+                healthBarFill.fillAmount = Mathf.Clamp01((float)health / maxHealth);
+            }
+        }
+    }
+
+    private void HandleStatChanged(StatType type, int oldValue, int newValue)
+    {
+        if (type != StatType.Health)
+            return;
+
+        int delta = newValue - oldValue;
+
+        if (delta == 0)
+            return;
+
+        Color color = delta < 0 ? damageColor : healColor;
+
+        if (flashRoutine != null)
+            StopCoroutine(flashRoutine);
+
+        flashRoutine = StartCoroutine(Flash(color));
+
+        if (enableShake && delta < 0)
+            StartCoroutine(Shake());
+
+        if (healthBarFill != null)
+        {
+            int maxHealth = _statsTarget.Get(StatType.MaxHealth);
+            healthBarFill.fillAmount = Mathf.Clamp01((float)newValue / maxHealth);
+        }
+    }
+
+    IEnumerator Flash(Color color)
+    {
+        if (flashImage == null)
+            yield break;
+
+        flashImage.color = Color.white;
+        yield return _waitForSeconds0_05;
+
+        float t = 0f;
+
+        while (t < flashDuration)
+        {
+            t += Time.deltaTime;
+            Color c = Color.Lerp(Color.white, color, t / flashDuration);
+            c.a = 1f;
+            flashImage.color = c;
+            yield return null;
+        }
+
+        flashImage.color = Color.white;
+    }
+
+    IEnumerator Shake()
+    {
+        if (shakeTarget == null)
+            yield break;
+
+        float elapsed = 0f;
+        Vector2 startPos = originalPosition;
+
+        while (elapsed < shakeDuration)
+        {
+            elapsed += Time.deltaTime;
+            float progress = elapsed / shakeDuration;
+            float damper = 1f - progress;
+            float x = Mathf.Sin(elapsed * 40f) * shakeMagnitude * damper * Random.Range(0.8f, 1.2f);
+            float y = Mathf.Sin(elapsed * 50f) * shakeMagnitude * damper * Random.Range(0.8f, 1.2f);
+            shakeTarget.anchoredPosition = startPos + new Vector2(x, y);
+            yield return null;
+        }
+
+        shakeTarget.anchoredPosition = startPos;
+    }
+
+    public void TriggerFlash(Color color)
+    {
+        if (flashRoutine != null)
+            StopCoroutine(flashRoutine);
+
+        flashRoutine = StartCoroutine(Flash(color));
+    }
 }

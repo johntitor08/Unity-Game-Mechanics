@@ -8,6 +8,9 @@ public class NPCRoutine : MonoBehaviour
 
     void Start()
     {
+        if (TimePhaseManager.Instance == null)
+            return;
+
         TimePhaseManager.Instance.OnPhaseChanged += Apply;
         Apply(TimePhaseManager.Instance.currentPhase);
     }
@@ -20,6 +23,7 @@ public class NPCRoutine : MonoBehaviour
 
         switch (phase)
         {
+            case TimePhase.Morning:
             case TimePhase.Noon:
                 dayForm.SetActive(true);
                 break;

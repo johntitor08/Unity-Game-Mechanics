@@ -160,7 +160,7 @@ public class SettingsManager : MonoBehaviour
 
     void OnMasterVolumeChanged(float value)
     {
-        SetMixerVolume("MasterVolume", value);
+        SetMixerVolume("Master", value);
 
         if (masterVolumeText != null)
             masterVolumeText.text = Mathf.Round(value * 100) + "%";
@@ -168,7 +168,7 @@ public class SettingsManager : MonoBehaviour
 
     void OnMusicVolumeChanged(float value)
     {
-        SetMixerVolume("MusicVolume", value);
+        SetMixerVolume("Music", value);
 
         if (musicVolumeText != null)
             musicVolumeText.text = Mathf.Round(value * 100) + "%";
@@ -176,7 +176,7 @@ public class SettingsManager : MonoBehaviour
 
     void OnSFXVolumeChanged(float value)
     {
-        SetMixerVolume("SFXVolume", value);
+        SetMixerVolume("SFX", value);
 
         if (sfxVolumeText != null)
             sfxVolumeText.text = Mathf.Round(value * 100) + "%";
@@ -252,9 +252,9 @@ public class SettingsManager : MonoBehaviour
 
     void SaveSettings()
     {
-        PlayerPrefs.SetFloat("MasterVolume", masterVolumeSlider != null ? masterVolumeSlider.value : 1f);
-        PlayerPrefs.SetFloat("MusicVolume", musicVolumeSlider != null ? musicVolumeSlider.value : 0.8f);
-        PlayerPrefs.SetFloat("SFXVolume", sfxVolumeSlider != null ? sfxVolumeSlider.value : 1f);
+        PlayerPrefs.SetFloat("Master", masterVolumeSlider != null ? masterVolumeSlider.value : 1f);
+        PlayerPrefs.SetFloat("Music", musicVolumeSlider != null ? musicVolumeSlider.value : 0.8f);
+        PlayerPrefs.SetFloat("SFX", sfxVolumeSlider != null ? sfxVolumeSlider.value : 1f);
         PlayerPrefs.SetInt("QualityLevel", QualitySettings.GetQualityLevel());
         PlayerPrefs.SetInt("Fullscreen", Screen.fullScreen ? 1 : 0);
         PlayerPrefs.SetInt("VSync", QualitySettings.vSyncCount);
@@ -266,9 +266,9 @@ public class SettingsManager : MonoBehaviour
 
     void LoadSettings()
     {
-        float masterVolume = PlayerPrefs.GetFloat("MasterVolume", 1f);
-        float musicVolume = PlayerPrefs.GetFloat("MusicVolume", 0.8f);
-        float sfxVolume = PlayerPrefs.GetFloat("SFXVolume", 1f);
+        float masterVolume = PlayerPrefs.GetFloat("Master", 1f);
+        float musicVolume = PlayerPrefs.GetFloat("Music", 0.8f);
+        float sfxVolume = PlayerPrefs.GetFloat("SFX", 1f);
         float difficulty = PlayerPrefs.GetFloat("Difficulty", 1f);
 
         if (masterVolumeSlider != null)
@@ -283,9 +283,9 @@ public class SettingsManager : MonoBehaviour
         if (difficultySlider != null)
             difficultySlider.value = difficulty;
 
-        SetMixerVolume("MasterVolume", masterVolume);
-        SetMixerVolume("MusicVolume", musicVolume);
-        SetMixerVolume("SFXVolume", sfxVolume);
+        SetMixerVolume("Master", masterVolume);
+        SetMixerVolume("Music", musicVolume);
+        SetMixerVolume("SFX", sfxVolume);
 
         if (masterVolumeText != null)
             masterVolumeText.text = Mathf.Round(masterVolume * 100) + "%";

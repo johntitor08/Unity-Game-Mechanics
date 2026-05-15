@@ -1,114 +1,51 @@
-using System.Collections.Generic;
-using System.Linq;
+using System;
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "EquipmentLootTable", menuName = "Equipment/Equipment Loot Table")]
-public class EquipmentLootTable : ScriptableObject
+[Serializable]
+public class EquipmentInstance
 {
-    [System.Serializable]
-    public class EquipmentDrop
+    public EquipmentData baseData;
+    public int upgradeLevel = 0;
+
+    public EquipmentInstance(EquipmentData data, int upgrade = 0)
     {
-        public EquipmentData equipment;
-        [Range(0f, 1f)]
-        public float baseDropChance = 0.5f;
-        [Tooltip("Bu drop için minimum luck deðeri")]
-        public int minLuckRequired = 0;
+        baseData = data;
+        upgradeLevel = upgrade;
     }
 
-    [Header("Equipment Pool")]
-    public List<EquipmentDrop> possibleEquipment = new();
+    public int GetDamageBonus() => baseData.damageBonus + upgradeLevel;
 
-    [Header("Rarity Drop Chances")]
-    [Range(0f, 1f)] public float commonChance = 0.50f;
-    [Range(0f, 1f)] public float rareChance = 0.15f;
-    [Range(0f, 1f)] public float epicChance = 0.04f;
-    [Range(0f, 1f)] public float legendaryChance = 0.01f;
+    public int GetDefenseBonus() => baseData.defenseBonus + upgradeLevel;
 
-    [Header("Drop Settings")]
-    public int minDrops = 0;
-    public int maxDrops = 2;
-    [Range(0f, 1f)]
-    public float equipmentDropChance = 0.3f;
+    public int GetPrimaryBonus() => baseData.primaryStatBonus + upgradeLevel;
 
-    [Header("Luck Bonus")]
-    [Tooltip("Her luck puaný için ekstra þans (%)")]
-    public float luckBonusPerPoint = 0.5f;
+    public int GetSecondaryBonus() => baseData.secondaryStatBonus + upgradeLevel;
 
-    public List<EquipmentData> RollLoot(int playerLuck)
+    public bool CanUpgrade() => upgradeLevel < baseData.maxUpgradeLevel;
+
+    public string GetDisplayName() => upgradeLevel > 0 ? $"{baseData.itemName} +{upgradeLevel}" : baseData.itemName;
+
+    public string GetStatsDescription()
     {
-        List<EquipmentData> droppedItems = new();
-        float totalDropChance = equipmentDropChance + (playerLuck * luckBonusPerPoint / 100f);
+        string desc = "";
 
-        if (Random.value > totalDropChance)
-        {
-            return droppedItems;
-        }
+        if (GetDamageBonus() > 0)
+            desc += $"Damage: +{GetDamageBonus()}\n";
 
-        int dropCount = Random.Range(minDrops, maxDrops + 1);
+        if (GetDefenseBonus() > 0)
+            desc += $"Defense: +{GetDefenseBonus()}\n";
 
-        for (int i = 0; i < dropCount; i++)
-        {
-            EquipmentData item = RollSingleItem(playerLuck);
+        if (GetPrimaryBonus() > 0)
+            desc += $"{baseData.primaryStat}: +{GetPrimaryBonus()}\n";
 
-            if (item != null)
-            {
-                droppedItems.Add(item);
-            }
-        }
+        if (GetSecondaryBonus() > 0)
+            desc += $"{baseData.secondaryStat}: +{GetSecondaryBonus()}\n";
 
-        return droppedItems;
+        if (upgradeLevel > 0)
+            desc += $"<color=#FFD700>Upgrade: +{upgradeLevel}</color>";
+
+        return desc;
     }
 
-    EquipmentData RollSingleItem(int playerLuck)
-    {
-        Rarity targetRarity = RollRarity(playerLuck);
-        var eligibleItems = possibleEquipment.Where(e => e.equipment != null && e.equipment.rarity == targetRarity && playerLuck >= e.minLuckRequired).ToList();
-
-        if (eligibleItems.Count == 0)
-        {
-            eligibleItems = possibleEquipment.Where(e => e.equipment != null && playerLuck >= e.minLuckRequired).ToList();
-
-            if (eligibleItems.Count == 0)
-                return null;
-        }
-
-        float totalWeight = eligibleItems.Sum(e => e.baseDropChance);
-        float roll = Random.value * totalWeight;
-        float current = 0f;
-
-        foreach (var drop in eligibleItems)
-        {
-            current += drop.baseDropChance;
-
-            if (roll <= current)
-            {
-                return drop.equipment;
-            }
-        }
-
-        return eligibleItems[Random.Range(0, eligibleItems.Count)].equipment;
-    }
-
-    Rarity RollRarity(int playerLuck)
-    {
-        float luckBonus = Mathf.Min(playerLuck * luckBonusPerPoint / 100f, 0.05f);
-        float roll = Random.value;
-        float cumulative = 0f;
-        cumulative += legendaryChance + luckBonus;
-
-        if (roll <= cumulative)
-            return Rarity.Legendary;
-
-        cumulative += epicChance + luckBonus * 0.5f;
-
-        if (roll <= cumulative)
-            return Rarity.Epic;
-
-        cumulative += rareChance + luckBonus * 0.3f;
-
-        if (roll <= cumulative)
-            return Rarity.Rare;
-
-        return Rarity.Common;
-    }
+    public EquipmentInstance Clone() => new(baseData, upgradeLevel);
 }

@@ -1,29 +1,30 @@
 using UnityEngine;
-using System.Collections.Generic;
-using System.Linq;
+using TMPro;
 using UnityEngine.UI;
+using System.Collections;
 
-public class QuestTrackerUI : MonoBehaviour
+public class QuestRewardUI : MonoBehaviour
 {
-    public static QuestTrackerUI Instance;
-    private HashSet<string> trackedQuestIDs = new();
-    private readonly Dictionary<string, QuestTrackerEntry> trackerEntries = new();
-    private readonly List<string> toRemove = new();
-    private bool isSubscribed = false;
+    public static QuestRewardUI Instance { get; private set; }
+    private Coroutine autoCloseCoroutine;
 
-    [Header("Tracker")]
-    public GameObject trackerPanel;
-    public Transform trackedQuestsParent;
-    public QuestTrackerEntry trackerEntryPrefab;
-    public int maxTrackedQuests = 3;
+    [Header("Reward Panel")]
+    public GameObject rewardPanel;
+    public TextMeshProUGUI titleText;
+    public TextMeshProUGUI questNameText;
+    public Transform rewardsContainer;
+    public RewardItemUI rewardItemPrefab;
     public Button closeButton;
 
-    [Header("Settings")]
-    public bool autoTrackNewQuests = true;
-    public bool persistAcrossScenes = false;
+    [Header("Optional Rewards")]
+    public Transform optionalRewardsContainer;
+    public TextMeshProUGUI optionalRewardsLabel;
 
-    [Header("Visibility")]
-    [SerializeField] private bool isPanelHiddenByUser = false;
+    [Header("Animation")]
+    public float displayDuration = 5f;
+
+    [Header("Display")]
+    [SerializeField] private string completionTitle = "Quest Complete!";
 
     void Awake()
     {
@@ -34,15 +35,13 @@ public class QuestTrackerUI : MonoBehaviour
         }
 
         Instance = this;
-
-        if (persistAcrossScenes)
-            DontDestroyOnLoad(gameObject);
+        rewardPanel.SetActive(false);
     }
 
     void Start()
     {
         if (closeButton != null)
-            closeButton.onClick.AddListener(OnCloseClicked);
+            closeButton.onClick.AddListener(Close);
     }
 
     void OnDestroy()
@@ -51,202 +50,102 @@ public class QuestTrackerUI : MonoBehaviour
             Instance = null;
     }
 
-    void OnEnable()
+    public void ShowRewards(QuestData quest)
     {
-        QuestManager.OnReady += TrySubscribe;
-        TrySubscribe();
-    }
-
-    void OnDisable()
-    {
-        if (isSubscribed && QuestManager.Instance != null)
+        if (quest == null)
         {
-            QuestManager.Instance.OnQuestStarted -= OnQuestStarted;
-            QuestManager.Instance.OnQuestCompleted -= OnQuestCompleted;
-            QuestManager.Instance.OnObjectiveUpdated -= OnObjectiveUpdated;
-            QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveCompleted;
-            QuestManager.Instance.OnTrackingToggleRequested -= OnTrackingToggleRequested;
-            QuestManager.Instance.OnSaveDataRequested -= OnSaveDataRequested;
-            QuestManager.Instance.OnTrackedQuestsLoaded -= OnTrackedQuestsLoaded;
-            QuestManager.Instance.OnQuestAbandoned -= OnQuestAbandoned;
-            isSubscribed = false;
+            Debug.LogWarning("QuestRewardUI.ShowRewards called with null quest.");
+            return;
         }
 
-        QuestManager.OnReady -= TrySubscribe;
-    }
-
-    void TrySubscribe()
-    {
-        if (QuestManager.Instance != null && !isSubscribed)
+        if (rewardItemPrefab == null)
         {
-            QuestManager.Instance.OnQuestStarted += OnQuestStarted;
-            QuestManager.Instance.OnQuestCompleted += OnQuestCompleted;
-            QuestManager.Instance.OnObjectiveUpdated += OnObjectiveUpdated;
-            QuestManager.Instance.OnObjectiveCompleted += OnObjectiveCompleted;
-            QuestManager.Instance.OnTrackingToggleRequested += OnTrackingToggleRequested;
-            QuestManager.Instance.OnSaveDataRequested += OnSaveDataRequested;
-            QuestManager.Instance.OnTrackedQuestsLoaded += OnTrackedQuestsLoaded;
-            QuestManager.Instance.OnQuestAbandoned += OnQuestAbandoned;
-            isSubscribed = true;
-            UpdateTracker();
+            Debug.LogError("QuestRewardUI: rewardItemPrefab is not assigned.");
+            return;
         }
-    }
 
-    void OnQuestStarted(QuestData quest)
-    {
-        if (autoTrackNewQuests && quest.trackObjectives)
+        if (autoCloseCoroutine != null)
+            StopCoroutine(autoCloseCoroutine);
+
+        rewardPanel.SetActive(true);
+
+        if (questNameText != null)
+            questNameText.text = quest.questName;
+
+        if (titleText != null)
+            titleText.text = completionTitle;
+
+        ClearContainer(rewardsContainer);
+
+        if (quest.experienceReward > 0)
+            SpawnRewardItem(rewardsContainer, "Experience", quest.experienceReward.ToString(), null);
+
+        if (quest.currencyRewards != null)
         {
-            if (!TrackQuest(quest.questID))
-                Debug.Log($"[QuestTrackerUI] Max limit ({maxTrackedQuests}) dolu, '{quest.questName}' takibe alınamadı.");
+            foreach (var reward in quest.currencyRewards)
+            {
+                var currencyInfo = CurrencyManager.Instance != null ? CurrencyManager.Instance.GetCurrencyInfo(reward.type) : null;
+                SpawnRewardItem(rewardsContainer, reward.type.ToString(), reward.amount.ToString(), currencyInfo?.icon);
+            }
         }
+
+        if (quest.itemRewards != null)
+        {
+            for (int i = 0; i < quest.itemRewards.Length; i++)
+            {
+                int qty = (quest.itemRewardQuantities != null && i < quest.itemRewardQuantities.Length) ? quest.itemRewardQuantities[i] : 1;
+                SpawnRewardItem(rewardsContainer, quest.itemRewards[i].itemName, $"x{qty}", quest.itemRewards[i].icon);
+            }
+        }
+
+        bool hasOptional = quest.optionalRewards != null && quest.optionalRewards.Length > 0;
+
+        if (optionalRewardsLabel != null)
+            optionalRewardsLabel.gameObject.SetActive(hasOptional);
+
+        ClearContainer(optionalRewardsContainer);
+
+        if (hasOptional && optionalRewardsContainer != null)
+        {
+            foreach (var item in quest.optionalRewards)
+                SpawnRewardItem(optionalRewardsContainer, item.itemName, "x1", item.icon);
+        }
+
+        autoCloseCoroutine = StartCoroutine(AutoClose());
     }
 
-    void OnQuestCompleted(QuestData quest) => UntrackQuest(quest.questID);
-
-    void OnQuestAbandoned(QuestData quest) => UntrackQuest(quest.questID);
-
-    void OnObjectiveUpdated(QuestData quest, QuestObjective objective) => RefreshEntries();
-
-    void OnObjectiveCompleted(QuestData quest, QuestObjective objective) => RefreshEntries();
-
-    void OnTrackingToggleRequested(QuestData quest) => ToggleQuest(quest);
-
-    void OnSaveDataRequested(QuestSaveData data)
+    private void ClearContainer(Transform container)
     {
-        data.trackedQuestIDs = new List<string>(trackedQuestIDs);
-    }
-
-    void OnTrackedQuestsLoaded(List<string> questIDs)
-    {
-        if (questIDs == null)
+        if (container == null)
             return;
 
-        var qm = QuestManager.Instance;
-        var validIDs = questIDs.Where(id => qm != null && qm.GetActiveQuest(id) != null).Take(maxTrackedQuests);
-        trackedQuestIDs = new HashSet<string>(validIDs);
-        UpdateTracker();
+        foreach (Transform child in container)
+            Destroy(child.gameObject);
     }
 
-    public bool IsTracked(string questID) => trackedQuestIDs.Contains(questID);
-
-    public void ToggleQuest(QuestData quest)
+    private void SpawnRewardItem(Transform container, string label, string value, Sprite icon)
     {
-        if (IsTracked(quest.questID))
-            UntrackQuest(quest.questID);
-        else
-            TrackQuest(quest.questID);
-    }
-
-    public bool TrackQuest(string questID)
-    {
-        if (trackedQuestIDs.Count >= maxTrackedQuests)
-            return false;
-
-        var qm = QuestManager.Instance;
-
-        if (qm == null || qm.GetActiveQuest(questID) == null || !trackedQuestIDs.Add(questID))
-            return false;
-
-        isPanelHiddenByUser = false;
-        UpdateTracker();
-        return true;
-    }
-
-    public void UntrackQuest(string questID)
-    {
-        if (!trackedQuestIDs.Remove(questID))
+        if (container == null)
             return;
 
-        UpdateTracker();
+        var rewardUI = Instantiate(rewardItemPrefab, container);
+        rewardUI.Setup(label, value, icon);
     }
 
-    public void SetTrackedQuests(List<string> questIDs)
+    IEnumerator AutoClose()
     {
-        OnTrackedQuestsLoaded(questIDs);
+        yield return new WaitForSeconds(displayDuration);
+        Close();
     }
 
-    public List<string> GetTrackedQuests() => new(trackedQuestIDs);
-
-    void OnCloseClicked()
+    void Close()
     {
-        isPanelHiddenByUser = true;
-
-        if (trackerPanel != null)
-            trackerPanel.SetActive(false);
-    }
-
-    void UpdateTracker()
-    {
-        toRemove.Clear();
-
-        foreach (var questID in trackerEntries.Keys)
-            if (!trackedQuestIDs.Contains(questID))
-                toRemove.Add(questID);
-
-        foreach (var questID in toRemove)
+        if (autoCloseCoroutine != null)
         {
-            if (trackerEntries[questID] != null)
-                Destroy(trackerEntries[questID].gameObject);
-
-            trackerEntries.Remove(questID);
+            StopCoroutine(autoCloseCoroutine);
+            autoCloseCoroutine = null;
         }
 
-        foreach (var questID in trackedQuestIDs)
-        {
-            if (QuestManager.Instance == null)
-                break;
-
-            var quest = QuestManager.Instance.GetActiveQuest(questID);
-
-            if (quest == null)
-                continue;
-
-            if (!trackerEntries.ContainsKey(questID))
-            {
-                if (trackerEntryPrefab == null)
-                {
-                    Debug.LogError("[QuestTrackerUI] trackerEntryPrefab atanmamış.", this);
-                    continue;
-                }
-
-                var entry = Instantiate(trackerEntryPrefab, trackedQuestsParent);
-                trackerEntries[questID] = entry;
-            }
-
-            trackerEntries[questID].Setup(quest);
-        }
-
-        if (trackerPanel != null)
-            trackerPanel.SetActive(!isPanelHiddenByUser && trackedQuestIDs.Count > 0);
-    }
-
-    void RefreshEntries()
-    {
-        List<string> orphaned = null;
-        var qm = QuestManager.Instance;
-
-        foreach (var (questID, entry) in trackerEntries)
-        {
-            if (entry == null)
-            {
-                (orphaned ??= new()).Add(questID);
-                continue;
-            }
-
-            var quest = qm != null ? qm.GetActiveQuest(questID) : null;
-
-            if (quest != null)
-                entry.Setup(quest);
-            else
-                (orphaned ??= new()).Add(questID);
-        }
-
-        if (orphaned != null)
-        {
-            foreach (var id in orphaned)
-                trackedQuestIDs.Remove(id);
-
-            UpdateTracker();
-        }
+        rewardPanel.SetActive(false);
     }
 }

@@ -1,37 +1,186 @@
 using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using System.Collections.Generic;
 
-public class QuestObjectiveUI : MonoBehaviour
+public class QuestGiver : MonoBehaviour, IPointerClickHandler
 {
-    [Header("UI Elements")]
-    public TextMeshProUGUI descriptionText;
-    public TextMeshProUGUI progressText;
-    public Slider progressBar;
-    public Image checkmarkIcon;
+    [Header("Quests")]
+    public List<QuestData> availableQuests;
 
-    public void Setup(QuestObjective objective, ObjectiveRuntimeState state)
+    [Header("Interaction")]
+    public GameObject exclamationMark;
+    public GameObject questionMark;
+    public GameObject goldExclamation;
+    public float interactionRange = 2f;
+    public KeyCode interactionKey = KeyCode.E;
+
+    [Header("Visual")]
+    public GameObject interactionPrompt;
+
+    private bool playerInRange = false;
+
+    void Start()
     {
-        if (descriptionText != null)
-            descriptionText.text = objective.description;
+        if (interactionPrompt != null)
+            interactionPrompt.SetActive(false);
 
-        UpdateProgress(objective, state);
+        if (QuestManager.Instance != null)
+            Subscribe();
+        else
+            QuestManager.OnReady += OnQuestManagerReady;
+
+        UpdateQuestIndicators();
     }
 
-    public void UpdateProgress(QuestObjective objective, ObjectiveRuntimeState state)
+    void OnDestroy()
     {
-        int required = objective.GetRequiredCount();
+        QuestManager.OnReady -= OnQuestManagerReady;
 
-        if (progressText != null)
-            progressText.text = $"{state.currentProgress}/{required}";
-
-        if (progressBar != null)
+        if (QuestManager.Instance != null)
         {
-            float pct = required == 0 ? 1f : Mathf.Clamp01((float)state.currentProgress / required);
-            progressBar.value = pct;
+            QuestManager.Instance.OnQuestStarted -= OnQuestChanged;
+            QuestManager.Instance.OnQuestCompleted -= OnQuestChanged;
+            QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveChanged;
+        }
+    }
+
+    void OnQuestManagerReady()
+    {
+        QuestManager.OnReady -= OnQuestManagerReady;
+        Subscribe();
+        UpdateQuestIndicators();
+    }
+
+    void Subscribe()
+    {
+        QuestManager.Instance.OnQuestStarted += OnQuestChanged;
+        QuestManager.Instance.OnQuestCompleted += OnQuestChanged;
+        QuestManager.Instance.OnObjectiveCompleted += OnObjectiveChanged;
+    }
+
+    void OnQuestChanged(QuestData _) => UpdateQuestIndicators();
+
+    void OnObjectiveChanged(QuestData _, QuestObjective __) => UpdateQuestIndicators();
+
+    void Update()
+    {
+        if (playerInRange && Input.GetKeyDown(interactionKey))
+            Interact();
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (playerInRange)
+            Interact();
+    }
+
+    void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            playerInRange = true;
+
+            if (interactionPrompt != null)
+                interactionPrompt.SetActive(true);
+        }
+    }
+
+    void OnTriggerExit2D(Collider2D other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            playerInRange = false;
+
+            if (interactionPrompt != null)
+                interactionPrompt.SetActive(false);
+        }
+    }
+
+    bool AreAllObjectivesComplete(QuestData quest)
+    {
+        foreach (var obj in quest.objectives)
+        {
+            if (!obj.isOptional)
+            {
+                var state = QuestManager.Instance.GetObjectiveState(quest.questID, obj.objectiveID);
+
+                if (!state.isCompleted)
+                    return false;
+            }
         }
 
-        if (checkmarkIcon != null)
-            checkmarkIcon.gameObject.SetActive(state.isCompleted);
+        return true;
+    }
+
+    void UpdateQuestIndicators()
+    {
+        if (QuestManager.Instance == null)
+            return;
+
+        bool hasNewQuest = false;
+        bool hasActiveQuest = false;
+        bool hasCompleteQuest = false;
+
+        foreach (var quest in availableQuests)
+        {
+            if (QuestManager.Instance.CanStartQuest(quest))
+            {
+                hasNewQuest = true;
+            }
+            else if (QuestManager.Instance.IsQuestActive(quest.questID))
+            {
+                if (AreAllObjectivesComplete(quest))
+                    hasCompleteQuest = true;
+                else
+                    hasActiveQuest = true;
+            }
+        }
+
+        if (exclamationMark != null)
+            exclamationMark.SetActive(hasNewQuest);
+
+        if (questionMark != null)
+            questionMark.SetActive(hasActiveQuest && !hasCompleteQuest);
+
+        if (goldExclamation != null)
+            goldExclamation.SetActive(hasCompleteQuest);
+    }
+
+    void Interact()
+    {
+        foreach (var quest in availableQuests)
+        {
+            if (!QuestManager.Instance.IsQuestActive(quest.questID))
+                continue;
+
+            if (AreAllObjectivesComplete(quest))
+            {
+                if (quest.completionDialogue != null && DialogueManager.Instance != null)
+                    DialogueManager.Instance.StartDialogue(quest.completionDialogue, () => QuestManager.Instance.CompleteQuest(quest));
+                else
+                    QuestManager.Instance.CompleteQuest(quest);
+
+                return;
+            }
+
+            if (quest.progressDialogue != null)
+            {
+                DialogueManager.Instance.StartDialogue(quest.progressDialogue);
+                return;
+            }
+        }
+
+        foreach (var quest in availableQuests)
+        {
+            if (QuestManager.Instance.CanStartQuest(quest))
+            {
+                if (quest.startDialogue != null)
+                    DialogueManager.Instance.StartDialogue(quest.startDialogue, () => QuestManager.Instance.StartQuest(quest));
+                else
+                    QuestManager.Instance.StartQuest(quest);
+
+                return;
+            }
+        }
     }
 }

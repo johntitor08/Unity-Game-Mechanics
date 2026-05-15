@@ -1,166 +1,124 @@
-using System;
-using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+using System.Collections.Generic;
 
-[Serializable]
-public class PlayerProfile
+public class IconSelectionUI : MonoBehaviour
 {
-    public string playerName = "Player";
-    public int level = 1;
-    public int experience = 0;
-    public int experienceToNextLevel = 100;
-    public string profileIconID = "default";
-    public List<string> unlockedIconIDs = new() { "default" };
-    public int statPoints = 0;
-}
+    [Header("Panel")]
+    public GameObject selectionPanel;
+    public KeyCode toggleKey = KeyCode.I;
 
-public class ProfileManager : MonoBehaviour
-{
-    public static ProfileManager Instance;
-    public PlayerProfile profile;
-    public event Action<PlayerProfile> OnProfileChanged;
-    public event Action<PlayerProfile> OnLevelUp;
-    public event Action<PlayerProfile> OnCurrencyChanged;
-    public static event Action OnReady;
-    public bool IsLoaded { get; private set; }
+    [Header("Grid")]
+    public Transform iconGrid;
+    public GameObject iconSlotPrefab;
 
-    void Awake()
+    [Header("Database")]
+    public ProfileIconDatabase iconDatabase;
+
+    [Header("Selected Preview")]
+    public Image previewImage;
+    public TextMeshProUGUI previewNameText;
+    public TextMeshProUGUI previewCostText;
+    public Button selectButton;
+    public TextMeshProUGUI selectButtonText;
+    private string hoveredIconID;
+    private readonly List<IconSlotUI> spawnedSlots = new();
+
+    private void OnEnable()
     {
-        if (Instance != null && Instance != this)
+        ProfileManager.Instance.OnProfileChanged += OnProfileChanged;
+        BuildGrid();
+    }
+
+    private void OnDisable()
+    {
+        if (ProfileManager.Instance != null)
+            ProfileManager.Instance.OnProfileChanged -= OnProfileChanged;
+    }
+
+    private void Update()
+    {
+        if (Input.GetKeyDown(toggleKey) && selectionPanel != null)
         {
-            Destroy(gameObject);
-            return;
+            selectionPanel.SetActive(!selectionPanel.activeSelf);
+
+            if (selectionPanel.activeSelf)
+                BuildGrid();
         }
-
-        Instance = this;
-        DontDestroyOnLoad(gameObject);
-        profile ??= new PlayerProfile();
-        OnReady?.Invoke();
     }
 
-    public void CreateNewProfile(string playerName = "Player")
+    private void BuildGrid()
     {
-        profile = new PlayerProfile
+        foreach (var slot in spawnedSlots)
+            if (slot != null) Destroy(slot.gameObject);
+
+        spawnedSlots.Clear();
+        if (iconDatabase == null || iconGrid == null || iconSlotPrefab == null) return;
+
+        foreach (var entry in iconDatabase.icons)
         {
-            playerName = playerName
-        };
-
-        OnProfileChanged?.Invoke(profile);
-        SaveSystem.SaveGame();
-    }
-
-    public void SetPlayerName(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            return;
-
-        profile.playerName = name;
-        OnProfileChanged?.Invoke(profile);
-        SaveSystem.SaveGame();
-    }
-
-    public void AddExperience(int amount)
-    {
-        if (amount <= 0)
-            return;
-
-        profile.experience += amount;
-        bool leveledUp = false;
-
-        while (profile.experience >= profile.experienceToNextLevel)
-        {
-            LevelUp();
-            leveledUp = true;
+            var go = Instantiate(iconSlotPrefab, iconGrid);
+            var slot = go.GetComponent<IconSlotUI>();
+            if (slot == null) continue;
+            bool unlocked = ProfileManager.Instance.IsIconUnlocked(entry.id);
+            bool selected = ProfileManager.Instance.profile.profileIconID == entry.id;
+            slot.Setup(entry, unlocked, selected, OnSlotClicked);
+            spawnedSlots.Add(slot);
         }
-
-        OnProfileChanged?.Invoke(profile);
-
-        if (amount > 0 || leveledUp)
-            SaveSystem.SaveGame();
     }
 
-    void LevelUp()
+    private void OnSlotClicked(string iconID)
     {
-        profile.experience -= profile.experienceToNextLevel;
-        profile.level++;
-        profile.experienceToNextLevel = Mathf.RoundToInt(profile.experienceToNextLevel * 1.5f);
-        profile.statPoints += 3;
+        hoveredIconID = iconID;
+        var entry = iconDatabase.icons.Find(e => e.id == iconID);
+        bool unlocked = ProfileManager.Instance.IsIconUnlocked(iconID);
+        bool selected = ProfileManager.Instance.profile.profileIconID == iconID;
 
-        if (PlayerStats.Instance != null)
+        if (previewImage != null)
+            previewImage.sprite = entry.sprite;
+
+        if (previewNameText != null)
+            previewNameText.text = entry.displayName;
+
+        if (previewCostText != null)
+            previewCostText.text = unlocked ? "Unlocked" : $"{entry.cost} Gold";
+
+        if (selectButton != null)
         {
-            PlayerStats.Instance.Modify(StatType.Health, 10);
-            PlayerStats.Instance.Modify(StatType.Energy, 5);
-            PlayerStats.Instance.Modify(StatType.Strength, 2);
-            PlayerStats.Instance.Modify(StatType.Intelligence, 2);
+            selectButton.interactable = !selected;
+
+            if (selectButtonText != null)
+            {
+                if (selected) selectButtonText.text = "Selected";
+                else if (unlocked) selectButtonText.text = "Select";
+                else selectButtonText.text = $"Buy ({entry.cost} Gold)";
+            }
         }
-
-        OnLevelUp?.Invoke(profile);
     }
 
-    public void AddCurrency(int amount)
+    public void OnSelectButtonClicked()
     {
-        CurrencyManager.Instance.Add(CurrencyType.Gold, amount);
-        OnProfileChanged?.Invoke(profile);
+        if (string.IsNullOrEmpty(hoveredIconID)) return;
+        bool unlocked = ProfileManager.Instance.IsIconUnlocked(hoveredIconID);
+
+        if (unlocked)
+        {
+            ProfileManager.Instance.SelectIcon(hoveredIconID);
+        }
+        else
+        {
+            var entry = iconDatabase.icons.Find(e => e.id == hoveredIconID);
+            bool success = ProfileManager.Instance.PurchaseIcon(hoveredIconID, entry.cost);
+
+            if (success)
+                ProfileManager.Instance.SelectIcon(hoveredIconID);
+            else
+            {
+                Debug.Log("Not enough currency.");
+            }
+        }
     }
 
-    public bool SpendCurrency(int amount)
-    {
-        bool success = CurrencyManager.Instance.Spend(CurrencyType.Gold, amount);
-
-        if (success)
-            OnProfileChanged?.Invoke(profile);
-
-        return success;
-    }
-
-    public void ApplyLoadedProfile(PlayerProfile saved)
-    {
-        profile.playerName = saved.playerName;
-        profile.level = saved.level;
-        profile.experience = saved.experience;
-        profile.experienceToNextLevel = saved.experienceToNextLevel;
-        profile.profileIconID = saved.profileIconID;
-        profile.statPoints = saved.statPoints;
-        profile.unlockedIconIDs = saved.unlockedIconIDs;
-        OnCurrencyChanged?.Invoke(profile);
-        OnProfileChanged?.Invoke(profile);
-        IsLoaded = true;
-    }
-
-    public bool PurchaseIcon(string iconID, int cost)
-    {
-        if (profile.unlockedIconIDs.Contains(iconID))
-            return false;
-
-        if (!CurrencyManager.Instance.Spend(CurrencyType.Gold, cost))
-            return false;
-
-        profile.unlockedIconIDs.Add(iconID);
-        OnProfileChanged?.Invoke(profile);
-        SaveSystem.SaveGame();
-        return true;
-    }
-
-    public void UnlockIcon(string iconID)
-    {
-        if (profile.unlockedIconIDs.Contains(iconID))
-            return;
-
-        profile.unlockedIconIDs.Add(iconID);
-        OnProfileChanged?.Invoke(profile);
-        SaveSystem.SaveGame();
-    }
-
-    public bool SelectIcon(string iconID)
-    {
-        if (!profile.unlockedIconIDs.Contains(iconID))
-            return false;
-
-        profile.profileIconID = iconID;
-        OnProfileChanged?.Invoke(profile);
-        SaveSystem.SaveGame();
-        return true;
-    }
-
-    public bool IsIconUnlocked(string iconID) => profile.unlockedIconIDs.Contains(iconID);
+    private void OnProfileChanged(PlayerProfile _) => BuildGrid();
 }

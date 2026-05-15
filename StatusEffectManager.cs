@@ -95,7 +95,6 @@ public class StatusEffectManager : MonoBehaviour
         {
             if (effectData.canStack)
             {
-                ApplyStatModifiers(existing, false);
                 existing.AddStack();
                 ApplyStatModifiers(existing, true);
             }
@@ -121,6 +120,9 @@ public class StatusEffectManager : MonoBehaviour
 
         PlaySound(effectData.applySound);
         OnEffectApplied?.Invoke(effectData);
+
+        if (effectData.statModifiers != null && effectData.statModifiers.Length > 0)
+            SaveSystem.SaveGame();
     }
 
     private void RemoveEffect(ActiveStatusEffect effect)
@@ -136,6 +138,9 @@ public class StatusEffectManager : MonoBehaviour
         activeEffects.Remove(effect);
         OnEffectExpired?.Invoke(effect.data);
         OnEffectRemoved?.Invoke(effect.data);
+
+        if (effect.data.statModifiers != null && effect.data.statModifiers.Length > 0)
+            SaveSystem.SaveGame();
     }
 
     private void ProcessTick(ActiveStatusEffect effect)
@@ -147,7 +152,7 @@ public class StatusEffectManager : MonoBehaviour
 
         if (totalDamage != 0)
         {
-            statOwner.Modify(StatType.Health, -totalDamage);
+            statOwner.Modify(StatType.Health, -totalDamage, false);
             OnEffectTick?.Invoke(effect.data, totalDamage);
             PlaySound(effect.data.tickSound);
         }
@@ -209,20 +214,53 @@ public class StatusEffectManager : MonoBehaviour
         if (effect.data.statModifiers == null || statOwner == null)
             return;
 
-        foreach (var mod in effect.data.statModifiers)
+        if (apply)
+            ApplyAndSnapshot(effect);
+        else
+            RemoveFromSnapshot(effect);
+    }
+
+    private void ApplyAndSnapshot(ActiveStatusEffect effect)
+    {
+        var mods = effect.data.statModifiers;
+
+        for (int i = 0; i < mods.Length; i++)
         {
-            int amount;
+            var mod = mods[i];
+            int newAmount;
 
             if (mod.isPercentage)
-                amount = Mathf.RoundToInt(statOwner.Get(mod.statType) * (mod.amount * effect.currentStacks) / 100f);
+                newAmount = Mathf.RoundToInt(statOwner.Get(mod.statType) * (mod.amount * effect.currentStacks) / 100f);
             else
-                amount = mod.amount * effect.currentStacks;
+                newAmount = mod.amount * effect.currentStacks;
 
-            if (amount == 0)
+            if (newAmount == 0)
                 continue;
 
-            statOwner.Modify(mod.statType, apply ? amount : -amount);
+            effect.appliedModifierAmounts.TryGetValue(i, out int alreadyApplied);
+            int delta = newAmount - alreadyApplied;
+
+            if (delta == 0)
+                continue;
+
+            effect.appliedModifierAmounts[i] = newAmount;
+            statOwner.Modify(mod.statType, delta, false);
         }
+    }
+
+    private void RemoveFromSnapshot(ActiveStatusEffect effect)
+    {
+        var mods = effect.data.statModifiers;
+
+        for (int i = 0; i < mods.Length; i++)
+        {
+            if (!effect.appliedModifierAmounts.TryGetValue(i, out int applied) || applied == 0)
+                continue;
+
+            statOwner.Modify(mods[i].statType, -applied, false);
+        }
+
+        effect.appliedModifierAmounts.Clear();
     }
 
     private void PlaySound(AudioClip clip)

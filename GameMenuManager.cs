@@ -8,6 +8,7 @@ public class GameMenuManager : MonoBehaviour
     private static readonly WaitForSeconds _halfSecondWait = new(0.5f);
     public static GameMenuManager Instance { get; private set; }
     private bool _isPaused;
+    private bool _isLoading;
     private AudioSource _audioSource;
     public static event System.Action OnGamePaused;
     public static event System.Action OnGameResumed;
@@ -63,6 +64,9 @@ public class GameMenuManager : MonoBehaviour
 
     void Update()
     {
+        if (_isLoading)
+            return;
+
         if (Input.GetKeyDown(pauseKey))
         {
             if (_isPaused)
@@ -172,6 +176,8 @@ public class GameMenuManager : MonoBehaviour
 
     IEnumerator LoadSceneAsync(string sceneName)
     {
+        _isLoading = true;
+
         if (loadingScreen != null)
             loadingScreen.SetActive(true);
 
@@ -190,6 +196,7 @@ public class GameMenuManager : MonoBehaviour
             if (loadingScreen != null)
                 loadingScreen.SetActive(false);
 
+            _isLoading = false;
             yield break;
         }
 
@@ -216,6 +223,8 @@ public class GameMenuManager : MonoBehaviour
 
         if (loadingScreen != null)
             loadingScreen.SetActive(false);
+
+        _isLoading = false;
     }
 
     public bool IsPaused() => _isPaused;

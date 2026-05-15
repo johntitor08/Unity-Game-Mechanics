@@ -1,65 +1,74 @@
 using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
 
-public class QuestSlotUI : MonoBehaviour
+[System.Serializable]
+public class QuestObjective
 {
-    [Header("UI Elements")]
-    public TextMeshProUGUI questNameText;
-    public TextMeshProUGUI questTypeText;
-    public Image questIcon;
-    public Image difficultyIcon;
-    public Button detailsButton;
-    public GameObject completedIndicator;
-    public GameObject newIndicator;
+    public ItemData targetItem;
+    public int itemCount = 1;
+    public bool consumeItems = true;
+    public string npcTag;
+    public string locationTag;
+    public float locationRadius = 2f;
+    public string interactObjectTag;
+    public ItemData craftTarget;
+    public int craftCount = 1;
+    public CurrencyType currencyType;
+    public int currencyAmount = 100;
 
-    private QuestData quest;
+    [Header("Objective Info")]
+    public string objectiveID;
+    public string description;
+    public QuestObjectiveType type;
 
-    public void Setup(QuestData questData, bool isCompleted = false, bool isNew = false)
+    [Header("Target")]
+    public EnemyData targetEnemy;
+    public int targetCount = 1;
+
+    [Header("Progress")]
+    [System.NonSerialized] public int currentProgress = 0;
+    [System.NonSerialized] public bool isCompleted = false;
+    public bool isOptional = false;
+
+    [Header("Events")]
+    public UnityEngine.Events.UnityEvent onObjectiveStart;
+    public UnityEngine.Events.UnityEvent onObjectiveComplete;
+
+    public bool IsComplete()
     {
-        quest = questData;
-
-        if (questNameText != null)
-            questNameText.text = questData.questName;
-
-        if (questTypeText != null)
-            questTypeText.text = questData.questType.ToString();
-
-        if (questIcon != null && questData.icon != null)
-            questIcon.sprite = questData.icon;
-
-        if (completedIndicator != null)
-            completedIndicator.SetActive(isCompleted);
-
-        if (newIndicator != null)
-            newIndicator.SetActive(isNew);
-
-        if (difficultyIcon != null)
-            difficultyIcon.color = GetDifficultyColor(questData.difficulty);
-
-        if (detailsButton != null)
-        {
-            detailsButton.onClick.RemoveAllListeners();
-            detailsButton.onClick.AddListener(OnDetailsClicked);
-        }
+        return currentProgress >= GetRequiredCount();
     }
 
-    void OnDetailsClicked()
+    public int GetRequiredCount()
     {
-        if (QuestUI.Instance != null && quest != null)
-            QuestUI.Instance.ShowQuestDetails(quest);
-    }
-
-    Color GetDifficultyColor(QuestDifficulty difficulty)
-    {
-        return difficulty switch
+        return type switch
         {
-            QuestDifficulty.Easy => Color.gray,
-            QuestDifficulty.Normal => Color.white,
-            QuestDifficulty.Hard => Color.yellow,
-            QuestDifficulty.Elite => new Color(1f, 0.5f, 0f),
-            QuestDifficulty.Epic => new Color(0.8f, 0.2f, 0.8f),
-            _ => Color.white
+            QuestObjectiveType.KillEnemies => targetCount,
+            QuestObjectiveType.CollectItems => itemCount,
+            QuestObjectiveType.CraftItems => craftCount,
+            QuestObjectiveType.SpendCurrency => currencyAmount,
+            _ => 1
         };
     }
+
+    public float GetProgressPercentage()
+    {
+        int required = GetRequiredCount();
+
+        if (required == 0)
+            return 1f;
+
+        return Mathf.Clamp01((float)currentProgress / required);
+    }
+}
+
+public enum QuestObjectiveType
+{
+    KillEnemies,
+    CollectItems,
+    TalkToNPC,
+    GoToLocation,
+    InteractWithObject,
+    CraftItems,
+    SpendCurrency,
+    Custom
 }

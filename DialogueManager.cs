@@ -73,7 +73,7 @@ public class DialogueManager : MonoBehaviour
         if (State != DialogueState.Typing && State != DialogueState.WaitingInput)
             return;
 
-        bool advance = Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0);
+        bool advance = Input.GetKeyDown(KeyCode.Space) || (Input.GetMouseButtonDown(0) && !UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject());
 
         if (!advance)
             return;
@@ -234,19 +234,19 @@ public class DialogueManager : MonoBehaviour
         var panelRect = choicesPanel.GetComponent<RectTransform>();
         var containerRect = choicesContainer.GetComponent<RectTransform>();
 
-        if (panelRect != null && containerRect != null)
-        {
-            int buttonHeight = (int)((RectTransform)choiceButtonPrefab.transform).rect.height;
-            int panelHeight = currentNode.choices.Length * (buttonHeight + 25);
-            panelRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, panelHeight);
-            containerRect.sizeDelta = new Vector2(containerRect.sizeDelta.x, panelHeight);
-        }
-
         foreach (var choice in currentNode.choices)
         {
             Button btn = Instantiate(choiceButtonPrefab, choicesContainer);
             btn.GetComponentInChildren<TextMeshProUGUI>().text = choice.choiceText;
             btn.onClick.AddListener(() => SelectChoice(choice));
+        }
+
+        if (containerRect != null)
+        {
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(containerRect);
+
+            if (panelRect != null)
+                panelRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, containerRect.rect.height + 20f);
         }
 
         choicesPanel.SetActive(true);
@@ -360,6 +360,8 @@ public class DialogueManager : MonoBehaviour
 public interface IDialoguePanelAnimator
 {
     void OpenDialoguePanel();
+
     void CloseDialoguePanel();
+
     float DialogueCloseAnimationDuration();
 }

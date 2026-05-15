@@ -18,7 +18,6 @@ public class ItemDetailPanel : MonoBehaviour
     public Button useButton;
     public Button equipButton;
     public Button closeButton;
-    public TextMeshProUGUI upgradeLevelText;
     public UpgradeFusionButton upgradeFusionButton;
 
     void Awake()
@@ -72,13 +71,6 @@ public class ItemDetailPanel : MonoBehaviour
 
         if (quantityText != null)
             quantityText.text = $"Sahip olunan: {qty}";
-
-        if (upgradeLevelText != null)
-        {
-            bool showUpgrade = upgradeLevel > 0 && item is EquipmentData;
-            upgradeLevelText.gameObject.SetActive(showUpgrade);
-            upgradeLevelText.text = $"+{upgradeLevel}";
-        }
 
         if (upgradeFusionButton != null)
             upgradeFusionButton.SetItem(item is EquipmentData eq ? eq : null);
@@ -168,7 +160,6 @@ public class ItemDetailPanel : MonoBehaviour
             else
                 Debug.LogError($"{currentItem.itemID} IsEquipment() true ama EquipmentData değil");
 
-            isProcessingUse = false;
             RefreshQuantity();
             return;
         }

@@ -22,6 +22,7 @@ public class PlayerBuffManager : MonoBehaviour
         public float duration = 5f;
         public bool stackable = false;
         [HideInInspector] public float endTime;
+        [HideInInspector] public string uiKey;
         public float damageMultiplier = 1f;
         public float damageReduction = 0f;
         public Sprite icon;
@@ -90,12 +91,12 @@ public class PlayerBuffManager : MonoBehaviour
             Buff buff = activeBuffs[i];
             float timeLeft = buff.endTime - Time.time;
 
-            if (buffUIMap.TryGetValue(buff.id, out var ui))
+            if (!string.IsNullOrEmpty(buff.uiKey) && buffUIMap.TryGetValue(buff.uiKey, out var ui))
                 ui.UpdateTimer(timeLeft);
 
             if (Time.time >= buff.endTime)
             {
-                RemoveBuffUI(buff.id);
+                RemoveBuffUI(buff.uiKey ?? buff.id);
                 activeBuffs.RemoveAt(i);
                 changed = true;
             }
@@ -111,12 +112,13 @@ public class PlayerBuffManager : MonoBehaviour
             return;
 
         GameObject obj = Instantiate(buffUIPrefab, buffUIParent);
-        
+
         if (!obj.TryGetComponent<BuffUI>(out var ui))
             return;
 
         ui.Setup(buff.icon, buff.displayName, buff.duration);
         string key = buff.stackable ? buff.id + "_" + System.Guid.NewGuid().ToString("N") : buff.id;
+        buff.uiKey = key;
         buffUIMap[key] = ui;
     }
 

@@ -12,7 +12,16 @@ public class InventoryUI : MonoBehaviour
     public Transform content;
     public ItemSlot slotPrefab;
 
-    void Awake() => Instance = this;
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+    }
 
     void Update()
     {
