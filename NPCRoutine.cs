@@ -20,7 +20,6 @@ public class NPCRoutine : MonoBehaviour
 
         switch (phase)
         {
-            case TimePhase.Morning:
             case TimePhase.Noon:
                 dayForm.SetActive(true);
                 break;

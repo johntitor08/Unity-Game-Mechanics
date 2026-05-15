@@ -14,6 +14,7 @@ public enum SceneProgress
     Scene6,
     Scene7,
     Scene8,
+    Scene9,
     SceneHome,
     SceneMarket,
     SceneGym,
@@ -682,6 +683,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             case SceneProgress.Scene7:
                 TriggerScene8();
                 break;
+
+            case SceneProgress.Scene8:
+                TriggerScene9();
+                break;
         }
     }
 
@@ -761,6 +766,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
             case SceneProgress.Scene8:
                 SetBackground(6);
+                break;
+
+            case SceneProgress.Scene9:
+                SetBackground(7);
                 SetCharacter(15);
                 break;
 
@@ -1043,31 +1052,31 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public void TriggerHomeScene()
     {
         Progress = SceneProgress.SceneHome;
-        TryStartDialogue(11);
+        TryStartDialogue(12);
     }
 
     public void TriggerMarketScene()
     {
         Progress = SceneProgress.SceneMarket;
-        TryStartDialogue(8);
+        TryStartDialogue(9);
     }
 
     public void TriggerGymScene()
     {
         Progress = SceneProgress.SceneGym;
-        TryStartDialogue(10);
+        TryStartDialogue(11);
     }
 
     public void TriggerOfficeScene()
     {
         Progress = SceneProgress.SceneOffice;
-        TryStartDialogue(12);
+        TryStartDialogue(13);
     }
 
     public void TriggerChurchScene()
     {
         Progress = SceneProgress.SceneChurch;
-        TryStartDialogue(9);
+        TryStartDialogue(10);
     }
 
     public void TriggerScene2()
@@ -1137,7 +1146,17 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         Progress = SceneProgress.Scene8;
         SetBackground(6);
-        SetCharacter(15);
         TryStartDialogue(7);
+    }
+
+    public void TriggerScene9()
+    {
+        if (Progress != SceneProgress.Scene8)
+            return;
+
+        Progress = SceneProgress.Scene9;
+        SetBackground(7);
+        SetCharacter(15);
+        TryStartDialogue(8);
     }
 }
