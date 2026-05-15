@@ -1,61 +1,51 @@
 using UnityEngine;
 
-public class MarketController : MonoBehaviour
+public class PhaseLockedObject : MonoBehaviour
 {
-    public GameObject marketClosedPanel;
-    public static MarketController Instance;
+    [Header("Required Phase")]
+    public TimePhase requiredPhase;
 
-    void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-
-        Instance = this;
-    }
+    [Header("Optional - Multiple Phases")]
+    public bool multiplePhasesAllowed = false;
+    public TimePhase[] allowedPhases;
 
     void Start()
     {
         if (TimePhaseManager.Instance == null)
             return;
 
-        TimePhaseManager.Instance.OnPhaseChanged += OnPhaseChanged;
-        OnPhaseChanged(TimePhaseManager.Instance.currentPhase);
+        TimePhaseManager.Instance.OnPhaseChanged += CheckPhase;
+        CheckPhase(TimePhaseManager.Instance.currentPhase);
     }
 
     void OnDestroy()
     {
         if (TimePhaseManager.Instance != null)
-            TimePhaseManager.Instance.OnPhaseChanged -= OnPhaseChanged;
+            TimePhaseManager.Instance.OnPhaseChanged -= CheckPhase;
     }
 
-    void OnPhaseChanged(TimePhase phase)
+    void CheckPhase(TimePhase phase)
     {
-        bool isOpen = IsOpenDuring(phase);
+        bool shouldBeActive = false;
 
-        if (marketClosedPanel != null)
-            marketClosedPanel.SetActive(!isOpen);
+        if (multiplePhasesAllowed && allowedPhases.Length > 0)
+        {
+            // Multiple phase check
+            foreach (var allowedPhase in allowedPhases)
+            {
+                if (phase == allowedPhase)
+                {
+                    shouldBeActive = true;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            // Single phase check
+            shouldBeActive = phase == requiredPhase;
+        }
 
-        if (ShopUI.Instance != null)
-            ShopUI.Instance.UpdateMarketStatus();
+        gameObject.SetActive(shouldBeActive);
     }
-
-    public bool IsOpen()
-    {
-        if (TimePhaseManager.Instance == null)
-            return true;
-
-        return IsOpenDuring(TimePhaseManager.Instance.currentPhase);
-    }
-
-    private bool IsOpenDuring(TimePhase phase) => phase switch
-    {
-        TimePhase.Morning => true,
-        TimePhase.Noon => true,
-        TimePhase.Evening => true,
-        TimePhase.Night => false,
-        _ => false
-    };
 }

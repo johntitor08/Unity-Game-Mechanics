@@ -1,29 +1,141 @@
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
 
-public class RewardItemUI : MonoBehaviour
+public class ShopManager : MonoBehaviour
 {
-    public Image icon;
-    public TextMeshProUGUI nameText;
-    public TextMeshProUGUI amountText;
+    public static ShopManager Instance;
+    private readonly Dictionary<string, int> stock = new();
 
-    public void Setup(string itemName, string amount, Sprite itemIcon)
+    [Header("Shop Items")]
+    public ShopItemData[] shopItems;
+
+    void Awake()
     {
-        if (nameText != null)
-            nameText.text = itemName;
-
-        if (amountText != null)
-            amountText.text = amount;
-
-        if (icon != null && itemIcon != null)
+        if (Instance != null)
         {
-            icon.sprite = itemIcon;
-            icon.enabled = true;
+            Destroy(gameObject);
+            return;
         }
-        else if (icon != null)
+
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+        InitializeDefaultStock();
+    }
+
+    void InitializeDefaultStock()
+    {
+        stock.Clear();
+
+        foreach (var item in shopItems)
         {
-            icon.enabled = false;
+            if (item == null || item.item == null)
+                continue;
+
+            if (!item.unlimitedStock)
+                stock[item.item.itemID] = item.stockAmount;
         }
     }
+
+    public void ApplyLoadedStock(List<string> ids, List<int> amounts)
+    {
+        if (ids == null || amounts == null)
+            return;
+
+        stock.Clear();
+
+        for (int i = 0; i < ids.Count && i < amounts.Count; i++)
+        {
+            stock[ids[i]] = amounts[i];
+        }
+    }
+
+    public bool CanBuy(ShopItemData shopItem)
+    {
+        if (shopItem == null || shopItem.item == null || ProfileManager.Instance == null)
+            return false;
+
+        var profile = ProfileManager.Instance.profile;
+        bool meetsLevel = profile.level >= shopItem.requiredLevel;
+        bool meetsFlag = !shopItem.requiresFlag || StoryFlags.Has(shopItem.requiredFlag);
+        bool hasCurrency = CurrencyManager.Instance != null && CurrencyManager.Instance.Has(CurrencyType.Gold, shopItem.price);
+        bool hasStock = shopItem.unlimitedStock || GetStock(shopItem.item.itemID) > 0;
+        return meetsLevel && meetsFlag && hasCurrency && hasStock;
+    }
+
+    public bool BuyItem(ShopItemData shopItem)
+    {
+        if (!CanBuy(shopItem) || !CurrencyManager.Instance.Spend(CurrencyType.Gold, shopItem.price))
+            return false;
+
+        if (!shopItem.unlimitedStock && !TryReduceStock(shopItem.item.itemID))
+        {
+            CurrencyManager.Instance.Add(CurrencyType.Gold, shopItem.price, false);
+            return false;
+        }
+
+        InventoryManager.Instance.AddItem(shopItem.item, 1);
+        SaveSystem.SaveGame();
+        return true;
+    }
+
+    public bool CanSell(ItemData item, int quantity)
+    {
+        return item != null && InventoryManager.Instance.GetQuantity(item) >= quantity;
+    }
+
+    public bool SellItem(ItemData item, int quantity, float sellRatio)
+    {
+        if (!CanSell(item, quantity))
+            return false;
+
+        int price = Mathf.RoundToInt(item.basePrice * item.GetRarityMultiplier() * sellRatio) * quantity;
+        InventoryManager.Instance.RemoveItem(item, quantity);
+        CurrencyManager.Instance.Add(CurrencyType.Gold, price);
+        SaveSystem.SaveGame();
+        return true;
+    }
+
+    public int GetStock(string itemID)
+    {
+        return stock.TryGetValue(itemID, out int s) ? s : -1;
+    }
+
+    public bool TryReduceStock(string itemID, int amount = 1)
+    {
+        if (!stock.TryGetValue(itemID, out int current) || current < amount)
+            return false;
+
+        stock[itemID] = current - amount;
+        return true;
+    }
+
+    public void SetStock(string itemID, int amount)
+    {
+        stock[itemID] = amount;
+    }
+
+    public List<ShopStockData> GetStockDataForSave()
+    {
+        List<ShopStockData> list = new();
+
+        foreach (var kvp in stock)
+        {
+            list.Add(new ShopStockData
+            {
+                itemID = kvp.Key,
+                amount = kvp.Value
+            });
+        }
+
+        return list;
+    }
+}
+
+
+[Serializable]
+public class ShopStockData
+{
+    public string itemID;
+    public int amount;
 }

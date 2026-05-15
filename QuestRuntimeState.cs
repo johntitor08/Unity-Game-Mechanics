@@ -1,124 +1,70 @@
-using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
 using System.Collections.Generic;
 
-public class IconSelectionUI : MonoBehaviour
+[System.Serializable]
+public class QuestRuntimeState
 {
-    [Header("Panel")]
-    public GameObject selectionPanel;
-    public KeyCode toggleKey = KeyCode.I;
+    public string questID;
+    public List<string> objectiveIDs = new();
+    public List<ObjectiveRuntimeState> objectiveStates = new();
+    [System.NonSerialized] private Dictionary<string, ObjectiveRuntimeState> objectives;
 
-    [Header("Grid")]
-    public Transform iconGrid;
-    public GameObject iconSlotPrefab;
-
-    [Header("Database")]
-    public ProfileIconDatabase iconDatabase;
-
-    [Header("Selected Preview")]
-    public Image previewImage;
-    public TextMeshProUGUI previewNameText;
-    public TextMeshProUGUI previewCostText;
-    public Button selectButton;
-    public TextMeshProUGUI selectButtonText;
-    private string hoveredIconID;
-    private readonly List<IconSlotUI> spawnedSlots = new();
-
-    private void OnEnable()
+    public QuestRuntimeState(string questID)
     {
-        ProfileManager.Instance.OnProfileChanged += OnProfileChanged;
-        BuildGrid();
+        this.questID = questID;
     }
 
-    private void OnDisable()
+    public void RebuildLookup()
     {
-        if (ProfileManager.Instance != null)
-            ProfileManager.Instance.OnProfileChanged -= OnProfileChanged;
+        objectives = new Dictionary<string, ObjectiveRuntimeState>();
+
+        for (int i = 0; i < objectiveIDs.Count && i < objectiveStates.Count; i++)
+            objectives[objectiveIDs[i]] = objectiveStates[i];
     }
 
-    private void Update()
+    void EnsureLookup()
     {
-        if (Input.GetKeyDown(toggleKey) && selectionPanel != null)
+        if (objectives == null)
+            RebuildLookup();
+    }
+
+    public ObjectiveRuntimeState GetObjective(string objectiveID)
+    {
+        EnsureLookup();
+
+        if (!objectives.TryGetValue(objectiveID, out var state))
         {
-            selectionPanel.SetActive(!selectionPanel.activeSelf);
-
-            if (selectionPanel.activeSelf)
-                BuildGrid();
+            state = new ObjectiveRuntimeState(objectiveID);
+            objectives[objectiveID] = state;
+            objectiveIDs.Add(objectiveID);
+            objectiveStates.Add(state);
         }
-    }
 
-    private void BuildGrid()
+        return state;
+    }
+}
+
+[System.Serializable]
+public class ObjectiveRuntimeState
+{
+    public string objectiveID;
+    public int currentProgress;
+    public bool isCompleted;
+
+    public ObjectiveRuntimeState(string objectiveID)
     {
-        foreach (var slot in spawnedSlots)
-            if (slot != null) Destroy(slot.gameObject);
-
-        spawnedSlots.Clear();
-        if (iconDatabase == null || iconGrid == null || iconSlotPrefab == null) return;
-
-        foreach (var entry in iconDatabase.icons)
-        {
-            var go = Instantiate(iconSlotPrefab, iconGrid);
-            var slot = go.GetComponent<IconSlotUI>();
-            if (slot == null) continue;
-            bool unlocked = ProfileManager.Instance.IsIconUnlocked(entry.id);
-            bool selected = ProfileManager.Instance.profile.profileIconID == entry.id;
-            slot.Setup(entry, unlocked, selected, OnSlotClicked);
-            spawnedSlots.Add(slot);
-        }
+        this.objectiveID = objectiveID;
+        currentProgress = 0;
+        isCompleted = false;
     }
+}
 
-    private void OnSlotClicked(string iconID)
-    {
-        hoveredIconID = iconID;
-        var entry = iconDatabase.icons.Find(e => e.id == iconID);
-        bool unlocked = ProfileManager.Instance.IsIconUnlocked(iconID);
-        bool selected = ProfileManager.Instance.profile.profileIconID == iconID;
-
-        if (previewImage != null)
-            previewImage.sprite = entry.sprite;
-
-        if (previewNameText != null)
-            previewNameText.text = entry.displayName;
-
-        if (previewCostText != null)
-            previewCostText.text = unlocked ? "Unlocked" : $"{entry.cost} Gold";
-
-        if (selectButton != null)
-        {
-            selectButton.interactable = !selected;
-
-            if (selectButtonText != null)
-            {
-                if (selected) selectButtonText.text = "Selected";
-                else if (unlocked) selectButtonText.text = "Select";
-                else selectButtonText.text = $"Buy ({entry.cost} Gold)";
-            }
-        }
-    }
-
-    public void OnSelectButtonClicked()
-    {
-        if (string.IsNullOrEmpty(hoveredIconID)) return;
-        bool unlocked = ProfileManager.Instance.IsIconUnlocked(hoveredIconID);
-
-        if (unlocked)
-        {
-            ProfileManager.Instance.SelectIcon(hoveredIconID);
-        }
-        else
-        {
-            var entry = iconDatabase.icons.Find(e => e.id == hoveredIconID);
-            bool success = ProfileManager.Instance.PurchaseIcon(hoveredIconID, entry.cost);
-
-            if (success)
-                ProfileManager.Instance.SelectIcon(hoveredIconID);
-            else
-            {
-                Debug.Log("Not enough currency.");
-            }
-        }
-    }
-
-    private void OnProfileChanged(PlayerProfile _) => BuildGrid();
+[System.Serializable]
+public class QuestSaveData
+{
+    public List<string> activeQuestIDs = new();
+    public List<string> completedQuestIDs = new();
+    public List<QuestRuntimeState> runtimeStates = new();
+    public List<string> trackedQuestIDs = new();
+    public List<float> questTimerValues = new();
+    public List<string> questTimerKeys = new();
 }

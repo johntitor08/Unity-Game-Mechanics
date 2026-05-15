@@ -1,78 +1,43 @@
-using UnityEngine;
-using UnityEngine.Events;
+using System;
+using System.Collections.Generic;
 
-[CreateAssetMenu(fileName = "Quest", menuName = "Quest/Quest Data")]
-public class QuestData : ScriptableObject
+[Serializable]
+public class SaveData
 {
-    [Header("Quest Info")]
-    public string questID;
-    public string questName;
-    [TextArea(3, 6)]
-    public string description;
-    public Sprite icon;
-    public QuestType questType = QuestType.Main;
-    public QuestDifficulty difficulty = QuestDifficulty.Normal;
-
-    [Header("Requirements")]
-    public int requiredLevel = 1;
-    public string[] requiredFlags;
-    public QuestData[] prerequisiteQuests;
-
-    [Header("Quest Objectives")]
-    public QuestObjective[] objectives;
-
-    [Header("Dialogue")]
-    public DialogueNode startDialogue;
-    public DialogueNode progressDialogue;
-    public DialogueNode completionDialogue;
-    public DialogueNode completeDialogue;
-    public DialogueNode failureDialogue;
-
-    [Header("Rewards")]
-    public int experienceReward = 100;
-    public CurrencyReward[] currencyRewards;
-    public ItemData[] itemRewards;
-    public int[] itemRewardQuantities;
-
-    [Header("Optional Rewards (Choose One)")]
-    public ItemData[] optionalRewards;
-
-    [Header("Quest Tracking")]
-    public bool trackObjectives = true;
-    public bool showOnMap = true;
-    public Vector3 questMarkerPosition;
-
-    [Header("Time Limit")]
-    public bool hasTimeLimit = false;
-    public float timeLimitSeconds = 300f;
-
-    [Header("Failure")]
-    public bool canFail = false;
-
-    [Header("Events")]
-    public UnityEvent onQuestStart;
-    public UnityEvent onQuestComplete;
-    public UnityEvent onQuestFail;
-
-    [Header("Flags")]
-    public string[] flagsToSetOnStart;
-    public string[] flagsToSetOnComplete;
+    public int version = 1;
+    public string savedAt = "";
+    public string playerName = "Player";
+    public int playerLevel = 1;
+    public int playerExperience = 0;
+    public int playerExperienceToNext = 100;
+    public string currentScene;
+    public int sceneProgress;
+    public List<string> storyFlags = new();
+    public TimePhase currentTimePhase = TimePhase.Morning;
+    public int currentDay = 1;
+    public float phaseProgress = 0f;
+    public bool resumeDialogueOnLoad;
+    public List<string> inventoryKeys = new();
+    public List<int> inventoryCounts = new();
+    public List<EquippedItemSave> equippedItems = new();
+    public List<CurrencyType> currencyTypes = new();
+    public List<int> currencyAmounts = new();
+    public List<string> shopStockIDs = new();
+    public List<int> shopStockAmounts = new();
+    public List<StatType> statTypes = new();
+    public List<int> statValues = new();
+    public List<QuestRuntimeState> activeQuests = new();
+    public List<string> completedQuests = new();
+    public List<string> trackedQuests = new();
+    public string activeScenarioID = "";
+    public int activeScenarioStep = 0;
+    public List<string> completedScenarios = new();
 }
 
-public enum QuestType
+[Serializable]
+public class EquippedItemSave
 {
-    Main,
-    Side,
-    Daily,
-    Repeatable,
-    Event
-}
-
-public enum QuestDifficulty
-{
-    Easy,
-    Normal,
-    Hard,
-    Elite,
-    Epic
+    public EquipmentSlot slot;
+    public string itemID;
+    public int upgradeLevel;
 }

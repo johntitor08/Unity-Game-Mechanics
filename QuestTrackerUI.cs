@@ -1,28 +1,28 @@
-using System;
-using System.Collections.Generic;
 using UnityEngine;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine.UI;
 
-[Serializable]
-public class PlayerProfile
+public class QuestTrackerUI : MonoBehaviour
 {
-    public string playerName = "Player";
-    public int level = 1;
-    public int experience = 0;
-    public int experienceToNextLevel = 100;
-    public string profileIconID = "default";
-    public List<string> unlockedIconIDs = new() { "default" };
-    public int statPoints = 0;
-}
+    public static QuestTrackerUI Instance;
+    private HashSet<string> trackedQuestIDs = new();
+    private readonly Dictionary<string, QuestTrackerEntry> trackerEntries = new();
+    private bool isSubscribed = false;
 
-public class ProfileManager : MonoBehaviour
-{
-    public static ProfileManager Instance;
-    public PlayerProfile profile;
-    public event Action<PlayerProfile> OnProfileChanged;
-    public event Action<PlayerProfile> OnLevelUp;
-    public event Action<PlayerProfile> OnCurrencyChanged;
-    public static event Action OnReady;
-    public bool IsLoaded { get; private set; }
+    [Header("Tracker")]
+    public GameObject trackerPanel;
+    public Transform trackedQuestsParent;
+    public QuestTrackerEntry trackerEntryPrefab;
+    public int maxTrackedQuests = 3;
+    public Button closeButton;
+
+    [Header("Settings")]
+    public bool autoTrackNewQuests = true;
+    public bool persistAcrossScenes = false;
+
+    [Header("Visibility")]
+    [SerializeField] private bool isPanelHiddenByUser = false;
 
     void Awake()
     {
@@ -33,131 +33,219 @@ public class ProfileManager : MonoBehaviour
         }
 
         Instance = this;
-        DontDestroyOnLoad(gameObject);
-        profile ??= new PlayerProfile();
-        OnReady?.Invoke();
+
+        if (persistAcrossScenes)
+            DontDestroyOnLoad(gameObject);
     }
 
-    public void CreateNewProfile(string playerName = "Player")
+    void Start()
     {
-        profile = new PlayerProfile
+        if (closeButton != null)
+            closeButton.onClick.AddListener(OnCloseClicked);
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
+
+    void OnEnable()
+    {
+        QuestManager.OnReady += TrySubscribe;
+        TrySubscribe();
+    }
+
+    void OnDisable()
+    {
+        if (isSubscribed && QuestManager.Instance != null)
         {
-            playerName = playerName
-        };
-
-        OnProfileChanged?.Invoke(profile);
-        SaveSystem.SaveGame();
-    }
-
-    public void SetPlayerName(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            return;
-
-        profile.playerName = name;
-        OnProfileChanged?.Invoke(profile);
-        SaveSystem.SaveGame();
-    }
-
-    public void AddExperience(int amount)
-    {
-        if (amount <= 0)
-            return;
-
-        profile.experience += amount;
-        bool leveledUp = false;
-
-        while (profile.experience >= profile.experienceToNextLevel)
-        {
-            LevelUp();
-            leveledUp = true;
+            QuestManager.Instance.OnQuestStarted -= OnQuestStarted;
+            QuestManager.Instance.OnQuestCompleted -= OnQuestCompleted;
+            QuestManager.Instance.OnObjectiveUpdated -= OnObjectiveUpdated;
+            QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveCompleted;
+            QuestManager.Instance.OnTrackingToggleRequested -= OnTrackingToggleRequested;
+            QuestManager.Instance.OnSaveDataRequested -= OnSaveDataRequested;
+            QuestManager.Instance.OnTrackedQuestsLoaded -= OnTrackedQuestsLoaded;
+            QuestManager.Instance.OnQuestAbandoned -= OnQuestAbandoned;
+            isSubscribed = false;
         }
 
-        OnProfileChanged?.Invoke(profile);
-
-        if (amount > 0 || leveledUp)
-            SaveSystem.SaveGame();
+        QuestManager.OnReady -= TrySubscribe;
     }
 
-    void LevelUp()
+    void TrySubscribe()
     {
-        profile.experience -= profile.experienceToNextLevel;
-        profile.level++;
-        profile.experienceToNextLevel = Mathf.RoundToInt(profile.experienceToNextLevel * 1.5f);
-        profile.statPoints += 3;
-
-        if (PlayerStats.Instance != null)
+        if (QuestManager.Instance != null && !isSubscribed)
         {
-            PlayerStats.Instance.Modify(StatType.Health, 10);
-            PlayerStats.Instance.Modify(StatType.Energy, 5);
-            PlayerStats.Instance.Modify(StatType.Strength, 2);
-            PlayerStats.Instance.Modify(StatType.Intelligence, 2);
+            QuestManager.Instance.OnQuestStarted += OnQuestStarted;
+            QuestManager.Instance.OnQuestCompleted += OnQuestCompleted;
+            QuestManager.Instance.OnObjectiveUpdated += OnObjectiveUpdated;
+            QuestManager.Instance.OnObjectiveCompleted += OnObjectiveCompleted;
+            QuestManager.Instance.OnTrackingToggleRequested += OnTrackingToggleRequested;
+            QuestManager.Instance.OnSaveDataRequested += OnSaveDataRequested;
+            QuestManager.Instance.OnTrackedQuestsLoaded += OnTrackedQuestsLoaded;
+            QuestManager.Instance.OnQuestAbandoned += OnQuestAbandoned;
+            isSubscribed = true;
+            UpdateTracker();
         }
-
-        OnLevelUp?.Invoke(profile);
     }
 
-    public void AddCurrency(int amount)
+    void OnQuestStarted(QuestData quest)
     {
-        CurrencyManager.Instance.Add(CurrencyType.Gold, amount);
-        OnProfileChanged?.Invoke(profile);
+        if (autoTrackNewQuests && quest.trackObjectives)
+        {
+            if (!TrackQuest(quest.questID))
+                Debug.Log($"[QuestTrackerUI] Max limit ({maxTrackedQuests}) dolu, '{quest.questName}' takibe alınamadı.");
+        }
     }
 
-    public bool SpendCurrency(int amount)
+    void OnQuestCompleted(QuestData quest) => UntrackQuest(quest.questID);
+
+    void OnQuestAbandoned(QuestData quest) => UntrackQuest(quest.questID);
+
+    void OnObjectiveUpdated(QuestData quest, QuestObjective objective) => RefreshEntries();
+
+    void OnObjectiveCompleted(QuestData quest, QuestObjective objective) => RefreshEntries();
+
+    void OnTrackingToggleRequested(QuestData quest) => ToggleQuest(quest);
+
+    void OnSaveDataRequested(QuestSaveData data)
     {
-        bool success = CurrencyManager.Instance.Spend(CurrencyType.Gold, amount);
-
-        if (success)
-            OnProfileChanged?.Invoke(profile);
-
-        return success;
+        data.trackedQuestIDs = new List<string>(trackedQuestIDs);
     }
 
-    public void ApplyLoadedProfile(PlayerProfile saved)
+    void OnTrackedQuestsLoaded(List<string> questIDs)
     {
-        profile.playerName = saved.playerName;
-        profile.level = saved.level;
-        profile.experience = saved.experience;
-        profile.experienceToNextLevel = saved.experienceToNextLevel;
-        profile.profileIconID = saved.profileIconID;
-        profile.statPoints = saved.statPoints;
-        profile.unlockedIconIDs = saved.unlockedIconIDs;
-        OnCurrencyChanged?.Invoke(profile);
-        OnProfileChanged?.Invoke(profile);
-        IsLoaded = true;
+        if (questIDs == null)
+            return;
+
+        var qm = QuestManager.Instance;
+        var validIDs = questIDs.Where(id => qm != null && qm.GetActiveQuest(id) != null).Take(maxTrackedQuests);
+        trackedQuestIDs = new HashSet<string>(validIDs);
+        UpdateTracker();
     }
 
-    public bool PurchaseIcon(string iconID, int cost)
+    public bool IsTracked(string questID) => trackedQuestIDs.Contains(questID);
+
+    public void ToggleQuest(QuestData quest)
     {
-        if (profile.unlockedIconIDs.Contains(iconID) || !CurrencyManager.Instance.Spend(CurrencyType.Gold, cost))
+        if (IsTracked(quest.questID))
+            UntrackQuest(quest.questID);
+        else
+            TrackQuest(quest.questID);
+    }
+
+    public bool TrackQuest(string questID)
+    {
+        if (trackedQuestIDs.Count >= maxTrackedQuests)
             return false;
 
-        profile.unlockedIconIDs.Add(iconID);
-        OnProfileChanged?.Invoke(profile);
-        SaveSystem.SaveGame();
+        var qm = QuestManager.Instance;
+
+        if (qm == null || qm.GetActiveQuest(questID) == null || !trackedQuestIDs.Add(questID))
+            return false;
+
+        isPanelHiddenByUser = false;
+        UpdateTracker();
         return true;
     }
 
-    public void UnlockIcon(string iconID)
+    public void UntrackQuest(string questID)
     {
-        if (profile.unlockedIconIDs.Contains(iconID))
+        if (!trackedQuestIDs.Remove(questID))
             return;
 
-        profile.unlockedIconIDs.Add(iconID);
-        OnProfileChanged?.Invoke(profile);
-        SaveSystem.SaveGame();
+        UpdateTracker();
     }
 
-    public bool SelectIcon(string iconID)
+    public void SetTrackedQuests(List<string> questIDs)
     {
-        if (!profile.unlockedIconIDs.Contains(iconID))
-            return false;
-
-        profile.profileIconID = iconID;
-        OnProfileChanged?.Invoke(profile);
-        SaveSystem.SaveGame();
-        return true;
+        OnTrackedQuestsLoaded(questIDs);
     }
 
-    public bool IsIconUnlocked(string iconID) => profile.unlockedIconIDs.Contains(iconID);
+    public List<string> GetTrackedQuests() => new(trackedQuestIDs);
+
+    void OnCloseClicked()
+    {
+        isPanelHiddenByUser = true;
+
+        if (trackerPanel != null)
+            trackerPanel.SetActive(false);
+    }
+
+    void UpdateTracker()
+    {
+        var toRemove = new List<string>();
+
+        foreach (var questID in trackerEntries.Keys)
+            if (!trackedQuestIDs.Contains(questID))
+                toRemove.Add(questID);
+
+        foreach (var questID in toRemove)
+        {
+            if (trackerEntries[questID] != null)
+                Destroy(trackerEntries[questID].gameObject);
+
+            trackerEntries.Remove(questID);
+        }
+
+        foreach (var questID in trackedQuestIDs)
+        {
+            if (QuestManager.Instance == null)
+                break;
+
+            var quest = QuestManager.Instance.GetActiveQuest(questID);
+
+            if (quest == null)
+                continue;
+
+            if (!trackerEntries.ContainsKey(questID))
+            {
+                if (trackerEntryPrefab == null)
+                {
+                    Debug.LogError("[QuestTrackerUI] trackerEntryPrefab atanmamış.", this);
+                    continue;
+                }
+
+                var entry = Instantiate(trackerEntryPrefab, trackedQuestsParent);
+                trackerEntries[questID] = entry;
+            }
+
+            trackerEntries[questID].Setup(quest);
+        }
+
+        if (trackerPanel != null)
+            trackerPanel.SetActive(!isPanelHiddenByUser && trackedQuestIDs.Count > 0);
+    }
+
+    void RefreshEntries()
+    {
+        List<string> orphaned = null;
+        var qm = QuestManager.Instance;
+
+        foreach (var (questID, entry) in trackerEntries)
+        {
+            if (entry == null)
+            {
+                (orphaned ??= new()).Add(questID);
+                continue;
+            }
+
+            var quest = qm != null ? qm.GetActiveQuest(questID) : null;
+
+            if (quest != null)
+                entry.Setup(quest);
+            else
+                (orphaned ??= new()).Add(questID);
+        }
+
+        if (orphaned != null)
+        {
+            foreach (var id in orphaned)
+                trackedQuestIDs.Remove(id);
+
+            UpdateTracker();
+        }
+    }
 }

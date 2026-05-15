@@ -1,416 +1,384 @@
+﻿using System.IO;
 using UnityEngine;
-using System.Collections.Generic;
-using System.Linq;
-using System;
+using UnityEngine.SceneManagement;
 
-public class QuestManager : MonoBehaviour
+public static class SaveSystem
 {
-    public static QuestManager Instance;
-    public event Action<QuestData> OnQuestStarted;
-    public event Action<QuestData> OnQuestCompleted;
-    public event Action<QuestData> OnQuestFailed;
-    public event Action<QuestData> OnQuestAbandoned;
-    public event Action<QuestData, QuestObjective> OnObjectiveUpdated;
-    public event Action<QuestData, QuestObjective> OnObjectiveCompleted;
-    public event Action<QuestData> OnTrackingToggleRequested;
-    public event Action<QuestSaveData> OnSaveDataRequested;
-    public event Action<List<string>> OnTrackedQuestsLoaded;
-    public static event Action OnReady;
-    private readonly List<QuestData> activeQuests = new();
-    private readonly List<QuestData> completedQuests = new();
-    private readonly Dictionary<string, QuestRuntimeState> runtimeStates = new();
-    private readonly Dictionary<string, float> questTimers = new();
+    public static SaveData CachedData;
+    public static bool IsLoading { get; private set; }
+    private static int activeSlot = 0;
+    private static string SavePath => GetSavePath(activeSlot);
 
-    [Header("Available Quests")]
-    public QuestData[] allQuests;
-
-    [Header("Quest Tracking")]
-    public int maxActiveQuests = 5;
-    public int maxDailyQuests = 3;
-
-    void Awake()
+    private static string GetSavePath(int slotIndex)
     {
-        if (Instance == null)
+        return Path.Combine(Application.persistentDataPath, $"save_slot_{slotIndex}.json");
+    }
+
+    public static void SetActiveSlot(int slotIndex)
+    {
+        activeSlot = Mathf.Max(0, slotIndex);
+    }
+
+    public static bool HasSaveFile(int slotIndex)
+    {
+        return File.Exists(GetSavePath(slotIndex));
+    }
+
+    public static SaveData PeekSlot(int slotIndex)
+    {
+        string path = GetSavePath(slotIndex);
+
+        if (!File.Exists(path))
+            return null;
+
+        try
         {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-            OnReady?.Invoke();
+            return JsonUtility.FromJson<SaveData>(File.ReadAllText(path));
         }
-        else
+        catch
         {
-            Destroy(gameObject);
-        }
-    }
-
-    void Start()
-    {
-        if (CombatManager.Instance != null)
-            CombatManager.Instance.OnCombatVictory += CheckKillObjectives;
-
-        if (InventoryManager.Instance != null)
-            InventoryManager.Instance.OnInventoryChanged += CheckCollectObjectives;
-
-        if (CurrencyManager.Instance != null)
-            CurrencyManager.Instance.OnCurrencySpent += CheckSpendObjectives;
-    }
-
-    void Update()
-    {
-        UpdateQuestTimers();
-    }
-
-    QuestRuntimeState GetOrCreateRuntimeState(string questID)
-    {
-        if (!runtimeStates.TryGetValue(questID, out var state))
-        {
-            state = new QuestRuntimeState(questID);
-            runtimeStates[questID] = state;
-        }
-
-        return state;
-    }
-
-    public ObjectiveRuntimeState GetObjectiveState(string questID, string objectiveID)
-    {
-        return GetOrCreateRuntimeState(questID).GetObjective(objectiveID);
-    }
-
-    void UpdateQuestTimers()
-    {
-        List<string> expiredQuests = new();
-
-        foreach (var kvp in questTimers)
-        {
-            questTimers[kvp.Key] -= Time.deltaTime;
-
-            if (questTimers[kvp.Key] <= 0)
-                expiredQuests.Add(kvp.Key);
-        }
-
-        foreach (var questID in expiredQuests)
-        {
-            var quest = GetActiveQuest(questID);
-
-            if (quest != null)
-                FailQuest(quest);
+            return null;
         }
     }
 
-    public bool CanStartQuest(QuestData quest)
+    public static void DeleteSave(int slotIndex)
     {
-        if (IsQuestActive(quest.questID) || (IsQuestCompleted(quest.questID) && quest.questType != QuestType.Repeatable && quest.questType != QuestType.Daily) || activeQuests.Count >= maxActiveQuests || (ProfileManager.Instance != null && ProfileManager.Instance.profile.level < quest.requiredLevel))
-            return false;
+        string path = GetSavePath(slotIndex);
 
-        if (quest.requiredFlags != null)
-            foreach (var flag in quest.requiredFlags)
-                if (!StoryFlags.Has(flag))
-                    return false;
-
-        if (quest.prerequisiteQuests != null)
-            foreach (var prereq in quest.prerequisiteQuests)
-                if (!IsQuestCompleted(prereq.questID))
-                    return false;
-
-        return true;
+        if (File.Exists(path))
+            File.Delete(path);
     }
 
-    public bool StartQuest(QuestData quest)
+    public static void SaveGame(int slotIndex)
     {
-        if (!CanStartQuest(quest))
-            return false;
-
-        var runtimeState = new QuestRuntimeState(quest.questID);
-
-        foreach (var objective in quest.objectives)
-        {
-            var objState = runtimeState.GetObjective(objective.objectiveID);
-            objState.currentProgress = 0;
-            objState.isCompleted = false;
-            objective.onObjectiveStart?.Invoke();
-        }
-
-        runtimeStates[quest.questID] = runtimeState;
-        activeQuests.Add(quest);
-
-        if (quest.flagsToSetOnStart != null)
-            foreach (var flag in quest.flagsToSetOnStart)
-                StoryFlags.Add(flag);
-
-        if (quest.hasTimeLimit)
-            questTimers[quest.questID] = quest.timeLimitSeconds;
-
-        quest.onQuestStart?.Invoke();
-        OnQuestStarted?.Invoke(quest);
-        Debug.Log($"Quest started: {quest.questName}");
-        SaveSystem.SaveGame();
-        return true;
+        SetActiveSlot(slotIndex);
+        SaveGame(isManual: true);
     }
 
-    public void UpdateObjectiveProgress(string questID, string objectiveID, int amount = 1)
+    public static void LoadGame(int slotIndex)
     {
-        var quest = GetActiveQuest(questID);
+        SetActiveSlot(slotIndex);
+        LoadGame();
+    }
 
-        if (quest == null)
+    public static bool HasSaveFile() => File.Exists(SavePath);
+
+    public static void DeleteSave()
+    {
+        if (File.Exists(SavePath))
+            File.Delete(SavePath);
+    }
+
+    public static void SaveGame(bool isManual = false)
+    {
+        if (IsLoading || (!isManual && SettingsManager.Instance != null && !SettingsManager.Instance.IsAutosaveEnabled()))
             return;
 
-        var objective = GetObjective(quest, objectiveID);
-
-        if (objective == null)
-            return;
-
-        var objState = GetObjectiveState(questID, objectiveID);
-
-        if (objState.isCompleted)
-            return;
-
-        objState.currentProgress += amount;
-        int required = objective.GetRequiredCount();
-
-        if (objState.currentProgress >= required)
+        SaveData data = new()
         {
-            objState.currentProgress = required;
-            CompleteObjective(quest, objective, objState);
-        }
-        else
-        {
-            OnObjectiveUpdated?.Invoke(quest, objective);
-        }
-
-        SaveSystem.SaveGame();
-    }
-
-    void CompleteObjective(QuestData quest, QuestObjective objective, ObjectiveRuntimeState objState)
-    {
-        objState.isCompleted = true;
-        objective.onObjectiveComplete?.Invoke();
-        OnObjectiveCompleted?.Invoke(quest, objective);
-        Debug.Log($"Objective completed: {objective.description}");
-
-        bool allComplete = quest.objectives.All(obj =>
-            obj.isOptional || GetObjectiveState(quest.questID, obj.objectiveID).isCompleted);
-
-        if (allComplete)
-            CompleteQuest(quest);
-    }
-
-    public void CompleteQuest(QuestData quest)
-    {
-        if (!IsQuestActive(quest.questID))
-            return;
-
-        activeQuests.Remove(quest);
-
-        if (quest.questType != QuestType.Repeatable && quest.questType != QuestType.Daily)
-            completedQuests.Add(quest);
-
-        if (questTimers.ContainsKey(quest.questID))
-            questTimers.Remove(quest.questID);
-
-        GiveQuestRewards(quest);
-
-        if (quest.flagsToSetOnComplete != null)
-            foreach (var flag in quest.flagsToSetOnComplete)
-                StoryFlags.Add(flag);
-
-        quest.onQuestComplete?.Invoke();
-        OnQuestCompleted?.Invoke(quest);
-
-        if (quest.completeDialogue != null && DialogueManager.Instance != null)
-            DialogueManager.Instance.StartDialogue(quest.completeDialogue);
-
-        Debug.Log($"Quest completed: {quest.questName}");
-        SaveSystem.SaveGame();
-    }
-
-    void GiveQuestRewards(QuestData quest)
-    {
-        if (quest.experienceReward > 0 && ProfileManager.Instance != null)
-            ProfileManager.Instance.AddExperience(quest.experienceReward);
-
-        if (quest.currencyRewards != null)
-            foreach (var reward in quest.currencyRewards)
-                reward.Grant();
-
-        if (quest.itemRewards != null && InventoryManager.Instance != null)
-        {
-            for (int i = 0; i < quest.itemRewards.Length; i++)
-            {
-                int qty = (quest.itemRewardQuantities != null && i < quest.itemRewardQuantities.Length) ? quest.itemRewardQuantities[i] : 1;
-                InventoryManager.Instance.AddItem(quest.itemRewards[i], qty);
-            }
-        }
-
-        if (QuestRewardUI.Instance != null)
-            QuestRewardUI.Instance.ShowRewards(quest);
-    }
-
-    public void FailQuest(QuestData quest)
-    {
-        if (!IsQuestActive(quest.questID))
-            return;
-
-        activeQuests.Remove(quest);
-
-        if (questTimers.ContainsKey(quest.questID))
-            questTimers.Remove(quest.questID);
-
-        quest.onQuestFail?.Invoke();
-        OnQuestFailed?.Invoke(quest);
-        Debug.Log($"Quest failed: {quest.questName}");
-        SaveSystem.SaveGame();
-    }
-
-    public void AbandonQuest(QuestData quest)
-    {
-        if (!IsQuestActive(quest.questID))
-            return;
-
-        activeQuests.Remove(quest);
-
-        if (questTimers.ContainsKey(quest.questID))
-            questTimers.Remove(quest.questID);
-
-        OnQuestAbandoned?.Invoke(quest);
-        Debug.Log($"Quest abandoned: {quest.questName}");
-        SaveSystem.SaveGame();
-    }
-
-    public void ToggleTracking(QuestData quest)
-    {
-        OnTrackingToggleRequested?.Invoke(quest);
-    }
-
-    void CheckKillObjectives(EnemyData killedEnemy)
-    {
-        if (killedEnemy == null)
-            return;
-
-        foreach (var quest in activeQuests.ToList())
-        {
-            foreach (var objective in quest.objectives)
-            {
-                if (objective.type == QuestObjectiveType.KillEnemies && objective.targetEnemy == killedEnemy)
-                {
-                    var state = GetObjectiveState(quest.questID, objective.objectiveID);
-
-                    if (!state.isCompleted)
-                        UpdateObjectiveProgress(quest.questID, objective.objectiveID, 1);
-                }
-            }
-        }
-    }
-
-    void CheckCollectObjectives()
-    {
-        foreach (var quest in activeQuests.ToList())
-        {
-            foreach (var objective in quest.objectives)
-            {
-                if (objective.type != QuestObjectiveType.CollectItems)
-                    continue;
-
-                var state = GetObjectiveState(quest.questID, objective.objectiveID);
-
-                if (state.isCompleted)
-                    continue;
-
-                int currentCount = InventoryManager.Instance.GetQuantity(objective.targetItem);
-                int required = objective.GetRequiredCount();
-                int newProgress = Mathf.Min(currentCount, required);
-
-                if (newProgress > state.currentProgress)
-                {
-                    int delta = newProgress - state.currentProgress;
-                    UpdateObjectiveProgress(quest.questID, objective.objectiveID, delta);
-                    var updatedState = GetObjectiveState(quest.questID, objective.objectiveID);
-
-                    if (updatedState.isCompleted && objective.consumeItems)
-                        InventoryManager.Instance.RemoveItem(objective.targetItem, objective.itemCount);
-                }
-            }
-        }
-    }
-
-    void CheckSpendObjectives(CurrencyType type, int amount)
-    {
-        foreach (var quest in activeQuests)
-        {
-            foreach (var objective in quest.objectives)
-            {
-                if (objective.type == QuestObjectiveType.SpendCurrency && objective.currencyType == type)
-                {
-                    var state = GetObjectiveState(quest.questID, objective.objectiveID);
-
-                    if (!state.isCompleted)
-                        UpdateObjectiveProgress(quest.questID, objective.objectiveID, amount);
-                }
-            }
-        }
-    }
-
-    public QuestSaveData GetSaveData()
-    {
-        var data = new QuestSaveData
-        {
-            activeQuestIDs = activeQuests.Select(q => q.questID).ToList(),
-            completedQuestIDs = completedQuests.Select(q => q.questID).ToList(),
-            runtimeStates = runtimeStates.Values.ToList()
+            savedAt = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm")
         };
 
-        foreach (var kvp in questTimers)
+        if (ProfileManager.Instance != null)
         {
-            data.questTimerKeys.Add(kvp.Key);
-            data.questTimerValues.Add(kvp.Value);
+            var p = ProfileManager.Instance.profile;
+            data.playerName = p.playerName;
+            data.playerLevel = p.level;
+            data.playerExperience = p.experience;
+            data.playerExperienceToNext = p.experienceToNextLevel;
         }
 
-        OnSaveDataRequested?.Invoke(data);
-        return data;
+        data.currentScene = SceneManager.GetActiveScene().name;
+        data.storyFlags.AddRange(StoryFlags.GetAll());
+
+        if (SceneEvent.Instance != null)
+            data.sceneProgress = (int)SceneEvent.Instance.Progress;
+
+        if (TimePhaseManager.Instance != null)
+        {
+            data.currentTimePhase = TimePhaseManager.Instance.currentPhase;
+            data.phaseProgress = TimePhaseManager.Instance.GetPhaseProgress();
+        }
+
+        if (TimeUI.Instance != null)
+            data.currentDay = TimeUI.Instance.GetCurrentDay();
+
+        if (InventoryManager.Instance != null)
+        {
+            data.inventoryKeys.Clear();
+            data.inventoryCounts.Clear();
+
+            foreach (var kv in InventoryManager.Instance.GetRawStock())
+            {
+                data.inventoryKeys.Add(kv.Key);
+                data.inventoryCounts.Add(kv.Value);
+            }
+        }
+
+        if (EquipmentManager.Instance != null)
+        {
+            data.equippedItems.Clear();
+
+            foreach (var kvp in EquipmentManager.Instance.GetAllEquipped())
+                data.equippedItems.Add(new EquippedItemSave
+                {
+                    slot = kvp.Key,
+                    itemID = kvp.Value.baseData.itemID,
+                    upgradeLevel = kvp.Value.upgradeLevel
+                });
+        }
+
+        if (CurrencyManager.Instance != null)
+        {
+            data.currencyTypes.Clear();
+            data.currencyAmounts.Clear();
+
+            foreach (var c in CurrencyManager.Instance.GetAllCurrencies())
+            {
+                data.currencyTypes.Add(c.Key);
+                data.currencyAmounts.Add(c.Value);
+            }
+        }
+
+        if (ShopManager.Instance != null)
+        {
+            data.shopStockIDs.Clear();
+            data.shopStockAmounts.Clear();
+
+            foreach (var s in ShopManager.Instance.GetStockDataForSave())
+            {
+                data.shopStockIDs.Add(s.itemID);
+                data.shopStockAmounts.Add(s.amount);
+            }
+        }
+
+        if (ScenarioManager.Instance != null)
+        {
+            var scenarioSave = ScenarioManager.Instance.GetSaveData();
+            data.completedScenarios = scenarioSave.completedScenarioIDs;
+
+            if (ScenarioManager.Instance.IsScenarioActive())
+            {
+                data.activeScenarioID = ScenarioManager.Instance.GetCurrentScenario().scenarioID;
+                data.activeScenarioStep = ScenarioManager.Instance.GetCurrentStepIndex();
+            }
+            else
+            {
+                data.activeScenarioID = "";
+                data.activeScenarioStep = 0;
+            }
+        }
+
+        if (QuestManager.Instance != null)
+        {
+            var questSave = QuestManager.Instance.GetSaveData();
+            data.activeQuests = questSave.runtimeStates;
+            data.completedQuests = questSave.completedQuestIDs;
+            data.trackedQuests = questSave.trackedQuestIDs;
+        }
+
+        if (PlayerStats.Instance != null)
+        {
+            data.statTypes.Clear();
+            data.statValues.Clear();
+
+            foreach (var s in PlayerStats.Instance.stats)
+            {
+                data.statTypes.Add(s.type);
+                data.statValues.Add(s.currentValue);
+            }
+        }
+
+        File.WriteAllText(SavePath, JsonUtility.ToJson(data, true));
     }
 
-    public void LoadSaveData(QuestSaveData data)
+    public static void LoadGame()
+    {
+        if (!HasSaveFile())
+            return;
+
+        CachedData = JsonUtility.FromJson<SaveData>(File.ReadAllText(SavePath));
+        IsLoading = true;
+        SceneManager.sceneLoaded += OnSceneLoaded;
+        SceneManager.LoadScene(CachedData.currentScene);
+    }
+
+    static System.Collections.IEnumerator UpdateUIAfterLoad()
+    {
+        yield return null;
+
+        if (ProfileUI.Instance != null)
+            ProfileUI.Instance.RefreshAll();
+    }
+
+    static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+
+        if (CachedData != null && SceneEvent.Instance != null)
+            SceneEvent.Instance.StartCoroutine(DelayedApply(CachedData));
+
+        CachedData = null;
+    }
+
+    static System.Collections.IEnumerator DelayedApply(SaveData data)
+    {
+        yield return null;
+        ApplyLoadedData(data);
+    }
+
+    public static void ApplyLoadedData(SaveData data)
     {
         if (data == null)
             return;
 
-        activeQuests.Clear();
-        completedQuests.Clear();
-        runtimeStates.Clear();
-        questTimers.Clear();
-        var questLookup = allQuests.ToDictionary(q => q.questID);
+        IsLoading = true;
 
-        foreach (var id in data.activeQuestIDs)
-            if (questLookup.TryGetValue(id, out var q)) activeQuests.Add(q);
-
-        foreach (var id in data.completedQuestIDs)
-            if (questLookup.TryGetValue(id, out var q)) completedQuests.Add(q);
-
-        if (data.runtimeStates != null)
-            foreach (var state in data.runtimeStates)
+        if (ProfileManager.Instance != null)
+            ProfileManager.Instance.ApplyLoadedProfile(new PlayerProfile
             {
-                state.RebuildLookup();
-                runtimeStates[state.questID] = state;
+                playerName = data.playerName,
+                level = data.playerLevel,
+                experience = data.playerExperience,
+                experienceToNextLevel = data.playerExperienceToNext,
+                profileIconID = "default"
+            });
+
+        StoryFlags.Reset();
+        StoryFlags.Load(data.storyFlags);
+
+        if (SceneEvent.Instance != null)
+        {
+            SceneEvent.Instance.UnsubscribeDialogue();
+            SceneEvent.Instance.SubscribeDialogue();
+            SceneEvent.Instance.ApplySceneProgress((SceneProgress)data.sceneProgress);
+        }
+
+        if (TimePhaseManager.Instance != null)
+        {
+            TimePhaseManager.Instance.SetPhase(data.currentTimePhase);
+            TimePhaseManager.Instance.SetPhaseProgress(data.phaseProgress);
+        }
+
+        if (TimeUI.Instance != null)
+            TimeUI.Instance.SetDay(data.currentDay);
+
+        if (InventoryManager.Instance != null)
+        {
+            InventoryManager.Instance.Clear();
+
+            if (data.inventoryKeys != null && data.inventoryKeys.Count > 0)
+            {
+                for (int i = 0; i < data.inventoryKeys.Count; i++)
+                {
+                    string key = data.inventoryKeys[i];
+                    int sep = key.LastIndexOf(':');
+
+                    if (sep < 0)
+                        continue;
+
+                    string id = key[..sep];
+
+                    if (!int.TryParse(key[(sep + 1)..], out int lvl))
+                        continue;
+
+                    if (ItemDatabase.Instance == null)
+                        return;
+
+                    var itemData = ItemDatabase.Instance.GetByID(id);
+
+                    if (itemData == null)
+                        continue;
+
+                    int qty = data.inventoryCounts[i];
+
+                    if (itemData is EquipmentData eq)
+                        InventoryManager.Instance.AddUpgradedItem(eq, lvl, qty);
+                    else
+                        InventoryManager.Instance.AddItem(itemData, qty);
+                }
             }
+        }
 
-        for (int i = 0; i < data.questTimerKeys.Count; i++)
-            questTimers[data.questTimerKeys[i]] = data.questTimerValues[i];
+        if (EquipmentManager.Instance != null)
+        {
+            foreach (EquipmentSlot slot in System.Enum.GetValues(typeof(EquipmentSlot)))
+                EquipmentManager.Instance.Unequip(slot, returnToInventory: false, save: false);
 
-        OnTrackedQuestsLoaded?.Invoke(data.trackedQuestIDs);
+            foreach (var saved in data.equippedItems)
+            {
+                if (ItemDatabase.Instance == null)
+                    return;
+
+                var eq = ItemDatabase.Instance.GetByID(saved.itemID) as EquipmentData;
+
+                if (eq != null)
+                    EquipmentManager.Instance.Equip(new EquipmentInstance(eq, saved.upgradeLevel));
+            }
+        }
+
+        if (CurrencyManager.Instance != null)
+            for (int i = 0; i < data.currencyTypes.Count; i++)
+                CurrencyManager.Instance.Set(data.currencyTypes[i], data.currencyAmounts[i]);
+
+        if (ShopManager.Instance != null)
+            ShopManager.Instance.ApplyLoadedStock(data.shopStockIDs, data.shopStockAmounts);
+
+        if (ScenarioManager.Instance != null)
+        {
+            ScenarioManager.Instance.LoadSaveData(new ScenarioSaveData
+            {
+                completedScenarioIDs = data.completedScenarios
+            });
+        }
+
+        if (QuestManager.Instance != null)
+        {
+            var questSave = new QuestSaveData
+            {
+                runtimeStates = data.activeQuests,
+                completedQuestIDs = data.completedQuests,
+                trackedQuestIDs = data.trackedQuests
+            };
+
+            if (questSave.runtimeStates != null)
+                foreach (var state in questSave.runtimeStates)
+                    state.RebuildLookup();
+
+            QuestManager.Instance.LoadSaveData(questSave);
+        }
+
+        if (PlayerStats.Instance != null)
+            for (int i = 0; i < data.statTypes.Count; i++)
+                PlayerStats.Instance.Set(data.statTypes[i], data.statValues[i], true);
+
+        if (ProfileUI.Instance != null)
+            ProfileUI.Instance.RefreshAll();
+
+        int sceneDialogueIndex = data.sceneProgress;
+
+        try
+        {
+            if (DialogueManager.Instance != null)
+                DialogueManager.Instance.StartCoroutine(ClearAndStartDialogue(sceneDialogueIndex));
+            else if (SceneEvent.Instance != null)
+                SceneEvent.Instance.StartCoroutine(ClearAndStartDialogue(sceneDialogueIndex));
+            else
+                IsLoading = false;
+        }
+        catch
+        {
+            IsLoading = false;
+            throw;
+        }
     }
 
-    public bool IsQuestActive(string questID) => activeQuests.Any(q => q.questID == questID);
+    static System.Collections.IEnumerator ClearAndStartDialogue(int sceneDialogueIndex)
+    {
+        IsLoading = false;
+        yield return null;
 
-    public bool IsQuestCompleted(string questID) => completedQuests.Any(q => q.questID == questID);
-
-    public QuestData GetActiveQuest(string questID) => activeQuests.FirstOrDefault(q => q.questID == questID);
-
-    public QuestObjective GetObjective(QuestData quest, string objectiveID) => quest.objectives.FirstOrDefault(o => o.objectiveID == objectiveID);
-
-    public List<QuestData> GetActiveQuests() => new(activeQuests);
-
-    public List<QuestData> GetCompletedQuests() => new(completedQuests);
-
-    public List<QuestData> GetAvailableQuests() => allQuests.Where(CanStartQuest).ToList();
-
-    public float GetQuestTimeRemaining(string questID) =>
-        questTimers.TryGetValue(questID, out float t) ? t : 0f;
+        if (SceneEvent.Instance != null)
+            yield return SceneEvent.Instance.StartCoroutine(SceneEvent.Instance.StartDialogueAfterLoad(sceneDialogueIndex));
+    }
 }

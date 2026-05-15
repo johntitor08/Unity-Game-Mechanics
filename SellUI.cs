@@ -1,251 +1,146 @@
-using UnityEngine;
 using System.Collections.Generic;
-using System.Linq;
+using TMPro;
+using UnityEngine;
 using UnityEngine.UI;
 
-public class QuestTrackerUI : MonoBehaviour
+public class SellUI : MonoBehaviour
 {
-    public static QuestTrackerUI Instance;
-    private HashSet<string> trackedQuestIDs = new();
-    private readonly Dictionary<string, QuestTrackerEntry> trackerEntries = new();
-    private bool isSubscribed = false;
+    public static SellUI Instance;
+    private readonly List<SellSlot> slots = new();
 
-    [Header("Tracker")]
-    public GameObject trackerPanel;
-    public Transform trackedQuestsParent;
-    public QuestTrackerEntry trackerEntryPrefab;
-    public int maxTrackedQuests = 3;
+    [Header("Panel")]
+    public GameObject sellPanel;
+
+    [Header("Content")]
+    public Transform sellContent;
+    public SellSlot sellSlotPrefab;
+
+    [Header("Header Elements")]
+    public TextMeshProUGUI currencyText;
+    public TextMeshProUGUI titleText;
+
+    [Header("Footer Elements")]
     public Button closeButton;
+    public Button switchToShopButton;
 
-    [Header("Settings")]
-    public bool autoTrackNewQuests = true;
-    public bool persistAcrossScenes = false;
+    [Header("Scroll")]
+    public ScrollRect sellScrollRect;
 
-    [Header("Visibility")]
-    [SerializeField] private bool isPanelHiddenByUser = false;
+    [Header("Sell Settings")]
+    [Range(0f, 1f)]
+    public float sellPriceRatio = 0.5f;
 
     void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
+        if (Instance == null)
+            Instance = this;
+        else
             Destroy(gameObject);
-            return;
-        }
-
-        Instance = this;
-
-        if (persistAcrossScenes)
-            DontDestroyOnLoad(gameObject);
     }
 
     void Start()
     {
+        if (CurrencyManager.Instance != null)
+            CurrencyManager.Instance.OnCurrencyChanged += OnGoldChanged;
+
         if (closeButton != null)
-            closeButton.onClick.AddListener(OnCloseClicked);
-    }
+            closeButton.onClick.AddListener(() =>
+            {
+                if (MarketUI.Instance != null)
+                    MarketUI.Instance.CloseAll();
+            });
 
-    void OnDestroy()
-    {
-        if (Instance == this)
-            Instance = null;
-    }
+        if (switchToShopButton != null)
+            switchToShopButton.onClick.AddListener(() =>
+            {
+                if (MarketUI.Instance != null)
+                    MarketUI.Instance.OpenShop();
+            });
 
-    void OnEnable()
-    {
-        QuestManager.OnReady += TrySubscribe;
-        TrySubscribe();
+        if (sellPanel != null)
+            sellPanel.SetActive(false);
+
+        UpdateCurrency();
     }
 
     void OnDisable()
     {
-        if (isSubscribed && QuestManager.Instance != null)
-        {
-            QuestManager.Instance.OnQuestStarted -= OnQuestStarted;
-            QuestManager.Instance.OnQuestCompleted -= OnQuestCompleted;
-            QuestManager.Instance.OnObjectiveUpdated -= OnObjectiveUpdated;
-            QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveCompleted;
-            QuestManager.Instance.OnTrackingToggleRequested -= OnTrackingToggleRequested;
-            QuestManager.Instance.OnSaveDataRequested -= OnSaveDataRequested;
-            QuestManager.Instance.OnTrackedQuestsLoaded -= OnTrackedQuestsLoaded;
-            QuestManager.Instance.OnQuestAbandoned -= OnQuestAbandoned;
-            isSubscribed = false;
-        }
-
-        QuestManager.OnReady -= TrySubscribe;
+        if (CurrencyManager.Instance != null)
+            CurrencyManager.Instance.OnCurrencyChanged -= OnGoldChanged;
     }
 
-    void TrySubscribe()
+    public void Open()
     {
-        if (QuestManager.Instance != null && !isSubscribed)
+        if (sellPanel != null)
         {
-            QuestManager.Instance.OnQuestStarted += OnQuestStarted;
-            QuestManager.Instance.OnQuestCompleted += OnQuestCompleted;
-            QuestManager.Instance.OnObjectiveUpdated += OnObjectiveUpdated;
-            QuestManager.Instance.OnObjectiveCompleted += OnObjectiveCompleted;
-            QuestManager.Instance.OnTrackingToggleRequested += OnTrackingToggleRequested;
-            QuestManager.Instance.OnSaveDataRequested += OnSaveDataRequested;
-            QuestManager.Instance.OnTrackedQuestsLoaded += OnTrackedQuestsLoaded;
-            QuestManager.Instance.OnQuestAbandoned += OnQuestAbandoned;
-            isSubscribed = true;
-            UpdateTracker();
+            sellPanel.SetActive(true);
+            Refresh();
         }
     }
 
-    void OnQuestStarted(QuestData quest)
+    public void Close()
     {
-        if (autoTrackNewQuests && quest.trackObjectives)
-        {
-            if (!TrackQuest(quest.questID))
-                Debug.Log($"[QuestTrackerUI] Max limit ({maxTrackedQuests}) dolu, '{quest.questName}' takibe alınamadı.");
-        }
+        if (sellPanel != null)
+            sellPanel.SetActive(false);
     }
 
-    void OnQuestCompleted(QuestData quest) => UntrackQuest(quest.questID);
-
-    void OnQuestAbandoned(QuestData quest) => UntrackQuest(quest.questID);
-
-    void OnObjectiveUpdated(QuestData quest, QuestObjective objective) => RefreshEntries();
-
-    void OnObjectiveCompleted(QuestData quest, QuestObjective objective) => RefreshEntries();
-
-    void OnTrackingToggleRequested(QuestData quest) => ToggleQuest(quest);
-
-    void OnSaveDataRequested(QuestSaveData data)
+    public void Refresh()
     {
-        data.trackedQuestIDs = new List<string>(trackedQuestIDs);
-    }
-
-    void OnTrackedQuestsLoaded(List<string> questIDs)
-    {
-        if (questIDs == null)
+        if (InventoryManager.Instance == null || sellPanel == null)
             return;
 
-        var qm = QuestManager.Instance;
-        var validIDs = questIDs.Where(id => qm != null && qm.GetActiveQuest(id) != null).Take(maxTrackedQuests);
-        trackedQuestIDs = new HashSet<string>(validIDs);
-        UpdateTracker();
+        int index = 0;
+
+        foreach (var (inst, qty) in InventoryManager.Instance.GetEquipmentInstances())
+        {
+            EnsureSlot(index);
+            slots[index].SetupEquipment(inst.baseData, inst.upgradeLevel, qty, sellPriceRatio);
+            slots[index].gameObject.SetActive(true);
+            index++;
+        }
+
+        foreach (var (item, qty) in InventoryManager.Instance.GetNonEquipmentItems())
+        {
+            EnsureSlot(index);
+            slots[index].Setup(item, qty, sellPriceRatio);
+            slots[index].gameObject.SetActive(true);
+            index++;
+        }
+
+        for (int i = index; i < slots.Count; i++)
+            if (slots[i] != null) slots[i].gameObject.SetActive(false);
+
+        ScrollToTop(sellScrollRect);
+        UpdateCurrency();
     }
 
-    public bool IsTracked(string questID) => trackedQuestIDs.Contains(questID);
-
-    public void ToggleQuest(QuestData quest)
+    void EnsureSlot(int index)
     {
-        if (IsTracked(quest.questID))
-            UntrackQuest(quest.questID);
-        else
-            TrackQuest(quest.questID);
+        if (index >= slots.Count)
+            slots.Add(Instantiate(sellSlotPrefab, sellContent));
     }
 
-    public bool TrackQuest(string questID)
+    void OnGoldChanged(CurrencyType type, int oldAmount, int newAmount)
     {
-        if (trackedQuestIDs.Count >= maxTrackedQuests)
-            return false;
-
-        var qm = QuestManager.Instance;
-
-        if (qm == null || qm.GetActiveQuest(questID) == null || !trackedQuestIDs.Add(questID))
-            return false;
-
-        isPanelHiddenByUser = false;
-        UpdateTracker();
-        return true;
+        if (type == CurrencyType.Gold)
+            UpdateCurrency();
     }
 
-    public void UntrackQuest(string questID)
+    void UpdateCurrency()
     {
-        if (!trackedQuestIDs.Remove(questID))
+        if (currencyText == null)
             return;
 
-        UpdateTracker();
+        int gold = CurrencyManager.Instance != null ? CurrencyManager.Instance.Get(CurrencyType.Gold) : 0;
+        currencyText.text = $"{gold} Gold";
     }
 
-    public void SetTrackedQuests(List<string> questIDs)
+    private static void ScrollToTop(ScrollRect sr)
     {
-        OnTrackedQuestsLoaded(questIDs);
-    }
+        if (sr == null)
+            return;
 
-    public List<string> GetTrackedQuests() => new(trackedQuestIDs);
-
-    void OnCloseClicked()
-    {
-        isPanelHiddenByUser = true;
-
-        if (trackerPanel != null)
-            trackerPanel.SetActive(false);
-    }
-
-    void UpdateTracker()
-    {
-        var toRemove = new List<string>();
-
-        foreach (var questID in trackerEntries.Keys)
-            if (!trackedQuestIDs.Contains(questID))
-                toRemove.Add(questID);
-
-        foreach (var questID in toRemove)
-        {
-            if (trackerEntries[questID] != null)
-                Destroy(trackerEntries[questID].gameObject);
-
-            trackerEntries.Remove(questID);
-        }
-
-        foreach (var questID in trackedQuestIDs)
-        {
-            if (QuestManager.Instance == null)
-                break;
-
-            var quest = QuestManager.Instance.GetActiveQuest(questID);
-
-            if (quest == null)
-                continue;
-
-            if (!trackerEntries.ContainsKey(questID))
-            {
-                if (trackerEntryPrefab == null)
-                {
-                    Debug.LogError("[QuestTrackerUI] trackerEntryPrefab atanmamış.", this);
-                    continue;
-                }
-
-                var entry = Instantiate(trackerEntryPrefab, trackedQuestsParent);
-                trackerEntries[questID] = entry;
-            }
-
-            trackerEntries[questID].Setup(quest);
-        }
-
-        if (trackerPanel != null)
-            trackerPanel.SetActive(!isPanelHiddenByUser && trackedQuestIDs.Count > 0);
-    }
-
-    void RefreshEntries()
-    {
-        List<string> orphaned = null;
-        var qm = QuestManager.Instance;
-
-        foreach (var (questID, entry) in trackerEntries)
-        {
-            if (entry == null)
-            {
-                (orphaned ??= new()).Add(questID);
-                continue;
-            }
-
-            var quest = qm != null ? qm.GetActiveQuest(questID) : null;
-
-            if (quest != null)
-                entry.Setup(quest);
-            else
-                (orphaned ??= new()).Add(questID);
-        }
-
-        if (orphaned != null)
-        {
-            foreach (var id in orphaned)
-                trackedQuestIDs.Remove(id);
-
-            UpdateTracker();
-        }
+        Canvas.ForceUpdateCanvases();
+        sr.verticalNormalizedPosition = 1f;
     }
 }

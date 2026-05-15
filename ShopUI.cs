@@ -1,43 +1,168 @@
-using System;
 using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
 
-[Serializable]
-public class SaveData
+public class ShopUI : MonoBehaviour
 {
-    public int version = 1;
-    public string savedAt = "";
-    public string playerName = "Player";
-    public int playerLevel = 1;
-    public int playerExperience = 0;
-    public int playerExperienceToNext = 100;
-    public string currentScene;
-    public int sceneProgress;
-    public List<string> storyFlags = new();
-    public TimePhase currentTimePhase = TimePhase.Morning;
-    public int currentDay = 1;
-    public float phaseProgress = 0f;
-    public bool resumeDialogueOnLoad;
-    public List<string> inventoryKeys = new();
-    public List<int> inventoryCounts = new();
-    public List<EquippedItemSave> equippedItems = new();
-    public List<CurrencyType> currencyTypes = new();
-    public List<int> currencyAmounts = new();
-    public List<string> shopStockIDs = new();
-    public List<int> shopStockAmounts = new();
-    public List<StatType> statTypes = new();
-    public List<int> statValues = new();
-    public List<QuestRuntimeState> activeQuests = new();
-    public List<string> completedQuests = new();
-    public List<string> trackedQuests = new();
-    public string activeScenarioID = "";
-    public int activeScenarioStep = 0;
-    public List<string> completedScenarios = new();
-}
+    public static ShopUI Instance;
+    private readonly List<ShopSlot> slots = new();
 
-[Serializable]
-public class EquippedItemSave
-{
-    public EquipmentSlot slot;
-    public string itemID;
-    public int upgradeLevel;
+    [Header("Main Panels")]
+    public GameObject shopPanel;
+    public GameObject marketClosedPanel;
+
+    [Header("Shop Content")]
+    public Transform shopContent;
+    public ShopSlot shopSlotPrefab;
+
+    [Header("Header Elements")]
+    public TextMeshProUGUI currencyText;
+    public TextMeshProUGUI shopTitleText;
+
+    [Header("Footer Elements")]
+    public TextMeshProUGUI marketStatusText;
+    public Button closeButton;
+    public Button refreshButton;
+    public Button switchToSellButton;
+
+    [Header("Scroll Settings")]
+    public ScrollRect shopScrollRect;
+
+    void Awake()
+    {
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(gameObject);
+    }
+
+    void Start()
+    {
+        if (CurrencyManager.Instance != null)
+            CurrencyManager.Instance.OnCurrencyChanged += OnGoldChanged;
+
+        if (closeButton != null)
+            closeButton.onClick.AddListener(CloseAll);
+
+        if (refreshButton != null)
+            refreshButton.onClick.AddListener(Refresh);
+
+        if (switchToSellButton != null)
+            switchToSellButton.onClick.AddListener(() =>
+            {
+                if (MarketUI.Instance != null)
+                    MarketUI.Instance.OpenSell();
+            });
+
+        if (shopPanel != null)
+            shopPanel.SetActive(false);
+
+        if (marketClosedPanel != null)
+            marketClosedPanel.SetActive(false);
+
+        UpdateCurrency();
+        UpdateMarketStatus();
+    }
+
+    void OnDisable()
+    {
+        if (CurrencyManager.Instance != null)
+            CurrencyManager.Instance.OnCurrencyChanged -= OnGoldChanged;
+    }
+
+    public void Open()
+    {
+        if (shopPanel != null)
+        {
+            shopPanel.SetActive(true);
+            Refresh();
+        }
+
+        UpdateMarketStatus();
+    }
+
+    public void Close()
+    {
+        if (shopPanel != null)
+            shopPanel.SetActive(false);
+
+        if (marketClosedPanel != null)
+            marketClosedPanel.SetActive(false);
+    }
+
+    public void CloseAll()
+    {
+        if (MarketUI.Instance != null)
+            MarketUI.Instance.CloseAll();
+    }
+
+    public void ShowMarketClosed()
+    {
+        if (marketClosedPanel != null)
+            marketClosedPanel.SetActive(true);
+    }
+
+    public void Refresh()
+    {
+        if (ShopManager.Instance == null)
+            return;
+
+        foreach (var slot in slots)
+            if (slot != null) slot.gameObject.SetActive(false);
+
+        int index = 0;
+
+        foreach (var shopItem in ShopManager.Instance.shopItems)
+        {
+            if (index >= slots.Count)
+                slots.Add(Instantiate(shopSlotPrefab, shopContent));
+
+            slots[index].Setup(shopItem);
+            slots[index].gameObject.SetActive(true);
+            index++;
+        }
+
+        for (int i = index; i < slots.Count; i++)
+            if (slots[i] != null) slots[i].gameObject.SetActive(false);
+
+        ScrollToTop(shopScrollRect);
+        UpdateCurrency();
+    }
+
+    public void RefreshShop() => Refresh();
+
+    void OnGoldChanged(CurrencyType type, int oldAmount, int newAmount)
+    {
+        if (type == CurrencyType.Gold)
+            UpdateCurrency();
+    }
+
+    void UpdateCurrency()
+    {
+        if (currencyText == null)
+            return;
+
+        int gold = CurrencyManager.Instance != null ? CurrencyManager.Instance.Get(CurrencyType.Gold) : 0;
+        currencyText.text = $"{gold} Gold";
+    }
+
+    public void UpdateMarketStatus()
+    {
+        if (marketStatusText == null)
+            return;
+
+        bool isOpen = MarketController.Instance == null || MarketController.Instance.IsOpen();
+        marketStatusText.text = isOpen ? "Market Open" : "Market Closed";
+        marketStatusText.color = isOpen ? Color.green : Color.red;
+    }
+
+    private static void ScrollToTop(ScrollRect sr)
+    {
+        if (sr == null)
+            return;
+
+        Canvas.ForceUpdateCanvases();
+        sr.verticalNormalizedPosition = 1f;
+    }
 }

@@ -1,95 +1,154 @@
-using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
 
-public class UndoRedoManager : MonoBehaviour
+public class UIManager : MonoBehaviour
 {
-    public static UndoRedoManager Instance { get; private set; }
-    private readonly int maxHistory = 50;
-    private readonly LinkedList<Texture2D[]> _undoHistory = new();
-    private readonly Stack<Texture2D[]> _redoStack = new();
+    [Header("Tool Buttons")]
+    public Button brushBtn;
+    public Button eraserBtn;
+    public Button fillBtn;
+    public Button eyedropperBtn;
 
-    void Awake()
-    {
-        if (Instance == null)
-            Instance = this;
-        else
-            Destroy(gameObject);
-    }
+    [Header("Shape Buttons")]
+    public Button lineBtn;
+    public Button rectBtn;
+    public Button circleBtn;
 
-    public void Push(Texture2D[] layerSnapshots)
+    [Header("Brush Controls")]
+    public Slider sizeSlider;
+    public Slider hardnessSlider;
+    public Slider opacitySlider;
+    public TextMeshProUGUI sizeLabel;
+
+    [Header("Color")]
+    public Image colorPreview;
+    public Button[] paletteButtons;
+
+    [Header("Layer")]
+    public Button addLayerBtn;
+    public Button removeLayerBtn;
+    public Button mergeDownBtn;
+
+    [Header("File")]
+    public Button savePNGBtn;
+    public Button saveNativeBtn;
+    public Button undoBtn;
+    public Button redoBtn;
+    public Button clearBtn;
+
+    void Start()
     {
-        if (_undoHistory.Count >= maxHistory)
+        var bs = BrushSettings.Instance;
+
+        if (brushBtn != null)
+            brushBtn.onClick.AddListener(() => SetTool(ToolType.Brush));
+
+        if (eraserBtn != null)
+            eraserBtn.onClick.AddListener(() => SetTool(ToolType.Eraser));
+
+        if (fillBtn != null)
+            fillBtn.onClick.AddListener(() => SetTool(ToolType.Fill));
+
+        if (eyedropperBtn != null)
+            eyedropperBtn.onClick.AddListener(() => SetTool(ToolType.Eyedropper));
+
+        if (lineBtn != null)
+            lineBtn.onClick.AddListener(() =>
+            {
+                SetTool(ToolType.Shape);
+                bs.activeShape = ShapeType.Line;
+            });
+
+        if (rectBtn != null)
+            rectBtn.onClick.AddListener(() =>
+            {
+                SetTool(ToolType.Shape);
+                bs.activeShape = ShapeType.Rectangle;
+            });
+
+        if (circleBtn != null)
+            circleBtn.onClick.AddListener(() =>
+            {
+                SetTool(ToolType.Shape);
+                bs.activeShape = ShapeType.Circle;
+            });
+
+        if (sizeSlider != null)
         {
-            DestroySnapshot(_undoHistory.Last.Value);
-            _undoHistory.RemoveLast();
+            sizeSlider.onValueChanged.AddListener(v =>
+            {
+                bs.size = (int)v;
+                if (sizeLabel != null) sizeLabel.text = $"{(int)v}px";
+            });
         }
 
-        _undoHistory.AddFirst(layerSnapshots);
-        ClearRedoStack();
-    }
+        if (hardnessSlider != null)
+            hardnessSlider.onValueChanged.AddListener(v => bs.hardness = v);
 
-    public Texture2D[] Undo()
-    {
-        if (_undoHistory.Count <= 1)
-            return null;
+        if (opacitySlider != null)
+            opacitySlider.onValueChanged.AddListener(v => bs.opacity = v);
 
-        var current = _undoHistory.First.Value;
-        _undoHistory.RemoveFirst();
-        _redoStack.Push(current);
-        return _undoHistory.First.Value;
-    }
-
-    public Texture2D[] Redo()
-    {
-        if (_redoStack.Count == 0)
-            return null;
-
-        var state = _redoStack.Pop();
-        _undoHistory.AddFirst(state);
-        return state;
-    }
-
-    public bool CanUndo => _undoHistory.Count > 1;
-    public bool CanRedo => _redoStack.Count > 0;
-
-    void ClearRedoStack()
-    {
-        while (_redoStack.Count > 0)
-            DestroySnapshot(_redoStack.Pop());
-    }
-
-    void DestroySnapshot(Texture2D[] snapshot)
-    {
-        if (snapshot == null)
-            return;
-
-        foreach (var tex in snapshot)
-            if (tex != null)
-                Destroy(tex);
-    }
-
-    void OnDestroy()
-    {
-        foreach (var snap in _undoHistory)
-            DestroySnapshot(snap);
-
-        _undoHistory.Clear();
-        ClearRedoStack();
-    }
-
-    public static Texture2D[] TakeSnapshot(List<LayerManager.Layer> layers)
-    {
-        var snaps = new Texture2D[layers.Count];
-
-        for (int i = 0; i < layers.Count; i++)
+        foreach (var btn in paletteButtons)
         {
-            var src = layers[i].texture;
-            var snap = new Texture2D(src.width, src.height, TextureFormat.RGBA32, false);
-            snap.SetPixels32(src.GetPixels32());
-            snap.Apply();
-            snaps[i] = snap;
+            if (btn == null)
+                continue;
+
+            var img = btn.GetComponent<Image>();
+            var col = img != null ? img.color : Color.white;
+
+            btn.onClick.AddListener(() =>
+            {
+                bs.color = col;
+
+                if (colorPreview != null)
+                    colorPreview.color = col;
+
+                SetTool(ToolType.Brush);
+            });
         }
 
-        return snaps;
+        if (addLayerBtn != null)
+            addLayerBtn.onClick.AddListener(() => LayerManager.Instance.AddLayer());
+
+        if (removeLayerBtn != null)
+            removeLayerBtn.onClick.AddListener(() => LayerManager.Instance.RemoveLayer(LayerManager.Instance.ActiveIndex));
+
+        if (mergeDownBtn != null)
+            mergeDownBtn.onClick.AddListener(() => LayerManager.Instance.MergeDown(LayerManager.Instance.ActiveIndex));
+
+        if (savePNGBtn != null)
+            savePNGBtn.onClick.AddListener(() =>
+            {
+                SaveManager.Instance.SavePNG();
+                var am = AudioManager.Instance;
+
+                if (am != null)
+                    am.PlaySave();
+            });
+
+        if (saveNativeBtn != null) saveNativeBtn.onClick.AddListener(() =>
+        {
+            SaveManager.Instance.SaveNative();
+            var am = AudioManager.Instance;
+
+            if (am != null)
+                am.PlaySave();
+        });
+
+        if (undoBtn != null)
+            undoBtn.onClick.AddListener(() => DrawingCanvas.Instance.Undo());
+
+        if (redoBtn != null)
+            redoBtn.onClick.AddListener(() => DrawingCanvas.Instance.Redo());
+
+        if (clearBtn != null)
+            clearBtn.onClick.AddListener(() =>
+            {
+                var layer = LayerManager.Instance.ActiveLayer;
+                layer?.Clear();
+            });
     }
+
+    static void SetTool(ToolType t) => BrushSettings.Instance.activeTool = t;
 }

@@ -1,22 +1,16 @@
-using System.Collections.Generic;
-
-public static class StoryFlags
+[System.Serializable]
+public class StatModifier
 {
-    private static readonly HashSet<string> flags = new();
+    public StatType statType;
+    public int amount;
+    public bool isPercentage;
+    public bool isTemporary;
+    public float duration;
 
-    public static void Add(string flag) => flags.Add(flag);
-
-    public static bool Has(string flag) => flags.Contains(flag);
-
-    public static void Load(IEnumerable<string> savedFlags)
+    public StatModifier(StatType type, int value, bool percentage = false)
     {
-        flags.Clear();
-
-        if (savedFlags != null)
-            flags.UnionWith(savedFlags);
+        statType = type;
+        amount = value;
+        isPercentage = percentage;
     }
-
-    public static void Reset() => flags.Clear();
-
-    public static IReadOnlyCollection<string> GetAll() => flags;
 }

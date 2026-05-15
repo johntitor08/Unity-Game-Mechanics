@@ -1,54 +1,71 @@
 using UnityEngine;
+using UnityEngine.UI;
+using System.Collections.Generic;
 
-public static class BrushTool
+public class PuzzleImageSelector : MonoBehaviour
 {
-    public static void DrawLine(Texture2D tex, Vector2 from, Vector2 to, int size, Color color, float hardness, bool eraser)
-    {
-        float dist = Vector2.Distance(from, to);
-        int steps = Mathf.Max(1, Mathf.CeilToInt(dist * 2f));
+    [SerializeField] private List<Sprite> puzzleImages = new();
+    [SerializeField] private bool randomizeOnStart = true;
+    [SerializeField] private Image previewImage;
+    [SerializeField] private Text imageNameText;
+    private int currentIndex = -1;
+    private Sprite selectedImage;
 
-        for (int i = 0; i <= steps; i++)
-        {
-            float t = (float)i / steps;
-            PaintCircle(tex, Vector2.Lerp(from, to, t), size, color, hardness, eraser);
-        }
+    void Start()
+    {
+        if (randomizeOnStart)
+            SelectNewRandomImage();
     }
 
-    static void PaintCircle(Texture2D tex, Vector2 center, int radius, Color color, float hardness, bool eraser)
+    public void SelectNewRandomImage()
     {
-        int cx = Mathf.RoundToInt(center.x);
-        int cy = Mathf.RoundToInt(center.y);
-        int W = tex.width, H = tex.height;
+        if (puzzleImages.Count == 0) return;
+        int newIndex = currentIndex;
 
-        for (int x = cx - radius; x <= cx + radius; x++)
+        if (puzzleImages.Count > 1)
         {
-            for (int y = cy - radius; y <= cy + radius; y++)
+            while (newIndex == currentIndex)
             {
-                if (x < 0 || x >= W || y < 0 || y >= H)
-                continue;
-
-                float dx = x - cx, dy = y - cy;
-                float dist = Mathf.Sqrt(dx * dx + dy * dy);
-
-                if (dist > radius)
-                    continue;
-
-                float alpha = hardness >= 1f ? 1f : Mathf.Clamp01(1f - (dist / radius - hardness) / (1f - hardness + 0.001f));
-
-                if (eraser)
-                {
-                    var existing = tex.GetPixel(x, y);
-                    existing.a = Mathf.Max(0, existing.a - alpha);
-                    tex.SetPixel(x, y, existing);
-                }
-                else
-                {
-                    var existing = tex.GetPixel(x, y);
-                    var blended = Color.Lerp(existing, color, color.a * alpha);
-                    blended.a = Mathf.Max(existing.a, color.a * alpha);
-                    tex.SetPixel(x, y, blended);
-                }
+                newIndex = Random.Range(0, puzzleImages.Count);
             }
         }
+
+        currentIndex = newIndex;
+        ApplySelection();
     }
+
+    public void SelectImageByIndex(int index)
+    {
+        if (index < 0 || index >= puzzleImages.Count) return;
+        currentIndex = index;
+        ApplySelection();
+    }
+
+    public void NextImage()
+    {
+        if (puzzleImages.Count == 0) return;
+        currentIndex = (currentIndex + 1) % puzzleImages.Count;
+        ApplySelection();
+    }
+
+    public void PreviousImage()
+    {
+        if (puzzleImages.Count == 0) return;
+        currentIndex = (currentIndex - 1 + puzzleImages.Count) % puzzleImages.Count;
+        ApplySelection();
+    }
+
+    void ApplySelection()
+    {
+        selectedImage = puzzleImages[currentIndex];
+        if (previewImage) previewImage.sprite = selectedImage;
+        if (imageNameText) imageNameText.text = selectedImage.name;
+        PuzzleEvents.OnImageChanged?.Invoke(selectedImage);
+    }
+
+    public Sprite GetSelectedImage() => selectedImage;
+
+    public int GetImageCount() => puzzleImages.Count;
+
+    public Sprite GetImageByIndex(int i) => puzzleImages[i];
 }

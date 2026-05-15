@@ -1,151 +1,391 @@
 using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
 using System.Collections;
+using System.Collections.Generic;
+using System;
 
-public class QuestRewardUI : MonoBehaviour
+[System.Serializable]
+public class ScenarioSaveData
 {
-    public static QuestRewardUI Instance { get; private set; }
-    private Coroutine autoCloseCoroutine;
+    public List<string> completedScenarioIDs = new();
+}
 
-    [Header("Reward Panel")]
-    public GameObject rewardPanel;
-    public TextMeshProUGUI titleText;
-    public TextMeshProUGUI questNameText;
-    public Transform rewardsContainer;
-    public RewardItemUI rewardItemPrefab;
-    public Button closeButton;
+public class ScenarioManager : MonoBehaviour
+{
+    public static ScenarioManager Instance;
+    private static readonly WaitForSeconds WAIT_HALF_SEC = new(0.5f);
+    public event Action<ScenarioData> OnScenarioStart;
+    public event Action<ScenarioData> OnScenarioComplete;
+    public event Action<ScenarioData> OnScenarioAborted;
+    public event Action<ScenarioStep> OnStepStart;
+    public event Action<ScenarioStep> OnStepComplete;
+    private readonly HashSet<string> completedScenarios = new();
+    private Coroutine activeCoroutine;
+    private Transform cachedPlayer;
 
-    [Header("Optional Rewards")]
-    public Transform optionalRewardsContainer;
-    public TextMeshProUGUI optionalRewardsLabel;
+    [Header("Active Scenario")]
+    public ScenarioData currentScenario;
+    private int currentStepIndex;
+    private bool isScenarioActive;
 
-    [Header("Animation")]
-    public float displayDuration = 5f;
+    [Header("Available Scenarios")]
+    public ScenarioData[] availableScenarios;
 
-    [Header("Display")]
-    [SerializeField] private string completionTitle = "Quest Complete!";
+    Transform PlayerTransform
+    {
+        get
+        {
+            if (cachedPlayer == null)
+            {
+                var go = GameObject.FindGameObjectWithTag("Player");
+
+                if (go != null)
+                    cachedPlayer = go.transform;
+            }
+
+            return cachedPlayer;
+        }
+    }
 
     void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+        else
         {
             Destroy(gameObject);
+        }
+    }
+
+    public ScenarioSaveData GetSaveData()
+    {
+        var data = new ScenarioSaveData
+        {
+            completedScenarioIDs = new List<string>(completedScenarios)
+        };
+
+        return data;
+    }
+
+    public void LoadSaveData(ScenarioSaveData data)
+    {
+        completedScenarios.Clear();
+
+        if (data?.completedScenarioIDs == null)
+            return;
+
+        foreach (var id in data.completedScenarioIDs)
+            completedScenarios.Add(id);
+    }
+
+    public bool CanStartScenario(ScenarioData scenario)
+    {
+        if (scenario == null || IsScenarioCompleted(scenario.scenarioID) || (ProfileManager.Instance != null && ProfileManager.Instance.profile.level < scenario.requiredLevel))
+            return false;
+
+        if (scenario.requiredFlags != null)
+            foreach (var flag in scenario.requiredFlags)
+                if (!StoryFlags.Has(flag))
+                    return false;
+
+        if (scenario.prerequisiteScenarios != null)
+            foreach (var prereq in scenario.prerequisiteScenarios)
+                if (!IsScenarioCompleted(prereq.scenarioID))
+                    return false;
+
+        return true;
+    }
+
+    public void StartScenario(ScenarioData scenario)
+    {
+        if (!CanStartScenario(scenario))
+        {
+            Debug.LogWarning("Scenario cannot be started.");
             return;
         }
 
-        Instance = this;
-        rewardPanel.SetActive(false);
+        StopActiveCoroutine();
+        currentScenario = scenario;
+        currentStepIndex = 0;
+        isScenarioActive = true;
+        OnScenarioStart?.Invoke(scenario);
+
+        if (scenario.introDialogue != null && DialogueManager.Instance != null)
+            DialogueManager.Instance.StartDialogue(scenario.introDialogue, StartNextStep);
+        else
+            StartNextStep();
     }
 
-    void Start()
+    void StartNextStep()
     {
-        if (closeButton != null)
-            closeButton.onClick.AddListener(Close);
-    }
+        if (!isScenarioActive || currentScenario == null)
+            return;
 
-    void OnDestroy()
-    {
-        if (Instance == this)
-            Instance = null;
-    }
-
-    public void ShowRewards(QuestData quest)
-    {
-        if (quest == null)
+        if (currentStepIndex >= currentScenario.steps.Length)
         {
-            Debug.LogWarning("QuestRewardUI.ShowRewards called with null quest.");
+            CompleteScenario();
             return;
         }
 
-        if (rewardItemPrefab == null)
+        ScenarioStep step = currentScenario.steps[currentStepIndex];
+        OnStepStart?.Invoke(step);
+        step.onStepStart?.Invoke();
+
+        switch (step.type)
         {
-            Debug.LogError("QuestRewardUI: rewardItemPrefab is not assigned.");
+            case ScenarioStepType.Dialogue:
+                ExecuteDialogueStep(step);
+                break;
+
+            case ScenarioStepType.Combat:
+                ExecuteCombatStep(step);
+                break;
+
+            case ScenarioStepType.CollectItem:
+                ExecuteCollectItemStep(step);
+                break;
+
+            case ScenarioStepType.GoToLocation:
+                ExecuteLocationStep(step);
+                break;
+
+            case ScenarioStepType.Wait:
+                ExecuteWaitStep(step);
+                break;
+
+            case ScenarioStepType.Custom:
+                ExecuteCustomStep(step);
+                break;
+        }
+    }
+
+    public void CompleteCurrentStep()
+    {
+        if (!isScenarioActive || currentScenario == null)
+            return;
+
+        ScenarioStep step = currentScenario.steps[currentStepIndex];
+        step.onStepComplete?.Invoke();
+        OnStepComplete?.Invoke(step);
+        currentStepIndex++;
+        StartNextStep();
+    }
+
+    void ExecuteDialogueStep(ScenarioStep step)
+    {
+        if (step.dialogue != null && DialogueManager.Instance != null)
+            DialogueManager.Instance.StartDialogue(step.dialogue, CompleteCurrentStep);
+        else
+            CompleteCurrentStep();
+    }
+
+    void ExecuteCombatStep(ScenarioStep step)
+    {
+        if (step.enemy != null && CombatManager.Instance != null)
+        {
+            CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
+            CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
+            CombatManager.Instance.OnCombatVictory += OnCombatVictory;
+            CombatManager.Instance.OnCombatDefeat += OnCombatDefeat;
+            CombatManager.Instance.StartCombat(step.enemy);
+        }
+        else
+        {
+            CompleteCurrentStep();
+        }
+    }
+
+    void OnCombatVictory(EnemyData defeated)
+    {
+        CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
+        CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
+        CompleteCurrentStep();
+    }
+
+    void OnCombatDefeat()
+    {
+        CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
+        CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
+        Debug.LogWarning($"[ScenarioManager] Combat defeat during scenario '{currentScenario?.scenarioID}'. Aborting.");
+        AbortScenario();
+    }
+
+    void ExecuteCollectItemStep(ScenarioStep step)
+    {
+        if (InventoryManager.Instance != null && InventoryManager.Instance.GetQuantity(step.requiredItem) >= step.requiredQuantity)
+        {
+            InventoryManager.Instance.RemoveItem(step.requiredItem, step.requiredQuantity);
+            CompleteCurrentStep();
             return;
         }
 
-        if (autoCloseCoroutine != null)
-            StopCoroutine(autoCloseCoroutine);
+        activeCoroutine = StartCoroutine(WaitForItem(step, currentStepIndex));
+    }
 
-        rewardPanel.SetActive(true);
-
-        if (questNameText != null)
-            questNameText.text = quest.questName;
-
-        if (titleText != null)
-            titleText.text = completionTitle;
-
-        ClearContainer(rewardsContainer);
-
-        if (quest.experienceReward > 0)
-            SpawnRewardItem(rewardsContainer, "Experience", quest.experienceReward.ToString(), null);
-
-        if (quest.currencyRewards != null)
+    IEnumerator WaitForItem(ScenarioStep step, int stepIndex)
+    {
+        while (isScenarioActive && currentStepIndex == stepIndex)
         {
-            foreach (var reward in quest.currencyRewards)
+            if (InventoryManager.Instance != null && InventoryManager.Instance.GetQuantity(step.requiredItem) >= step.requiredQuantity)
             {
-                var currencyInfo = CurrencyManager.Instance != null ? CurrencyManager.Instance.GetCurrencyInfo(reward.type) : null;
-                SpawnRewardItem(rewardsContainer, reward.type.ToString(), reward.amount.ToString(), currencyInfo?.icon);
+                InventoryManager.Instance.RemoveItem(step.requiredItem, step.requiredQuantity);
+                CompleteCurrentStep();
+                yield break;
             }
-        }
 
-        if (quest.itemRewards != null)
+            yield return WAIT_HALF_SEC;
+        }
+    }
+
+    void ExecuteLocationStep(ScenarioStep step)
+    {
+        GameObject target = GameObject.FindGameObjectWithTag(step.targetLocationTag);
+
+        if (PlayerTransform != null && target != null)
+            activeCoroutine = StartCoroutine(WaitForLocation(target.transform, currentStepIndex));
+        else
+            CompleteCurrentStep();
+    }
+
+    IEnumerator WaitForLocation(Transform target, int stepIndex)
+    {
+        while (isScenarioActive && currentStepIndex == stepIndex)
         {
-            for (int i = 0; i < quest.itemRewards.Length; i++)
+            if (PlayerTransform != null && Vector3.Distance(PlayerTransform.position, target.position) < 2f)
             {
-                int qty = (quest.itemRewardQuantities != null && i < quest.itemRewardQuantities.Length) ? quest.itemRewardQuantities[i] : 1;
-                SpawnRewardItem(rewardsContainer, quest.itemRewards[i].itemName, $"x{qty}", quest.itemRewards[i].icon);
+                CompleteCurrentStep();
+                yield break;
             }
+
+            yield return WAIT_HALF_SEC;
         }
-
-        bool hasOptional = quest.optionalRewards != null && quest.optionalRewards.Length > 0;
-
-        if (optionalRewardsLabel != null)
-            optionalRewardsLabel.gameObject.SetActive(hasOptional);
-
-        ClearContainer(optionalRewardsContainer);
-
-        if (hasOptional && optionalRewardsContainer != null)
-        {
-            foreach (var item in quest.optionalRewards)
-                SpawnRewardItem(optionalRewardsContainer, item.itemName, "x1", item.icon);
-        }
-
-        autoCloseCoroutine = StartCoroutine(AutoClose());
     }
 
-    private void ClearContainer(Transform container)
+    void ExecuteWaitStep(ScenarioStep step)
     {
-        if (container == null)
+        activeCoroutine = StartCoroutine(Wait(step.waitDuration, currentStepIndex));
+    }
+
+    IEnumerator Wait(float duration, int stepIndex)
+    {
+        yield return new WaitForSeconds(duration);
+
+        if (isScenarioActive && currentStepIndex == stepIndex)
+            CompleteCurrentStep();
+    }
+
+    void ExecuteCustomStep(ScenarioStep step)
+    {
+        step.onCustomStepEvent?.Invoke();
+        CompleteCurrentStep();
+    }
+
+    void CompleteScenario()
+    {
+        completedScenarios.Add(currentScenario.scenarioID);
+        GiveScenarioRewards();
+
+        if (currentScenario.flagsToSet != null)
+            foreach (var flag in currentScenario.flagsToSet)
+                StoryFlags.Add(flag);
+
+        if (currentScenario.outroDialogue != null && DialogueManager.Instance != null)
+            DialogueManager.Instance.StartDialogue(currentScenario.outroDialogue, FinalizeScenario);
+        else
+            FinalizeScenario();
+    }
+
+    public void FailScenario()
+    {
+        if (!isScenarioActive || !currentScenario.canFail)
             return;
 
-        foreach (Transform child in container)
-            Destroy(child.gameObject);
+        StopActiveCoroutine();
+
+        if (currentScenario.failureDialogue != null && DialogueManager.Instance != null)
+            DialogueManager.Instance.StartDialogue(currentScenario.failureDialogue, FinalizeScenario);
+        else
+            FinalizeScenario();
     }
 
-    private void SpawnRewardItem(Transform container, string label, string value, Sprite icon)
+    void FinalizeScenario()
     {
-        if (container == null)
-            return;
-
-        var rewardUI = Instantiate(rewardItemPrefab, container);
-        rewardUI.Setup(label, value, icon);
-    }
-
-    IEnumerator AutoClose()
-    {
-        yield return new WaitForSeconds(displayDuration);
-        Close();
-    }
-
-    void Close()
-    {
-        if (autoCloseCoroutine != null)
+        if (CombatManager.Instance != null)
         {
-            StopCoroutine(autoCloseCoroutine);
-            autoCloseCoroutine = null;
+            CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
+            CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
         }
 
-        rewardPanel.SetActive(false);
+        OnScenarioComplete?.Invoke(currentScenario);
+        currentScenario = null;
+        currentStepIndex = 0;
+        isScenarioActive = false;
+        StopActiveCoroutine();
+        SaveSystem.SaveGame();
+    }
+
+    void AbortScenario()
+    {
+        if (!isScenarioActive)
+            return;
+
+        StopActiveCoroutine();
+
+        if (CombatManager.Instance != null)
+        {
+            CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
+            CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
+        }
+
+        var aborted = currentScenario;
+        currentScenario = null;
+        currentStepIndex = 0;
+        isScenarioActive = false;
+        OnScenarioAborted?.Invoke(aborted);
+    }
+
+    void GiveScenarioRewards()
+    {
+        if (ProfileManager.Instance != null && currentScenario.experienceReward > 0)
+            ProfileManager.Instance.AddExperience(currentScenario.experienceReward);
+
+        if (currentScenario.currencyRewards != null)
+            foreach (var reward in currentScenario.currencyRewards)
+                reward.Grant();
+
+        if (currentScenario.itemRewards != null && InventoryManager.Instance != null)
+            foreach (var reward in currentScenario.itemRewards)
+                InventoryManager.Instance.AddItem(reward.item, reward.quantity);
+    }
+
+    void StopActiveCoroutine()
+    {
+        if (activeCoroutine != null)
+        {
+            StopCoroutine(activeCoroutine);
+            activeCoroutine = null;
+        }
+    }
+
+    public bool IsScenarioCompleted(string id) => completedScenarios.Contains(id);
+
+    public HashSet<string> GetCompletedScenarios() => new(completedScenarios);
+
+    public bool IsScenarioActive() => isScenarioActive && currentScenario != null;
+
+    public ScenarioData GetCurrentScenario() => currentScenario;
+
+    public int GetCurrentStepIndex() => currentStepIndex;
+
+    public void SetCompletedScenarios(HashSet<string> scenarios)
+    {
+        completedScenarios.Clear();
+
+        if (scenarios == null)
+            return;
+
+        foreach (var id in scenarios) completedScenarios.Add(id);
     }
 }

@@ -14,14 +14,11 @@ public class StatModifierItem : ItemData
             return;
 
         if (modifyMaxStat)
-        {
             PlayerStats.Instance.ModifyMax(targetStat, modifyAmount);
-        }
         else
-        {
             PlayerStats.Instance.Modify(targetStat, modifyAmount);
-        }
 
+        SaveSystem.SaveGame();
         Debug.Log($"Used {itemName}: {targetStat} {(modifyAmount > 0 ? "+" : "")}{modifyAmount}");
     }
 }

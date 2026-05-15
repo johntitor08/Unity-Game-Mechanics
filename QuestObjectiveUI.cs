@@ -1,47 +1,37 @@
-public class NameValidator
+using UnityEngine;
+using TMPro;
+using UnityEngine.UI;
+
+public class QuestObjectiveUI : MonoBehaviour
 {
-    public static bool IsValidName(string name, out string error)
+    [Header("UI Elements")]
+    public TextMeshProUGUI descriptionText;
+    public TextMeshProUGUI progressText;
+    public Slider progressBar;
+    public Image checkmarkIcon;
+
+    public void Setup(QuestObjective objective, ObjectiveRuntimeState state)
     {
-        error = "";
+        if (descriptionText != null)
+            descriptionText.text = objective.description;
 
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            error = "Ýsim boþ olamaz!";
-            return false;
-        }
-
-        if (name.Length < 3)
-        {
-            error = "Ýsim çok kýsa!";
-            return false;
-        }
-
-        if (name.Length > 15)
-        {
-            error = "Ýsim çok uzun!";
-            return false;
-        }
-
-        return true;
+        UpdateProgress(objective, state);
     }
 
-    public static string SanitizeName(string name)
+    public void UpdateProgress(QuestObjective objective, ObjectiveRuntimeState state)
     {
-        // Remove extra spaces
-        name = name.Trim();
+        int required = objective.GetRequiredCount();
 
-        // Replace multiple spaces with single space
-        while (name.Contains("  "))
+        if (progressText != null)
+            progressText.text = $"{state.currentProgress}/{required}";
+
+        if (progressBar != null)
         {
-            name = name.Replace("  ", " ");
+            float pct = required == 0 ? 1f : Mathf.Clamp01((float)state.currentProgress / required);
+            progressBar.value = pct;
         }
 
-        // Capitalize first letter
-        if (name.Length > 0)
-        {
-            name = char.ToUpper(name[0]) + name[1..];
-        }
-
-        return name;
+        if (checkmarkIcon != null)
+            checkmarkIcon.gameObject.SetActive(state.isCompleted);
     }
 }

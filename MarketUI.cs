@@ -1,65 +1,86 @@
 using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
 
-public class QuestSlotUI : MonoBehaviour
+public class MarketUI : MonoBehaviour
 {
-    [Header("UI Elements")]
-    public TextMeshProUGUI questNameText;
-    public TextMeshProUGUI questTypeText;
-    public Image questIcon;
-    public Image difficultyIcon;
-    public Button detailsButton;
-    public GameObject completedIndicator;
-    public GameObject newIndicator;
+    public static MarketUI Instance;
+    public GameObject marketPanel;
+    private bool gameStarted = false;
 
-    private QuestData quest;
-
-    public void Setup(QuestData questData, bool isCompleted = false, bool isNew = false)
+    void Awake()
     {
-        quest = questData;
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(gameObject);
+    }
 
-        if (questNameText != null)
-            questNameText.text = questData.questName;
+    private void Update()
+    {
+        if (!gameStarted || SaveSystem.IsLoading)
+            return;
 
-        if (questTypeText != null)
-            questTypeText.text = questData.questType.ToString();
-
-        if (questIcon != null && questData.icon != null)
-            questIcon.sprite = questData.icon;
-
-        if (completedIndicator != null)
-            completedIndicator.SetActive(isCompleted);
-
-        if (newIndicator != null)
-            newIndicator.SetActive(isNew);
-
-        if (difficultyIcon != null)
-            difficultyIcon.color = GetDifficultyColor(questData.difficulty);
-
-        if (detailsButton != null)
+        if (Input.GetKeyDown(KeyCode.S))
         {
-            detailsButton.onClick.RemoveAllListeners();
-            detailsButton.onClick.AddListener(OnDetailsClicked);
+            if (marketPanel.activeSelf)
+                CloseAll();
+            else
+                OpenMarket();
         }
     }
 
-    void OnDetailsClicked()
+    public void OnGameStarted()
     {
-        if (QuestUI.Instance != null && quest != null)
-            QuestUI.Instance.ShowQuestDetails(quest);
+        gameStarted = true;
     }
 
-    Color GetDifficultyColor(QuestDifficulty difficulty)
+    public void OpenMarket()
     {
-        return difficulty switch
+        marketPanel.SetActive(true);
+        OpenShop();
+    }
+
+    public void OpenShop()
+    {
+        if (MarketController.Instance != null && !MarketController.Instance.IsOpen())
         {
-            QuestDifficulty.Easy => Color.gray,
-            QuestDifficulty.Normal => Color.white,
-            QuestDifficulty.Hard => Color.yellow,
-            QuestDifficulty.Elite => new Color(1f, 0.5f, 0f),
-            QuestDifficulty.Epic => new Color(0.8f, 0.2f, 0.8f),
-            _ => Color.white
-        };
+            if (ShopUI.Instance != null)
+                ShopUI.Instance.ShowMarketClosed();
+
+            return;
+        }
+
+        if (SellUI.Instance != null)
+            SellUI.Instance.Close();
+
+        if (ShopUI.Instance != null)
+            ShopUI.Instance.Open();
+    }
+
+    public void OpenSell()
+    {
+        if (MarketController.Instance != null && !MarketController.Instance.IsOpen())
+        {
+            if (ShopUI.Instance != null)
+                ShopUI.Instance.ShowMarketClosed();
+
+            return;
+        }
+
+        if (ShopUI.Instance != null)
+            ShopUI.Instance.Close();
+
+        if (SellUI.Instance != null)
+            SellUI.Instance.Open();
+    }
+
+    public void CloseAll()
+    {
+        if (ShopUI.Instance != null)
+            ShopUI.Instance.Close();
+
+        if (SellUI.Instance != null)
+            SellUI.Instance.Close();
+
+        marketPanel.SetActive(false);
     }
 }

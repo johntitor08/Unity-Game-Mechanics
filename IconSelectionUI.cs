@@ -1,154 +1,124 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections.Generic;
 
-public class UIManager : MonoBehaviour
+public class IconSelectionUI : MonoBehaviour
 {
-    [Header("Tool Buttons")]
-    public Button brushBtn;
-    public Button eraserBtn;
-    public Button fillBtn;
-    public Button eyedropperBtn;
+    [Header("Panel")]
+    public GameObject selectionPanel;
+    public KeyCode toggleKey = KeyCode.I;
 
-    [Header("Shape Buttons")]
-    public Button lineBtn;
-    public Button rectBtn;
-    public Button circleBtn;
+    [Header("Grid")]
+    public Transform iconGrid;
+    public GameObject iconSlotPrefab;
 
-    [Header("Brush Controls")]
-    public Slider sizeSlider;
-    public Slider hardnessSlider;
-    public Slider opacitySlider;
-    public TextMeshProUGUI sizeLabel;
+    [Header("Database")]
+    public ProfileIconDatabase iconDatabase;
 
-    [Header("Color")]
-    public Image colorPreview;
-    public Button[] paletteButtons;
+    [Header("Selected Preview")]
+    public Image previewImage;
+    public TextMeshProUGUI previewNameText;
+    public TextMeshProUGUI previewCostText;
+    public Button selectButton;
+    public TextMeshProUGUI selectButtonText;
+    private string hoveredIconID;
+    private readonly List<IconSlotUI> spawnedSlots = new();
 
-    [Header("Layer")]
-    public Button addLayerBtn;
-    public Button removeLayerBtn;
-    public Button mergeDownBtn;
-
-    [Header("File")]
-    public Button savePNGBtn;
-    public Button saveNativeBtn;
-    public Button undoBtn;
-    public Button redoBtn;
-    public Button clearBtn;
-
-    void Start()
+    private void OnEnable()
     {
-        var bs = BrushSettings.Instance;
-
-        if (brushBtn != null)
-            brushBtn.onClick.AddListener(() => SetTool(ToolType.Brush));
-
-        if (eraserBtn != null)
-            eraserBtn.onClick.AddListener(() => SetTool(ToolType.Eraser));
-
-        if (fillBtn != null)
-            fillBtn.onClick.AddListener(() => SetTool(ToolType.Fill));
-
-        if (eyedropperBtn != null)
-            eyedropperBtn.onClick.AddListener(() => SetTool(ToolType.Eyedropper));
-
-        if (lineBtn != null)
-            lineBtn.onClick.AddListener(() =>
-            {
-                SetTool(ToolType.Shape);
-                bs.activeShape = ShapeType.Line;
-            });
-
-        if (rectBtn != null)
-            rectBtn.onClick.AddListener(() =>
-            {
-                SetTool(ToolType.Shape);
-                bs.activeShape = ShapeType.Rectangle;
-            });
-
-        if (circleBtn != null)
-            circleBtn.onClick.AddListener(() =>
-            {
-                SetTool(ToolType.Shape);
-                bs.activeShape = ShapeType.Circle;
-            });
-
-        if (sizeSlider != null)
-        {
-            sizeSlider.onValueChanged.AddListener(v =>
-            {
-                bs.size = (int)v;
-                if (sizeLabel != null) sizeLabel.text = $"{(int)v}px";
-            });
-        }
-
-        if (hardnessSlider != null)
-            hardnessSlider.onValueChanged.AddListener(v => bs.hardness = v);
-
-        if (opacitySlider != null)
-            opacitySlider.onValueChanged.AddListener(v => bs.opacity = v);
-
-        foreach (var btn in paletteButtons)
-        {
-            if (btn == null)
-                continue;
-
-            var img = btn.GetComponent<Image>();
-            var col = img != null ? img.color : Color.white;
-
-            btn.onClick.AddListener(() =>
-            {
-                bs.color = col;
-
-                if (colorPreview != null)
-                    colorPreview.color = col;
-
-                SetTool(ToolType.Brush);
-            });
-        }
-
-        if (addLayerBtn != null)
-            addLayerBtn.onClick.AddListener(() => LayerManager.Instance.AddLayer());
-
-        if (removeLayerBtn != null)
-            removeLayerBtn.onClick.AddListener(() => LayerManager.Instance.RemoveLayer(LayerManager.Instance.ActiveIndex));
-
-        if (mergeDownBtn != null)
-            mergeDownBtn.onClick.AddListener(() => LayerManager.Instance.MergeDown(LayerManager.Instance.ActiveIndex));
-
-        if (savePNGBtn != null)
-            savePNGBtn.onClick.AddListener(() =>
-            {
-                SaveManager.Instance.SavePNG();
-                var am = AudioManager.Instance;
-
-                if (am != null)
-                    am.PlaySave();
-            });
-
-        if (saveNativeBtn != null) saveNativeBtn.onClick.AddListener(() =>
-        {
-            SaveManager.Instance.SaveNative();
-            var am = AudioManager.Instance;
-
-            if (am != null)
-                am.PlaySave();
-        });
-
-        if (undoBtn != null)
-            undoBtn.onClick.AddListener(() => DrawingCanvas.Instance.Undo());
-
-        if (redoBtn != null)
-            redoBtn.onClick.AddListener(() => DrawingCanvas.Instance.Redo());
-
-        if (clearBtn != null)
-            clearBtn.onClick.AddListener(() =>
-            {
-                var layer = LayerManager.Instance.ActiveLayer;
-                layer?.Clear();
-            });
+        ProfileManager.Instance.OnProfileChanged += OnProfileChanged;
+        BuildGrid();
     }
 
-    static void SetTool(ToolType t) => BrushSettings.Instance.activeTool = t;
+    private void OnDisable()
+    {
+        if (ProfileManager.Instance != null)
+            ProfileManager.Instance.OnProfileChanged -= OnProfileChanged;
+    }
+
+    private void Update()
+    {
+        if (Input.GetKeyDown(toggleKey) && selectionPanel != null)
+        {
+            selectionPanel.SetActive(!selectionPanel.activeSelf);
+
+            if (selectionPanel.activeSelf)
+                BuildGrid();
+        }
+    }
+
+    private void BuildGrid()
+    {
+        foreach (var slot in spawnedSlots)
+            if (slot != null) Destroy(slot.gameObject);
+
+        spawnedSlots.Clear();
+        if (iconDatabase == null || iconGrid == null || iconSlotPrefab == null) return;
+
+        foreach (var entry in iconDatabase.icons)
+        {
+            var go = Instantiate(iconSlotPrefab, iconGrid);
+            var slot = go.GetComponent<IconSlotUI>();
+            if (slot == null) continue;
+            bool unlocked = ProfileManager.Instance.IsIconUnlocked(entry.id);
+            bool selected = ProfileManager.Instance.profile.profileIconID == entry.id;
+            slot.Setup(entry, unlocked, selected, OnSlotClicked);
+            spawnedSlots.Add(slot);
+        }
+    }
+
+    private void OnSlotClicked(string iconID)
+    {
+        hoveredIconID = iconID;
+        var entry = iconDatabase.icons.Find(e => e.id == iconID);
+        bool unlocked = ProfileManager.Instance.IsIconUnlocked(iconID);
+        bool selected = ProfileManager.Instance.profile.profileIconID == iconID;
+
+        if (previewImage != null)
+            previewImage.sprite = entry.sprite;
+
+        if (previewNameText != null)
+            previewNameText.text = entry.displayName;
+
+        if (previewCostText != null)
+            previewCostText.text = unlocked ? "Unlocked" : $"{entry.cost} Gold";
+
+        if (selectButton != null)
+        {
+            selectButton.interactable = !selected;
+
+            if (selectButtonText != null)
+            {
+                if (selected) selectButtonText.text = "Selected";
+                else if (unlocked) selectButtonText.text = "Select";
+                else selectButtonText.text = $"Buy ({entry.cost} Gold)";
+            }
+        }
+    }
+
+    public void OnSelectButtonClicked()
+    {
+        if (string.IsNullOrEmpty(hoveredIconID)) return;
+        bool unlocked = ProfileManager.Instance.IsIconUnlocked(hoveredIconID);
+
+        if (unlocked)
+        {
+            ProfileManager.Instance.SelectIcon(hoveredIconID);
+        }
+        else
+        {
+            var entry = iconDatabase.icons.Find(e => e.id == hoveredIconID);
+            bool success = ProfileManager.Instance.PurchaseIcon(hoveredIconID, entry.cost);
+
+            if (success)
+                ProfileManager.Instance.SelectIcon(hoveredIconID);
+            else
+            {
+                Debug.Log("Not enough currency.");
+            }
+        }
+    }
+
+    private void OnProfileChanged(PlayerProfile _) => BuildGrid();
 }

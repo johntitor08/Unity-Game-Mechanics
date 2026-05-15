@@ -1,15 +1,24 @@
 using UnityEngine;
 
-public static class EyedropperTool
+public class PuzzleMainMenu : MonoBehaviour
 {
-    public static void Sample(Texture2D tex, Vector2 pos)
+    public void Easy()
     {
-        int x = Mathf.Clamp(Mathf.RoundToInt(pos.x), 0, tex.width - 1);
-        int y = Mathf.Clamp(Mathf.RoundToInt(pos.y), 0, tex.height - 1);
-        var sampled = tex.GetPixel(x, y);
-        sampled.a = 1f;
-        BrushSettings.Instance.color = sampled;
-        BrushSettings.Instance.activeTool = ToolType.Brush;
-        Debug.Log($"Renk örneklendi: {sampled}");
+        PuzzleEvents.OnDifficultyChanged?.Invoke(Difficulty.Easy);
+    }
+
+    public void Medium()
+    {
+        PuzzleEvents.OnDifficultyChanged?.Invoke(Difficulty.Medium);
+    }
+
+    public void Hard()
+    {
+        PuzzleEvents.OnDifficultyChanged?.Invoke(Difficulty.Hard);
+    }
+
+    public void Play()
+    {
+        PuzzleEvents.OnPuzzleRestarted?.Invoke();
     }
 }

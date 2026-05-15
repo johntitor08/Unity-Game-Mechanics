@@ -1,47 +1,32 @@
-public class NameValidator
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+using System;
+
+public class IconSlotUI : MonoBehaviour
 {
-    public static bool IsValidName(string name, out string error)
+    public Image iconImage;
+    public Image lockedOverlay;
+    public Image selectedOutline;
+    public TextMeshProUGUI costText;
+    public Button button;
+    private string iconID;
+    private Action<string> onClicked;
+
+    public void Setup(IconEntry entry, bool unlocked, bool selected, Action<string> onClick)
     {
-        error = "";
+        iconID = entry.id;
+        onClicked = onClick;
+        if (iconImage != null) iconImage.sprite = entry.sprite;
+        if (lockedOverlay != null) lockedOverlay.gameObject.SetActive(!unlocked);
+        if (selectedOutline != null) selectedOutline.gameObject.SetActive(selected);
+        if (costText != null) costText.text = unlocked ? "" : $"{entry.cost}g";
 
-        if (string.IsNullOrWhiteSpace(name))
+        if (button != null)
         {
-            error = "Ýsim boþ olamaz!";
-            return false;
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(() => onClicked?.Invoke(iconID));
+            button.interactable = true;
         }
-
-        if (name.Length < 3)
-        {
-            error = "Ýsim çok kýsa!";
-            return false;
-        }
-
-        if (name.Length > 15)
-        {
-            error = "Ýsim çok uzun!";
-            return false;
-        }
-
-        return true;
-    }
-
-    public static string SanitizeName(string name)
-    {
-        // Remove extra spaces
-        name = name.Trim();
-
-        // Replace multiple spaces with single space
-        while (name.Contains("  "))
-        {
-            name = name.Replace("  ", " ");
-        }
-
-        // Capitalize first letter
-        if (name.Length > 0)
-        {
-            name = char.ToUpper(name[0]) + name[1..];
-        }
-
-        return name;
     }
 }

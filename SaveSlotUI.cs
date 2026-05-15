@@ -1,186 +1,128 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
-using System.Collections.Generic;
+using UnityEngine.UI;
+using TMPro;
 
-public class QuestGiver : MonoBehaviour, IPointerClickHandler
+public class SaveSlotUI : MonoBehaviour
 {
-    [Header("Quests")]
-    public List<QuestData> availableQuests;
+    [Header("Slot Info")]
+    public int slotIndex;
 
-    [Header("Interaction")]
-    public GameObject exclamationMark;
-    public GameObject questionMark;
-    public GameObject goldExclamation;
-    public float interactionRange = 2f;
-    public KeyCode interactionKey = KeyCode.E;
+    [Header("UI References")]
+    public TextMeshProUGUI slotLabel;
+    public TextMeshProUGUI metaText;
+    public Button saveButton;
+    public Button loadButton;
+    public Button deleteButton;
 
-    [Header("Visual")]
-    public GameObject interactionPrompt;
+    private SaveUI parentUI;
 
-    private bool playerInRange = false;
-
-    void Start()
+    public void Initialize(int index, SaveUI parent)
     {
-        if (interactionPrompt != null)
-            interactionPrompt.SetActive(false);
+        slotIndex = index;
+        parentUI = parent;
 
-        if (QuestManager.Instance != null)
-            Subscribe();
-        else
-            QuestManager.OnReady += OnQuestManagerReady;
+        if (slotLabel != null)
+            slotLabel.text = $"Slot {index + 1}";
 
-        UpdateQuestIndicators();
+        if (saveButton != null)
+            saveButton.onClick.AddListener(OnSave);
+
+        if (loadButton != null)
+            loadButton.onClick.AddListener(OnLoad);
+
+        if (deleteButton != null)
+            deleteButton.onClick.AddListener(OnDelete);
+
+        Refresh();
+    }
+
+    public void Refresh()
+    {
+        bool hasSave = SaveSystem.HasSaveFile(slotIndex);
+
+        if (loadButton != null)
+            loadButton.interactable = hasSave;
+
+        if (deleteButton != null)
+            deleteButton.interactable = hasSave;
+
+        if (metaText != null)
+        {
+            if (hasSave)
+            {
+                var data = SaveSystem.PeekSlot(slotIndex);
+                metaText.text = data != null ? BuildMeta(data) : "Corrupted";
+            }
+            else
+            {
+                metaText.text = "Empty";
+            }
+        }
+    }
+
+    string BuildMeta(SaveData data)
+    {
+        string phase = data.currentTimePhase.ToString();
+        string day = $"Day {data.currentDay}";
+        string time = string.IsNullOrEmpty(data.savedAt) ? "" : $" · {data.savedAt}";
+        return $"{day} · {phase}{time}";
+    }
+
+    public void SetInteractable(bool interactable)
+    {
+        if (saveButton != null)
+            saveButton.interactable = interactable;
+
+        if (loadButton != null)
+            loadButton.interactable = interactable;
+
+        if (deleteButton != null)
+            deleteButton.interactable = interactable;
+    }
+
+    void OnSave()
+    {
+        if (SaveSystem.IsLoading)
+            return;
+
+        if (parentUI != null)
+            parentUI.SetAllSlotsInteractable(false);
+
+        SaveSystem.SetActiveSlot(slotIndex);
+        SaveSystem.SaveGame(slotIndex);
+        Refresh();
+
+        if (parentUI != null)
+        {
+            parentUI.SetAllSlotsInteractable(true);
+            parentUI.ShowToast("Game Saved!");
+        }
+    }
+
+    void OnLoad()
+    {
+        if (!SaveSystem.HasSaveFile(slotIndex))
+            return;
+
+        SaveSystem.SetActiveSlot(slotIndex);
+        SaveSystem.LoadGame(slotIndex);
+    }
+
+    void OnDelete()
+    {
+        SaveSystem.DeleteSave(slotIndex);
+        Refresh();
     }
 
     void OnDestroy()
     {
-        QuestManager.OnReady -= OnQuestManagerReady;
+        if (saveButton != null)
+            saveButton.onClick.RemoveListener(OnSave);
 
-        if (QuestManager.Instance != null)
-        {
-            QuestManager.Instance.OnQuestStarted -= OnQuestChanged;
-            QuestManager.Instance.OnQuestCompleted -= OnQuestChanged;
-            QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveChanged;
-        }
-    }
+        if (loadButton != null)
+            loadButton.onClick.RemoveListener(OnLoad);
 
-    void OnQuestManagerReady()
-    {
-        QuestManager.OnReady -= OnQuestManagerReady;
-        Subscribe();
-        UpdateQuestIndicators();
-    }
-
-    void Subscribe()
-    {
-        QuestManager.Instance.OnQuestStarted += OnQuestChanged;
-        QuestManager.Instance.OnQuestCompleted += OnQuestChanged;
-        QuestManager.Instance.OnObjectiveCompleted += OnObjectiveChanged;
-    }
-
-    void OnQuestChanged(QuestData _) => UpdateQuestIndicators();
-
-    void OnObjectiveChanged(QuestData _, QuestObjective __) => UpdateQuestIndicators();
-
-    void Update()
-    {
-        if (playerInRange && Input.GetKeyDown(interactionKey))
-            Interact();
-    }
-
-    public void OnPointerClick(PointerEventData eventData)
-    {
-        if (playerInRange)
-            Interact();
-    }
-
-    void OnTriggerEnter2D(Collider2D other)
-    {
-        if (other.CompareTag("Player"))
-        {
-            playerInRange = true;
-
-            if (interactionPrompt != null)
-                interactionPrompt.SetActive(true);
-        }
-    }
-
-    void OnTriggerExit2D(Collider2D other)
-    {
-        if (other.CompareTag("Player"))
-        {
-            playerInRange = false;
-
-            if (interactionPrompt != null)
-                interactionPrompt.SetActive(false);
-        }
-    }
-
-    bool AreAllObjectivesComplete(QuestData quest)
-    {
-        foreach (var obj in quest.objectives)
-        {
-            if (!obj.isOptional)
-            {
-                var state = QuestManager.Instance.GetObjectiveState(quest.questID, obj.objectiveID);
-
-                if (!state.isCompleted)
-                    return false;
-            }
-        }
-
-        return true;
-    }
-
-    void UpdateQuestIndicators()
-    {
-        if (QuestManager.Instance == null)
-            return;
-
-        bool hasNewQuest = false;
-        bool hasActiveQuest = false;
-        bool hasCompleteQuest = false;
-
-        foreach (var quest in availableQuests)
-        {
-            if (QuestManager.Instance.CanStartQuest(quest))
-            {
-                hasNewQuest = true;
-            }
-            else if (QuestManager.Instance.IsQuestActive(quest.questID))
-            {
-                if (AreAllObjectivesComplete(quest))
-                    hasCompleteQuest = true;
-                else
-                    hasActiveQuest = true;
-            }
-        }
-
-        if (exclamationMark != null)
-            exclamationMark.SetActive(hasNewQuest);
-
-        if (questionMark != null)
-            questionMark.SetActive(hasActiveQuest && !hasCompleteQuest);
-
-        if (goldExclamation != null)
-            goldExclamation.SetActive(hasCompleteQuest);
-    }
-
-    void Interact()
-    {
-        foreach (var quest in availableQuests)
-        {
-            if (!QuestManager.Instance.IsQuestActive(quest.questID))
-                continue;
-
-            if (AreAllObjectivesComplete(quest))
-            {
-                if (quest.completionDialogue != null && DialogueManager.Instance != null)
-                    DialogueManager.Instance.StartDialogue(quest.completionDialogue, () => QuestManager.Instance.CompleteQuest(quest));
-                else
-                    QuestManager.Instance.CompleteQuest(quest);
-
-                return;
-            }
-
-            if (quest.progressDialogue != null)
-            {
-                DialogueManager.Instance.StartDialogue(quest.progressDialogue);
-                return;
-            }
-        }
-
-        foreach (var quest in availableQuests)
-        {
-            if (QuestManager.Instance.CanStartQuest(quest))
-            {
-                if (quest.startDialogue != null)
-                    DialogueManager.Instance.StartDialogue(quest.startDialogue, () => QuestManager.Instance.StartQuest(quest));
-                else
-                    QuestManager.Instance.StartQuest(quest);
-
-                return;
-            }
-        }
+        if (deleteButton != null)
+            deleteButton.onClick.RemoveListener(OnDelete);
     }
 }

@@ -1,30 +1,52 @@
 using UnityEngine;
+using TMPro;
 using System.Collections.Generic;
 
-[CreateAssetMenu(fileName = "ProfileIconDatabase", menuName = "Database/ProfileIconDatabase")]
-public class ProfileIconDatabase : ScriptableObject
+public class QuestTrackerEntry : MonoBehaviour
 {
-    public List<IconEntry> icons;
-    private static ProfileIconDatabase _instance;
-    public static ProfileIconDatabase Instance => _instance;
-    private void OnEnable() => _instance = this;
+    [Header("UI Elements")]
+    public TextMeshProUGUI questNameText;
+    public Transform objectivesParent;
+    public TextMeshProUGUI objectiveTextPrefab;
 
-    public Sprite GetIconSprite(string id)
+    private readonly List<TextMeshProUGUI> objectiveTexts = new();
+
+    public void Setup(QuestData quest)
     {
-        foreach (var icon in icons)
-            if (icon.id == id) return icon.sprite;
+        if (QuestManager.Instance == null)
+            return;
 
-        return null;
+        if (questNameText != null)
+            questNameText.text = quest.questName;
+
+        var incompleteObjectives = new List<(QuestObjective obj, ObjectiveRuntimeState state)>();
+
+        foreach (var objective in quest.objectives)
+        {
+            var state = QuestManager.Instance.GetObjectiveState(quest.questID, objective.objectiveID);
+
+            if (!state.isCompleted)
+                incompleteObjectives.Add((objective, state));
+        }
+
+        while (objectiveTexts.Count < incompleteObjectives.Count)
+        {
+            var t = Instantiate(objectiveTextPrefab, objectivesParent);
+            objectiveTexts.Add(t);
+        }
+
+        for (int i = 0; i < objectiveTexts.Count; i++)
+        {
+            if (i < incompleteObjectives.Count)
+            {
+                var (obj, state) = incompleteObjectives[i];
+                objectiveTexts[i].text = $"• {obj.description} ({state.currentProgress}/{obj.GetRequiredCount()})";
+                objectiveTexts[i].gameObject.SetActive(true);
+            }
+            else
+            {
+                objectiveTexts[i].gameObject.SetActive(false);
+            }
+        }
     }
-
-    public static Sprite GetSprite(string id) => _instance != null ? _instance.GetIconSprite(id) : null;
-}
-
-[System.Serializable]
-public struct IconEntry
-{
-    public string id;
-    public Sprite sprite;
-    public int cost;
-    public string displayName;
 }

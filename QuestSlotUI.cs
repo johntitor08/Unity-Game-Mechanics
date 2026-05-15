@@ -1,32 +1,65 @@
 using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
-using System;
+using UnityEngine.UI;
 
-public class IconSlotUI : MonoBehaviour
+public class QuestSlotUI : MonoBehaviour
 {
-    public Image iconImage;
-    public Image lockedOverlay;
-    public Image selectedOutline;
-    public TextMeshProUGUI costText;
-    public Button button;
-    private string iconID;
-    private Action<string> onClicked;
+    [Header("UI Elements")]
+    public TextMeshProUGUI questNameText;
+    public TextMeshProUGUI questTypeText;
+    public Image questIcon;
+    public Image difficultyIcon;
+    public Button detailsButton;
+    public GameObject completedIndicator;
+    public GameObject newIndicator;
 
-    public void Setup(IconEntry entry, bool unlocked, bool selected, Action<string> onClick)
+    private QuestData quest;
+
+    public void Setup(QuestData questData, bool isCompleted = false, bool isNew = false)
     {
-        iconID = entry.id;
-        onClicked = onClick;
-        if (iconImage != null) iconImage.sprite = entry.sprite;
-        if (lockedOverlay != null) lockedOverlay.gameObject.SetActive(!unlocked);
-        if (selectedOutline != null) selectedOutline.gameObject.SetActive(selected);
-        if (costText != null) costText.text = unlocked ? "" : $"{entry.cost}g";
+        quest = questData;
 
-        if (button != null)
+        if (questNameText != null)
+            questNameText.text = questData.questName;
+
+        if (questTypeText != null)
+            questTypeText.text = questData.questType.ToString();
+
+        if (questIcon != null && questData.icon != null)
+            questIcon.sprite = questData.icon;
+
+        if (completedIndicator != null)
+            completedIndicator.SetActive(isCompleted);
+
+        if (newIndicator != null)
+            newIndicator.SetActive(isNew);
+
+        if (difficultyIcon != null)
+            difficultyIcon.color = GetDifficultyColor(questData.difficulty);
+
+        if (detailsButton != null)
         {
-            button.onClick.RemoveAllListeners();
-            button.onClick.AddListener(() => onClicked?.Invoke(iconID));
-            button.interactable = true;
+            detailsButton.onClick.RemoveAllListeners();
+            detailsButton.onClick.AddListener(OnDetailsClicked);
         }
+    }
+
+    void OnDetailsClicked()
+    {
+        if (QuestUI.Instance != null && quest != null)
+            QuestUI.Instance.ShowQuestDetails(quest);
+    }
+
+    Color GetDifficultyColor(QuestDifficulty difficulty)
+    {
+        return difficulty switch
+        {
+            QuestDifficulty.Easy => Color.gray,
+            QuestDifficulty.Normal => Color.white,
+            QuestDifficulty.Hard => Color.yellow,
+            QuestDifficulty.Elite => new Color(1f, 0.5f, 0f),
+            QuestDifficulty.Epic => new Color(0.8f, 0.2f, 0.8f),
+            _ => Color.white
+        };
     }
 }

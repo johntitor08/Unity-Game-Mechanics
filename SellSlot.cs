@@ -1,52 +1,178 @@
-using UnityEngine;
 using TMPro;
-using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
 
-public class QuestTrackerEntry : MonoBehaviour
+public class SellSlot : MonoBehaviour
 {
-    [Header("UI Elements")]
-    public TextMeshProUGUI questNameText;
-    public Transform objectivesParent;
-    public TextMeshProUGUI objectiveTextPrefab;
+    [Header("Visual")]
+    public Image icon;
+    public TextMeshProUGUI nameText;
+    public TextMeshProUGUI descText;
+    public TextMeshProUGUI quantityText;
+    public TextMeshProUGUI priceText;
+    public Image rarityBorder;
+    public TextMeshProUGUI rarityText;
+    public Button sellButton;
 
-    private readonly List<TextMeshProUGUI> objectiveTexts = new();
+    [Header("Rarity Colors")]
+    public Color commonColor = new(0.6f, 0.6f, 0.6f);
+    public Color rareColor = new(0.2f, 0.5f, 1f);
+    public Color epicColor = new(0.6f, 0.2f, 1f);
+    public Color legendaryColor = new(1f, 0.6f, 0f);
 
-    public void Setup(QuestData quest)
+    private ItemData item;
+    private EquipmentData equipData;
+    private int upgradeLevel;
+    private int quantity;
+    private float sellRatio;
+    private bool isEquipment;
+
+    public void Setup(ItemData newItem, int qty, float ratio)
     {
-        if (QuestManager.Instance == null)
+        item = newItem;
+        equipData = null;
+        upgradeLevel = 0;
+        quantity = qty;
+        sellRatio = ratio;
+        isEquipment = false;
+        ApplyVisuals();
+    }
+
+    public void SetupEquipment(EquipmentData data, int lvl, int qty, float ratio)
+    {
+        item = data;
+        equipData = data;
+        upgradeLevel = lvl;
+        quantity = qty;
+        sellRatio = ratio;
+        isEquipment = true;
+        ApplyVisuals();
+    }
+
+    void ApplyVisuals()
+    {
+        if (item == null)
             return;
 
-        if (questNameText != null)
-            questNameText.text = quest.questName;
-
-        var incompleteObjectives = new List<(QuestObjective obj, ObjectiveRuntimeState state)>();
-
-        foreach (var objective in quest.objectives)
+        if (icon != null)
         {
-            var state = QuestManager.Instance.GetObjectiveState(quest.questID, objective.objectiveID);
-
-            if (!state.isCompleted)
-                incompleteObjectives.Add((objective, state));
+            icon.sprite = item.icon;
+            icon.enabled = item.icon != null;
         }
 
-        while (objectiveTexts.Count < incompleteObjectives.Count)
+        if (nameText != null)
+            nameText.text = (isEquipment && upgradeLevel > 0) ? $"{item.itemName} +{upgradeLevel}" : item.itemName;
+
+        if (descText != null)
+            descText.text = item.description;
+
+        if (quantityText != null)
+            quantityText.text = $"x{quantity}";
+
+        if (priceText != null)
         {
-            var t = Instantiate(objectiveTextPrefab, objectivesParent);
-            objectiveTexts.Add(t);
+            int price = Mathf.RoundToInt(item.basePrice * item.GetRarityMultiplier() * sellRatio);
+            priceText.text = $"{price}";
         }
 
-        for (int i = 0; i < objectiveTexts.Count; i++)
+        SetupRarity(item);
+
+        if (sellButton != null)
         {
-            if (i < incompleteObjectives.Count)
+            sellButton.onClick.RemoveAllListeners();
+            sellButton.onClick.AddListener(SellOne);
+            RefreshButton();
+        }
+    }
+
+    void SetupRarity(ItemData item)
+    {
+        if (item == null)
+            return;
+
+        Rarity rarityEnum = item.rarity;
+        Color color;
+
+        if (item is EquipmentData equip)
+        {
+            rarityEnum = equip.rarity;
+            color = equip.GetRarityColor();
+        }
+        else
+        {
+            color = rarityEnum switch
             {
-                var (obj, state) = incompleteObjectives[i];
-                objectiveTexts[i].text = $"• {obj.description} ({state.currentProgress}/{obj.GetRequiredCount()})";
-                objectiveTexts[i].gameObject.SetActive(true);
-            }
-            else
-            {
-                objectiveTexts[i].gameObject.SetActive(false);
-            }
+                Rarity.Common => commonColor,
+                Rarity.Rare => rareColor,
+                Rarity.Epic => epicColor,
+                Rarity.Legendary => legendaryColor,
+                _ => commonColor
+            };
         }
+
+        if (rarityText != null)
+            rarityText.text = rarityEnum.ToString();
+
+        if (rarityBorder != null)
+            rarityBorder.color = color;
+    }
+
+    void RefreshButton()
+    {
+        if (sellButton == null)
+            return;
+
+        sellButton.interactable = GetCurrentQuantity() > 0;
+    }
+
+    int GetCurrentQuantity()
+    {
+        if (InventoryManager.Instance == null)
+            return 0;
+
+        if (isEquipment && equipData != null)
+            return InventoryManager.Instance.GetUpgradedQuantity(equipData, upgradeLevel);
+
+        return item != null ? InventoryManager.Instance.GetQuantity(item) : 0;
+    }
+
+    void SellOne()
+    {
+        if (item == null || ShopManager.Instance == null)
+            return;
+
+        bool sold;
+
+        if (isEquipment && equipData != null)
+        {
+            if (InventoryManager.Instance.GetUpgradedQuantity(equipData, upgradeLevel) <= 0)
+                return;
+
+            int price = Mathf.RoundToInt(item.basePrice * item.GetRarityMultiplier() * sellRatio);
+            InventoryManager.Instance.RemoveUpgradedItem(equipData, upgradeLevel, 1);
+
+            if (CurrencyManager.Instance != null)
+                CurrencyManager.Instance.Add(CurrencyType.Gold, price);
+
+            SaveSystem.SaveGame();
+            sold = true;
+        }
+        else
+        {
+            sold = ShopManager.Instance.SellItem(item, 1, sellRatio);
+        }
+
+        if (!sold)
+            return;
+
+        quantity = GetCurrentQuantity();
+
+        if (quantityText != null)
+            quantityText.text = $"x{quantity}";
+
+        RefreshButton();
+
+        if (SellUI.Instance != null)
+            SellUI.Instance.Refresh();
     }
 }

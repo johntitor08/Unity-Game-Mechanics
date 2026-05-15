@@ -1,84 +1,186 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.UI;
+using System.Collections.Generic;
 
-[RequireComponent(typeof(RectTransform))]
-[RequireComponent(typeof(Image))]
-public class PuzzlePiece : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+public class QuestGiver : MonoBehaviour, IPointerClickHandler
 {
-    public Vector2Int gridPos;
-    private PuzzleManager manager;
-    private RectTransform rt;
-    private Canvas canvas;
-    private bool placed;
-    private Vector2 dragOffset;
-    private Camera uiCamera;
+    [Header("Quests")]
+    public List<QuestData> availableQuests;
 
-    void Awake()
+    [Header("Interaction")]
+    public GameObject exclamationMark;
+    public GameObject questionMark;
+    public GameObject goldExclamation;
+    public float interactionRange = 2f;
+    public KeyCode interactionKey = KeyCode.E;
+
+    [Header("Visual")]
+    public GameObject interactionPrompt;
+
+    private bool playerInRange = false;
+
+    void Start()
     {
-        rt = GetComponent<RectTransform>();
-        canvas = GetComponentInParent<Canvas>();
-        uiCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay
-            ? null
-            : canvas.worldCamera;
+        if (interactionPrompt != null)
+            interactionPrompt.SetActive(false);
+
+        if (QuestManager.Instance != null)
+            Subscribe();
+        else
+            QuestManager.OnReady += OnQuestManagerReady;
+
+        UpdateQuestIndicators();
     }
 
-    public void Initialize(Vector2Int gp, PuzzleManager pm)
+    void OnDestroy()
     {
-        gridPos = gp;
-        manager = pm;
-    }
+        QuestManager.OnReady -= OnQuestManagerReady;
 
-    public void OnBeginDrag(PointerEventData e)
-    {
-        if (placed) return;
-
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            rt.parent as RectTransform,
-            e.position,
-            uiCamera,
-            out Vector2 localMousePos
-        );
-
-        dragOffset = rt.anchoredPosition - localMousePos;
-        PuzzleEvents.OnMoveMade?.Invoke();
-    }
-
-    public void OnDrag(PointerEventData e)
-    {
-        if (placed) return;
-
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            rt.parent as RectTransform,
-            e.position,
-            uiCamera,
-            out Vector2 localMousePos
-        );
-
-        rt.anchoredPosition = localMousePos + dragOffset;
-    }
-
-    public void OnEndDrag(PointerEventData e)
-    {
-        if (placed) return;
-        Vector2 correct = manager.GetCorrectPosition(gridPos);
-
-        if (Vector2.Distance(rt.anchoredPosition, correct) < manager.GetSnapDistance())
+        if (QuestManager.Instance != null)
         {
-            rt.anchoredPosition = correct;
-            placed = true;
-            GetComponent<Image>().raycastTarget = false;
-            rt.SetAsLastSibling();
-            manager.PlaySnapSound();
-            manager.CheckWin();
+            QuestManager.Instance.OnQuestStarted -= OnQuestChanged;
+            QuestManager.Instance.OnQuestCompleted -= OnQuestChanged;
+            QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveChanged;
         }
     }
 
-    public bool IsInCorrectPosition() => placed;
-
-    public void ResetPiece()
+    void OnQuestManagerReady()
     {
-        placed = false;
-        GetComponent<Image>().raycastTarget = true;
+        QuestManager.OnReady -= OnQuestManagerReady;
+        Subscribe();
+        UpdateQuestIndicators();
+    }
+
+    void Subscribe()
+    {
+        QuestManager.Instance.OnQuestStarted += OnQuestChanged;
+        QuestManager.Instance.OnQuestCompleted += OnQuestChanged;
+        QuestManager.Instance.OnObjectiveCompleted += OnObjectiveChanged;
+    }
+
+    void OnQuestChanged(QuestData _) => UpdateQuestIndicators();
+
+    void OnObjectiveChanged(QuestData _, QuestObjective __) => UpdateQuestIndicators();
+
+    void Update()
+    {
+        if (playerInRange && Input.GetKeyDown(interactionKey))
+            Interact();
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (playerInRange)
+            Interact();
+    }
+
+    void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            playerInRange = true;
+
+            if (interactionPrompt != null)
+                interactionPrompt.SetActive(true);
+        }
+    }
+
+    void OnTriggerExit2D(Collider2D other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            playerInRange = false;
+
+            if (interactionPrompt != null)
+                interactionPrompt.SetActive(false);
+        }
+    }
+
+    bool AreAllObjectivesComplete(QuestData quest)
+    {
+        foreach (var obj in quest.objectives)
+        {
+            if (!obj.isOptional)
+            {
+                var state = QuestManager.Instance.GetObjectiveState(quest.questID, obj.objectiveID);
+
+                if (!state.isCompleted)
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    void UpdateQuestIndicators()
+    {
+        if (QuestManager.Instance == null)
+            return;
+
+        bool hasNewQuest = false;
+        bool hasActiveQuest = false;
+        bool hasCompleteQuest = false;
+
+        foreach (var quest in availableQuests)
+        {
+            if (QuestManager.Instance.CanStartQuest(quest))
+            {
+                hasNewQuest = true;
+            }
+            else if (QuestManager.Instance.IsQuestActive(quest.questID))
+            {
+                if (AreAllObjectivesComplete(quest))
+                    hasCompleteQuest = true;
+                else
+                    hasActiveQuest = true;
+            }
+        }
+
+        if (exclamationMark != null)
+            exclamationMark.SetActive(hasNewQuest);
+
+        if (questionMark != null)
+            questionMark.SetActive(hasActiveQuest && !hasCompleteQuest);
+
+        if (goldExclamation != null)
+            goldExclamation.SetActive(hasCompleteQuest);
+    }
+
+    void Interact()
+    {
+        foreach (var quest in availableQuests)
+        {
+            if (!QuestManager.Instance.IsQuestActive(quest.questID))
+                continue;
+
+            if (AreAllObjectivesComplete(quest))
+            {
+                if (quest.completionDialogue != null && DialogueManager.Instance != null)
+                    DialogueManager.Instance.StartDialogue(quest.completionDialogue, () => QuestManager.Instance.CompleteQuest(quest));
+                else
+                    QuestManager.Instance.CompleteQuest(quest);
+
+                return;
+            }
+
+            if (quest.progressDialogue != null)
+            {
+                DialogueManager.Instance.StartDialogue(quest.progressDialogue);
+                return;
+            }
+        }
+
+        foreach (var quest in availableQuests)
+        {
+            if (QuestManager.Instance.CanStartQuest(quest))
+            {
+                if (quest.startDialogue != null)
+                    DialogueManager.Instance.StartDialogue(quest.startDialogue, () => QuestManager.Instance.StartQuest(quest));
+                else
+                    QuestManager.Instance.StartQuest(quest);
+
+                return;
+            }
+        }
     }
 }

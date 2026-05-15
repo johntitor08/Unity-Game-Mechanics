@@ -1,141 +1,180 @@
-﻿using System;
-using System.Collections.Generic;
 using UnityEngine;
+using TMPro;
+using UnityEngine.UI;
 
-public class ShopManager : MonoBehaviour
+public class TimeUI : MonoBehaviour
 {
-    public static ShopManager Instance;
-    private readonly Dictionary<string, int> stock = new();
+    public static TimeUI Instance;
+    private int currentDay = 1;
+    private Coroutine textAnimationCoroutine;
+    private Coroutine iconAnimationCoroutine;
 
-    [Header("Shop Items")]
-    public ShopItemData[] shopItems;
+    [Header("UI Elements")]
+    public TextMeshProUGUI phaseText;
+    public TextMeshProUGUI dayCounterText;
+    public Image phaseIcon;
+    public Slider progressBar;
+
+    [Header("Phase Icons")]
+    public Sprite morningIcon;
+    public Sprite noonIcon;
+    public Sprite eveningIcon;
+    public Sprite nightIcon;
+
+    [Header("Display Options")]
+    public bool showDayCounter = true;
+    public bool showProgressBar = true;
+    public bool animateTransitions = true;
 
     void Awake()
     {
-        if (Instance != null)
-        {
+        if (Instance == null)
+            Instance = this;
+        else
             Destroy(gameObject);
+    }
+
+    void Start()
+    {
+        if (TimePhaseManager.Instance != null)
+        {
+            TimePhaseManager.Instance.OnPhaseChanged += UpdateTimeDisplay;
+            UpdateTimeDisplay(TimePhaseManager.Instance.currentPhase);
+        }
+
+        if (dayCounterText != null)
+            dayCounterText.gameObject.SetActive(showDayCounter);
+
+        if (progressBar != null)
+            progressBar.gameObject.SetActive(showProgressBar);
+    }
+
+    void Update()
+    {
+        if (showProgressBar && progressBar != null && TimePhaseManager.Instance != null)
+            progressBar.value = TimePhaseManager.Instance.GetPhaseProgress();
+    }
+
+    void OnDestroy()
+    {
+        if (TimePhaseManager.Instance != null)
+            TimePhaseManager.Instance.OnPhaseChanged -= UpdateTimeDisplay;
+    }
+
+    void UpdateTimeDisplay(TimePhase phase)
+    {
+        if (phaseText != null)
+        {
+            phaseText.text = GetPhaseName(phase);
+            if (animateTransitions) AnimateText();
+        }
+
+        if (phaseIcon != null)
+        {
+            phaseIcon.sprite = GetPhaseIcon(phase);
+            if (animateTransitions) AnimateIcon();
+        }
+
+        UpdateDayCounter();
+    }
+
+    void UpdateDayCounter()
+    {
+        if (dayCounterText != null && showDayCounter)
+            dayCounterText.text = "Day " + currentDay;
+    }
+
+    string GetPhaseName(TimePhase phase) => phase switch
+    {
+        TimePhase.Morning => "Morning",
+        TimePhase.Noon => "Noon",
+        TimePhase.Evening => "Evening",
+        TimePhase.Night => "Night",
+        _ => "Unknown"
+    };
+
+    Sprite GetPhaseIcon(TimePhase phase) => phase switch
+    {
+        TimePhase.Morning => morningIcon,
+        TimePhase.Noon => noonIcon,
+        TimePhase.Evening => eveningIcon,
+        TimePhase.Night => nightIcon,
+        _ => null
+    };
+
+    void AnimateText()
+    {
+        if (phaseText == null)
             return;
-        }
 
-        Instance = this;
-        DontDestroyOnLoad(gameObject);
-        InitializeDefaultStock();
+        if (textAnimationCoroutine != null)
+            StopCoroutine(textAnimationCoroutine);
+
+        textAnimationCoroutine = StartCoroutine(TextScaleAnimation());
     }
 
-    void InitializeDefaultStock()
+    void AnimateIcon()
     {
-        stock.Clear();
-
-        foreach (var item in shopItems)
-        {
-            if (item == null || item.item == null)
-                continue;
-
-            if (!item.unlimitedStock)
-                stock[item.item.itemID] = item.stockAmount;
-        }
-    }
-
-    public void ApplyLoadedStock(List<string> ids, List<int> amounts)
-    {
-        if (ids == null || amounts == null)
+        if (phaseIcon == null)
             return;
 
-        stock.Clear();
+        if (iconAnimationCoroutine != null)
+            StopCoroutine(iconAnimationCoroutine);
 
-        for (int i = 0; i < ids.Count && i < amounts.Count; i++)
-        {
-            stock[ids[i]] = amounts[i];
-        }
+        phaseIcon.transform.rotation = Quaternion.identity;
+        iconAnimationCoroutine = StartCoroutine(IconRotateAnimation());
     }
 
-    public bool CanBuy(ShopItemData shopItem)
+    System.Collections.IEnumerator TextScaleAnimation()
     {
-        if (shopItem == null || shopItem.item == null || ProfileManager.Instance == null)
-            return false;
+        float duration = 0.3f;
+        float elapsed = 0f;
+        Vector3 startScale = Vector3.one * 1.2f;
+        Vector3 endScale = Vector3.one;
+        phaseText.transform.localScale = startScale;
 
-        var profile = ProfileManager.Instance.profile;
-        bool meetsLevel = profile.level >= shopItem.requiredLevel;
-        bool meetsFlag = !shopItem.requiresFlag || StoryFlags.Has(shopItem.requiredFlag);
-        bool hasCurrency = CurrencyManager.Instance != null && CurrencyManager.Instance.Has(CurrencyType.Gold, shopItem.price);
-        bool hasStock = shopItem.unlimitedStock || GetStock(shopItem.item.itemID) > 0;
-        return meetsLevel && meetsFlag && hasCurrency && hasStock;
-    }
-
-    public bool BuyItem(ShopItemData shopItem)
-    {
-        if (!CanBuy(shopItem) || !CurrencyManager.Instance.Spend(CurrencyType.Gold, shopItem.price))
-            return false;
-
-        if (!shopItem.unlimitedStock && !TryReduceStock(shopItem.item.itemID))
+        while (elapsed < duration)
         {
-            CurrencyManager.Instance.Add(CurrencyType.Gold, shopItem.price, false);
-            return false;
+            elapsed += Time.deltaTime;
+            float t = elapsed / duration;
+            t = 1f - Mathf.Pow(1f - t, 3f);
+            phaseText.transform.localScale = Vector3.Lerp(startScale, endScale, t);
+            yield return null;
         }
 
-        InventoryManager.Instance.AddItem(shopItem.item, 1);
-        SaveSystem.SaveGame();
-        return true;
+        phaseText.transform.localScale = endScale;
     }
 
-    public bool CanSell(ItemData item, int quantity)
+    System.Collections.IEnumerator IconRotateAnimation()
     {
-        return item != null && InventoryManager.Instance.GetQuantity(item) >= quantity;
-    }
+        float duration = 0.5f;
+        float elapsed = 0f;
+        float startAngle = 360f;
 
-    public bool SellItem(ItemData item, int quantity, float sellRatio)
-    {
-        if (!CanSell(item, quantity))
-            return false;
-
-        int price = Mathf.RoundToInt(item.basePrice * item.GetRarityMultiplier() * sellRatio) * quantity;
-        InventoryManager.Instance.RemoveItem(item, quantity);
-        CurrencyManager.Instance.Add(CurrencyType.Gold, price);
-        SaveSystem.SaveGame();
-        return true;
-    }
-
-    public int GetStock(string itemID)
-    {
-        return stock.TryGetValue(itemID, out int s) ? s : -1;
-    }
-
-    public bool TryReduceStock(string itemID, int amount = 1)
-    {
-        if (!stock.TryGetValue(itemID, out int current) || current < amount)
-            return false;
-
-        stock[itemID] = current - amount;
-        return true;
-    }
-
-    public void SetStock(string itemID, int amount)
-    {
-        stock[itemID] = amount;
-    }
-
-    public List<ShopStockData> GetStockDataForSave()
-    {
-        List<ShopStockData> list = new();
-
-        foreach (var kvp in stock)
+        while (elapsed < duration)
         {
-            list.Add(new ShopStockData
-            {
-                itemID = kvp.Key,
-                amount = kvp.Value
-            });
+            elapsed += Time.deltaTime;
+            float t = elapsed / duration;
+            t = 1f - Mathf.Pow(1f - t, 2f);
+            float angle = Mathf.Lerp(startAngle, 0f, t);
+            phaseIcon.transform.rotation = Quaternion.Euler(0f, 0f, angle);
+            yield return null;
         }
 
-        return list;
+        phaseIcon.transform.rotation = Quaternion.identity;
     }
-}
 
+    public void SetDay(int day)
+    {
+        currentDay = day;
+        UpdateDayCounter();
+    }
 
-[Serializable]
-public class ShopStockData
-{
-    public string itemID;
-    public int amount;
+    public int GetCurrentDay() => currentDay;
+
+    public void IncrementDay()
+    {
+        currentDay++;
+        UpdateDayCounter();
+    }
 }

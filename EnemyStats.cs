@@ -1,128 +1,58 @@
+using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
 
-public class SaveSlotUI : MonoBehaviour
+public class EnemyStats : StatsBase
 {
-    [Header("Slot Info")]
-    public int slotIndex;
+    private static readonly WaitForSeconds _waitForSeconds0_1 = new(0.1f);
 
-    [Header("UI References")]
-    public TextMeshProUGUI slotLabel;
-    public TextMeshProUGUI metaText;
-    public Button saveButton;
-    public Button loadButton;
-    public Button deleteButton;
+    [Header("Enemy Settings")]
+    public bool destroyOnDeath = true;
+    public float deathDelay = 0.1f;
 
-    private SaveUI parentUI;
-
-    public void Initialize(int index, SaveUI parent)
+    protected override void Awake()
     {
-        slotIndex = index;
-        parentUI = parent;
+        base.Awake();
 
-        if (slotLabel != null)
-            slotLabel.text = $"Slot {index + 1}";
-
-        if (saveButton != null)
-            saveButton.onClick.AddListener(OnSave);
-
-        if (loadButton != null)
-            loadButton.onClick.AddListener(OnLoad);
-
-        if (deleteButton != null)
-            deleteButton.onClick.AddListener(OnDelete);
-
-        Refresh();
-    }
-
-    public void Refresh()
-    {
-        bool hasSave = SaveSystem.HasSaveFile(slotIndex);
-
-        if (loadButton != null)
-            loadButton.interactable = hasSave;
-
-        if (deleteButton != null)
-            deleteButton.interactable = hasSave;
-
-        if (metaText != null)
+        if (stats.Count == 0)
         {
-            if (hasSave)
+            stats = new List<Stat>
             {
-                var data = SaveSystem.PeekSlot(slotIndex);
-                metaText.text = data != null ? BuildMeta(data) : "Corrupted";
-            }
-            else
-            {
-                metaText.text = "Empty";
-            }
+                new(StatType.MaxHealth, 100, 1, 999),
+                new(StatType.Health, 100, 0, 999),
+                new(StatType.Strength, 5, 0, 999),
+                new(StatType.Defense, 3, 0, 999)
+            };
+
+            InitializeStats();
         }
     }
 
-    string BuildMeta(SaveData data)
+    public void InitializeFromData(EnemyData data)
     {
-        string phase = data.currentTimePhase.ToString();
-        string day = $"Day {data.currentDay}";
-        string time = string.IsNullOrEmpty(data.savedAt) ? "" : $" · {data.savedAt}";
-        return $"{day} · {phase}{time}";
-    }
-
-    public void SetInteractable(bool interactable)
-    {
-        if (saveButton != null)
-            saveButton.interactable = interactable;
-
-        if (loadButton != null)
-            loadButton.interactable = interactable;
-
-        if (deleteButton != null)
-            deleteButton.interactable = interactable;
-    }
-
-    void OnSave()
-    {
-        if (SaveSystem.IsLoading)
+        if (data == null)
             return;
 
-        if (parentUI != null)
-            parentUI.SetAllSlotsInteractable(false);
-
-        SaveSystem.SetActiveSlot(slotIndex);
-        SaveSystem.SaveGame(slotIndex);
-        Refresh();
-
-        if (parentUI != null)
-        {
-            parentUI.SetAllSlotsInteractable(true);
-            parentUI.ShowToast("Game Saved!");
-        }
+        stats.Clear();
+        stats.Add(new Stat(StatType.MaxHealth, data.maxHealth, 1, data.maxHealth));
+        stats.Add(new Stat(StatType.Health, data.maxHealth, 0, data.maxHealth));
+        stats.Add(new Stat(StatType.Strength, data.attack, 0, 999));
+        stats.Add(new Stat(StatType.Defense, data.defense, 0, 999));
+        stats.Add(new Stat(StatType.Speed, data.speed, 0, 999));
+        InitializeStats();
     }
 
-    void OnLoad()
+    protected override void OnDie()
     {
-        if (!SaveSystem.HasSaveFile(slotIndex))
+        if (CombatManager.Instance != null && CombatManager.Instance.inCombat)
             return;
 
-        SaveSystem.SetActiveSlot(slotIndex);
-        SaveSystem.LoadGame(slotIndex);
+        if (destroyOnDeath)
+            StartCoroutine(DieDelayed());
     }
 
-    void OnDelete()
+    System.Collections.IEnumerator DieDelayed()
     {
-        SaveSystem.DeleteSave(slotIndex);
-        Refresh();
-    }
-
-    void OnDestroy()
-    {
-        if (saveButton != null)
-            saveButton.onClick.RemoveListener(OnSave);
-
-        if (loadButton != null)
-            loadButton.onClick.RemoveListener(OnLoad);
-
-        if (deleteButton != null)
-            deleteButton.onClick.RemoveListener(OnDelete);
+        yield return _waitForSeconds0_1;
+        Destroy(gameObject);
     }
 }

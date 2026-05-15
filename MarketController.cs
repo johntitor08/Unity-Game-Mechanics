@@ -1,70 +1,61 @@
-using System.Collections.Generic;
+using UnityEngine;
 
-[System.Serializable]
-public class QuestRuntimeState
+public class MarketController : MonoBehaviour
 {
-    public string questID;
-    public List<string> objectiveIDs = new();
-    public List<ObjectiveRuntimeState> objectiveStates = new();
-    [System.NonSerialized] private Dictionary<string, ObjectiveRuntimeState> objectives;
+    public GameObject marketClosedPanel;
+    public static MarketController Instance;
 
-    public QuestRuntimeState(string questID)
+    void Awake()
     {
-        this.questID = questID;
-    }
-
-    public void RebuildLookup()
-    {
-        objectives = new Dictionary<string, ObjectiveRuntimeState>();
-
-        for (int i = 0; i < objectiveIDs.Count && i < objectiveStates.Count; i++)
-            objectives[objectiveIDs[i]] = objectiveStates[i];
-    }
-
-    void EnsureLookup()
-    {
-        if (objectives == null)
-            RebuildLookup();
-    }
-
-    public ObjectiveRuntimeState GetObjective(string objectiveID)
-    {
-        EnsureLookup();
-
-        if (!objectives.TryGetValue(objectiveID, out var state))
+        if (Instance != null && Instance != this)
         {
-            state = new ObjectiveRuntimeState(objectiveID);
-            objectives[objectiveID] = state;
-            objectiveIDs.Add(objectiveID);
-            objectiveStates.Add(state);
+            Destroy(gameObject);
+            return;
         }
 
-        return state;
+        Instance = this;
     }
-}
 
-[System.Serializable]
-public class ObjectiveRuntimeState
-{
-    public string objectiveID;
-    public int currentProgress;
-    public bool isCompleted;
-
-    public ObjectiveRuntimeState(string objectiveID)
+    void Start()
     {
-        this.objectiveID = objectiveID;
-        currentProgress = 0;
-        isCompleted = false;
-    }
-}
+        if (TimePhaseManager.Instance == null)
+            return;
 
-[System.Serializable]
-public class QuestSaveData
-{
-    public List<string> activeQuestIDs = new();
-    public List<string> completedQuestIDs = new();
-    public List<QuestRuntimeState> runtimeStates = new();
-    public List<string> trackedQuestIDs = new();
-    public List<float> questTimerValues = new();
-    public List<string> questTimerKeys = new();
+        TimePhaseManager.Instance.OnPhaseChanged += OnPhaseChanged;
+        OnPhaseChanged(TimePhaseManager.Instance.currentPhase);
+    }
+
+    void OnDestroy()
+    {
+        if (TimePhaseManager.Instance != null)
+            TimePhaseManager.Instance.OnPhaseChanged -= OnPhaseChanged;
+    }
+
+    void OnPhaseChanged(TimePhase phase)
+    {
+        bool isOpen = IsOpenDuring(phase);
+
+        if (marketClosedPanel != null)
+            marketClosedPanel.SetActive(!isOpen);
+
+        if (ShopUI.Instance != null)
+            ShopUI.Instance.UpdateMarketStatus();
+    }
+
+    public bool IsOpen()
+    {
+        if (TimePhaseManager.Instance == null)
+            return true;
+
+        return IsOpenDuring(TimePhaseManager.Instance.currentPhase);
+    }
+
+    private bool IsOpenDuring(TimePhase phase) => phase switch
+    {
+        TimePhase.Morning => true,
+        TimePhase.Noon => true,
+        TimePhase.Evening => true,
+        TimePhase.Night => false,
+        _ => false
+    };
 }

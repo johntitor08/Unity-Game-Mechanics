@@ -2,64 +2,28 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 
-public class QuestSlotUI : MonoBehaviour
+public class RewardItemUI : MonoBehaviour
 {
-    [Header("UI Elements")]
-    public TextMeshProUGUI questNameText;
-    public TextMeshProUGUI questTypeText;
-    public Image questIcon;
-    public Image difficultyIcon;
-    public Button detailsButton;
-    public GameObject completedIndicator;
-    public GameObject newIndicator;
+    public Image icon;
+    public TextMeshProUGUI nameText;
+    public TextMeshProUGUI amountText;
 
-    private QuestData quest;
-
-    public void Setup(QuestData questData, bool isCompleted = false, bool isNew = false)
+    public void Setup(string itemName, string amount, Sprite itemIcon)
     {
-        quest = questData;
+        if (nameText != null)
+            nameText.text = itemName;
 
-        if (questNameText != null)
-            questNameText.text = questData.questName;
+        if (amountText != null)
+            amountText.text = amount;
 
-        if (questTypeText != null)
-            questTypeText.text = questData.questType.ToString();
-
-        if (questIcon != null && questData.icon != null)
-            questIcon.sprite = questData.icon;
-
-        if (completedIndicator != null)
-            completedIndicator.SetActive(isCompleted);
-
-        if (newIndicator != null)
-            newIndicator.SetActive(isNew);
-
-        if (difficultyIcon != null)
-            difficultyIcon.color = GetDifficultyColor(questData.difficulty);
-
-        if (detailsButton != null)
+        if (icon != null && itemIcon != null)
         {
-            detailsButton.onClick.RemoveAllListeners();
-            detailsButton.onClick.AddListener(OnDetailsClicked);
+            icon.sprite = itemIcon;
+            icon.enabled = true;
         }
-    }
-
-    void OnDetailsClicked()
-    {
-        if (QuestUI.Instance != null && quest != null)
-            QuestUI.Instance.ShowQuestDetails(quest);
-    }
-
-    Color GetDifficultyColor(QuestDifficulty difficulty)
-    {
-        return difficulty switch
+        else if (icon != null)
         {
-            QuestDifficulty.Easy => Color.gray,
-            QuestDifficulty.Normal => Color.white,
-            QuestDifficulty.Hard => Color.yellow,
-            QuestDifficulty.Elite => new Color(1f, 0.5f, 0f),
-            QuestDifficulty.Epic => new Color(0.8f, 0.2f, 0.8f),
-            _ => Color.white
-        };
+            icon.enabled = false;
+        }
     }
 }

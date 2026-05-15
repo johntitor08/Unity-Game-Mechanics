@@ -1,98 +1,119 @@
+using System.Collections;
 using UnityEngine;
+using TMPro;
 
-public class QuestMarker : MonoBehaviour
+public class SaveUI : MonoBehaviour
 {
-    [Header("Quest")]
-    public string questID;
-    public string objectiveID;
+    public static SaveUI Instance;
 
-    [Header("Visual")]
-    public GameObject markerVisual;
-    public float floatHeight = 0.5f;
-    public float floatSpeed = 1f;
+    [Header("Panel")]
+    public GameObject savePanel;
 
-    private Vector3 startPos;
-    private bool isVisible = false;
-    private System.Action<QuestData> onQuestStarted;
-    private System.Action<QuestData> onQuestCompleted;
-    private System.Action<QuestData, QuestObjective> onObjectiveCompleted;
+    [Header("Slots")]
+    public SaveSlotUI[] slots;
+
+    [Header("Toast")]
+    public CanvasGroup toastCanvasGroup;
+    public TextMeshProUGUI toastText;
+    public float toastDuration = 2f;
+    public float fadeDuration = 0.3f;
+    private Coroutine toastCoroutine;
+
+    void Awake()
+    {
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(gameObject);
+    }
 
     void Start()
     {
-        startPos = transform.position;
-        onQuestStarted = _ => RefreshVisibility();
-        onQuestCompleted = _ => RefreshVisibility();
-        onObjectiveCompleted = (_, __) => RefreshVisibility();
-        RefreshVisibility();
+        for (int i = 0; i < slots.Length; i++)
+            slots[i].Initialize(i, this);
 
-        if (QuestManager.Instance != null)
-            Subscribe(QuestManager.Instance);
-        else
-            QuestManager.OnReady += OnQuestManagerReady;
-    }
-
-    void Update()
-    {
-        if (!isVisible || markerVisual == null)
-            return;
-
-        float newY = startPos.y + Mathf.Sin(Time.time * floatSpeed) * floatHeight;
-        transform.position = new Vector3(startPos.x, newY, startPos.z);
-    }
-
-    void OnDestroy()
-    {
-        QuestManager.OnReady -= OnQuestManagerReady;
-
-        if (QuestManager.Instance != null)
-            Unsubscribe(QuestManager.Instance);
-    }
-
-    void OnQuestManagerReady()
-    {
-        QuestManager.OnReady -= OnQuestManagerReady;
-        Subscribe(QuestManager.Instance);
-        RefreshVisibility();
-    }
-
-    void Subscribe(QuestManager qm)
-    {
-        qm.OnQuestStarted += onQuestStarted;
-        qm.OnQuestCompleted += onQuestCompleted;
-        qm.OnObjectiveCompleted += onObjectiveCompleted;
-    }
-
-    void Unsubscribe(QuestManager qm)
-    {
-        qm.OnQuestStarted -= onQuestStarted;
-        qm.OnQuestCompleted -= onQuestCompleted;
-        qm.OnObjectiveCompleted -= onObjectiveCompleted;
-    }
-
-    void RefreshVisibility()
-    {
-        if (QuestManager.Instance == null)
-            return;
-
-        if (string.IsNullOrEmpty(objectiveID))
+        if (toastCanvasGroup != null)
         {
-            isVisible = QuestManager.Instance.IsQuestActive(questID);
-        }
-        else
-        {
-            var quest = QuestManager.Instance.GetActiveQuest(questID);
-            isVisible = false;
-
-            if (quest != null)
-            {
-                var objective = QuestManager.Instance.GetObjective(quest, objectiveID);
-
-                if (objective != null)
-                    isVisible = !QuestManager.Instance.GetObjectiveState(questID, objectiveID).isCompleted;
-            }
+            toastCanvasGroup.alpha = 0f;
+            toastCanvasGroup.blocksRaycasts = false;
         }
 
-        if (markerVisual != null)
-            markerVisual.SetActive(isVisible);
+        if (savePanel != null)
+            savePanel.SetActive(false);
+    }
+
+    public void OpenPanel()
+    {
+        if (savePanel != null)
+            savePanel.SetActive(true);
+
+        RefreshAllSlots();
+    }
+
+    public void ClosePanel()
+    {
+        if (savePanel != null)
+            savePanel.SetActive(false);
+    }
+
+    public void TogglePanel()
+    {
+        if (savePanel == null)
+            return;
+
+        if (savePanel.activeSelf)
+            ClosePanel();
+        else
+            OpenPanel();
+    }
+
+    public void RefreshAllSlots()
+    {
+        foreach (var slot in slots)
+            slot.Refresh();
+    }
+
+    public void SetAllSlotsInteractable(bool interactable)
+    {
+        foreach (var slot in slots)
+            slot.SetInteractable(interactable);
+    }
+
+    public void ShowToast(string message)
+    {
+        if (toastCanvasGroup == null)
+            return;
+
+        if (toastText != null)
+            toastText.text = message;
+
+        if (toastCoroutine != null)
+            StopCoroutine(toastCoroutine);
+
+        toastCoroutine = StartCoroutine(ToastRoutine());
+    }
+
+    IEnumerator ToastRoutine()
+    {
+        toastCanvasGroup.blocksRaycasts = false;
+        yield return StartCoroutine(Fade(0f, 1f));
+        yield return new WaitForSeconds(toastDuration);
+        yield return StartCoroutine(Fade(1f, 0f));
+        toastCanvasGroup.alpha = 0f;
+    }
+
+    IEnumerator Fade(float from, float to)
+    {
+        float elapsed = 0f;
+        toastCanvasGroup.alpha = from;
+
+        while (elapsed < fadeDuration)
+        {
+            elapsed += Time.deltaTime;
+            toastCanvasGroup.alpha = Mathf.Lerp(from, to, elapsed / fadeDuration);
+            yield return null;
+        }
+
+        toastCanvasGroup.alpha = to;
     }
 }
