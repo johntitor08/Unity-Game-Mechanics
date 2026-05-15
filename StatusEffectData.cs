@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "StatusEffect", menuName = "Combat/Status Effect")]
@@ -27,7 +28,7 @@ public class StatusEffectData : ScriptableObject
     public int tickDamage = 5;
 
     [Header("Stat Modifiers")]
-    public StatModifier[] statModifiers;
+    public List<StatModifier> statModifiers;
 
     [Header("Behavior")]
     public bool canStack = false;
@@ -41,12 +42,4 @@ public class StatusEffectData : ScriptableObject
     public bool preventMovement = false;
     public float damageMultiplier = 1f;
     public float damageReduction = 0f;
-
-    [System.Serializable]
-    public class StatModifier
-    {
-        public StatType statType;
-        public int amount;
-        public bool isPercentage;
-    }
 }

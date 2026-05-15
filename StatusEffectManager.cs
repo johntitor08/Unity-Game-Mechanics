@@ -121,7 +121,7 @@ public class StatusEffectManager : MonoBehaviour
         PlaySound(effectData.applySound);
         OnEffectApplied?.Invoke(effectData);
 
-        if (effectData.statModifiers != null && effectData.statModifiers.Length > 0)
+        if (effectData.statModifiers != null && effectData.statModifiers.Count > 0)
             SaveSystem.SaveGame();
     }
 
@@ -139,7 +139,7 @@ public class StatusEffectManager : MonoBehaviour
         OnEffectExpired?.Invoke(effect.data);
         OnEffectRemoved?.Invoke(effect.data);
 
-        if (effect.data.statModifiers != null && effect.data.statModifiers.Length > 0)
+        if (effect.data.statModifiers != null && effect.data.statModifiers.Count > 0)
             SaveSystem.SaveGame();
     }
 
@@ -224,7 +224,7 @@ public class StatusEffectManager : MonoBehaviour
     {
         var mods = effect.data.statModifiers;
 
-        for (int i = 0; i < mods.Length; i++)
+        for (int i = 0; i < mods.Count; i++)
         {
             var mod = mods[i];
             int newAmount;
@@ -252,7 +252,7 @@ public class StatusEffectManager : MonoBehaviour
     {
         var mods = effect.data.statModifiers;
 
-        for (int i = 0; i < mods.Length; i++)
+        for (int i = 0; i < mods.Count; i++)
         {
             if (!effect.appliedModifierAmounts.TryGetValue(i, out int applied) || applied == 0)
                 continue;
