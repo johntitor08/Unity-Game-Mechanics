@@ -1,128 +1,151 @@
 using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
+using UnityEngine.UI;
+using System.Collections;
 
-public class SaveSlotUI : MonoBehaviour
+public class QuestRewardUI : MonoBehaviour
 {
-    [Header("Slot Info")]
-    public int slotIndex;
+    public static QuestRewardUI Instance { get; private set; }
+    private Coroutine autoCloseCoroutine;
 
-    [Header("UI References")]
-    public TextMeshProUGUI slotLabel;
-    public TextMeshProUGUI metaText;
-    public Button saveButton;
-    public Button loadButton;
-    public Button deleteButton;
+    [Header("Reward Panel")]
+    public GameObject rewardPanel;
+    public TextMeshProUGUI titleText;
+    public TextMeshProUGUI questNameText;
+    public Transform rewardsContainer;
+    public RewardItemUI rewardItemPrefab;
+    public Button closeButton;
 
-    private SaveUI parentUI;
+    [Header("Optional Rewards")]
+    public Transform optionalRewardsContainer;
+    public TextMeshProUGUI optionalRewardsLabel;
 
-    public void Initialize(int index, SaveUI parent)
+    [Header("Animation")]
+    public float displayDuration = 5f;
+
+    [Header("Display")]
+    [SerializeField] private string completionTitle = "Quest Complete!";
+
+    void Awake()
     {
-        slotIndex = index;
-        parentUI = parent;
-
-        if (slotLabel != null)
-            slotLabel.text = $"Slot {index + 1}";
-
-        if (saveButton != null)
-            saveButton.onClick.AddListener(OnSave);
-
-        if (loadButton != null)
-            loadButton.onClick.AddListener(OnLoad);
-
-        if (deleteButton != null)
-            deleteButton.onClick.AddListener(OnDelete);
-
-        Refresh();
-    }
-
-    public void Refresh()
-    {
-        bool hasSave = SaveSystem.HasSaveFile(slotIndex);
-
-        if (loadButton != null)
-            loadButton.interactable = hasSave;
-
-        if (deleteButton != null)
-            deleteButton.interactable = hasSave;
-
-        if (metaText != null)
+        if (Instance != null && Instance != this)
         {
-            if (hasSave)
-            {
-                var data = SaveSystem.PeekSlot(slotIndex);
-                metaText.text = data != null ? BuildMeta(data) : "Corrupted";
-            }
-            else
-            {
-                metaText.text = "Empty";
-            }
-        }
-    }
-
-    string BuildMeta(SaveData data)
-    {
-        string phase = data.currentTimePhase.ToString();
-        string day = $"Day {data.currentDay}";
-        string time = string.IsNullOrEmpty(data.savedAt) ? "" : $" · {data.savedAt}";
-        return $"{day} · {phase}{time}";
-    }
-
-    public void SetInteractable(bool interactable)
-    {
-        if (saveButton != null)
-            saveButton.interactable = interactable;
-
-        if (loadButton != null)
-            loadButton.interactable = interactable;
-
-        if (deleteButton != null)
-            deleteButton.interactable = interactable;
-    }
-
-    void OnSave()
-    {
-        if (SaveSystem.IsLoading)
+            Destroy(gameObject);
             return;
-
-        if (parentUI != null)
-            parentUI.SetAllSlotsInteractable(false);
-
-        SaveSystem.SetActiveSlot(slotIndex);
-        SaveSystem.SaveGame(slotIndex);
-        Refresh();
-
-        if (parentUI != null)
-        {
-            parentUI.SetAllSlotsInteractable(true);
-            parentUI.ShowToast("Game Saved!");
         }
+
+        Instance = this;
+        rewardPanel.SetActive(false);
     }
 
-    void OnLoad()
+    void Start()
     {
-        if (!SaveSystem.HasSaveFile(slotIndex))
-            return;
-
-        SaveSystem.SetActiveSlot(slotIndex);
-        SaveSystem.LoadGame(slotIndex);
-    }
-
-    void OnDelete()
-    {
-        SaveSystem.DeleteSave(slotIndex);
-        Refresh();
+        if (closeButton != null)
+            closeButton.onClick.AddListener(Close);
     }
 
     void OnDestroy()
     {
-        if (saveButton != null)
-            saveButton.onClick.RemoveListener(OnSave);
+        if (Instance == this)
+            Instance = null;
+    }
 
-        if (loadButton != null)
-            loadButton.onClick.RemoveListener(OnLoad);
+    public void ShowRewards(QuestData quest)
+    {
+        if (quest == null)
+        {
+            Debug.LogWarning("QuestRewardUI.ShowRewards called with null quest.");
+            return;
+        }
 
-        if (deleteButton != null)
-            deleteButton.onClick.RemoveListener(OnDelete);
+        if (rewardItemPrefab == null)
+        {
+            Debug.LogError("QuestRewardUI: rewardItemPrefab is not assigned.");
+            return;
+        }
+
+        if (autoCloseCoroutine != null)
+            StopCoroutine(autoCloseCoroutine);
+
+        rewardPanel.SetActive(true);
+
+        if (questNameText != null)
+            questNameText.text = quest.questName;
+
+        if (titleText != null)
+            titleText.text = completionTitle;
+
+        ClearContainer(rewardsContainer);
+
+        if (quest.experienceReward > 0)
+            SpawnRewardItem(rewardsContainer, "Experience", quest.experienceReward.ToString(), null);
+
+        if (quest.currencyRewards != null)
+        {
+            foreach (var reward in quest.currencyRewards)
+            {
+                var currencyInfo = CurrencyManager.Instance != null ? CurrencyManager.Instance.GetCurrencyInfo(reward.type) : null;
+                SpawnRewardItem(rewardsContainer, reward.type.ToString(), reward.amount.ToString(), currencyInfo?.icon);
+            }
+        }
+
+        if (quest.itemRewards != null)
+        {
+            for (int i = 0; i < quest.itemRewards.Length; i++)
+            {
+                int qty = (quest.itemRewardQuantities != null && i < quest.itemRewardQuantities.Length) ? quest.itemRewardQuantities[i] : 1;
+                SpawnRewardItem(rewardsContainer, quest.itemRewards[i].itemName, $"x{qty}", quest.itemRewards[i].icon);
+            }
+        }
+
+        bool hasOptional = quest.optionalRewards != null && quest.optionalRewards.Length > 0;
+
+        if (optionalRewardsLabel != null)
+            optionalRewardsLabel.gameObject.SetActive(hasOptional);
+
+        ClearContainer(optionalRewardsContainer);
+
+        if (hasOptional && optionalRewardsContainer != null)
+        {
+            foreach (var item in quest.optionalRewards)
+                SpawnRewardItem(optionalRewardsContainer, item.itemName, "x1", item.icon);
+        }
+
+        autoCloseCoroutine = StartCoroutine(AutoClose());
+    }
+
+    private void ClearContainer(Transform container)
+    {
+        if (container == null)
+            return;
+
+        foreach (Transform child in container)
+            Destroy(child.gameObject);
+    }
+
+    private void SpawnRewardItem(Transform container, string label, string value, Sprite icon)
+    {
+        if (container == null)
+            return;
+
+        var rewardUI = Instantiate(rewardItemPrefab, container);
+        rewardUI.Setup(label, value, icon);
+    }
+
+    IEnumerator AutoClose()
+    {
+        yield return new WaitForSeconds(displayDuration);
+        Close();
+    }
+
+    void Close()
+    {
+        if (autoCloseCoroutine != null)
+        {
+            StopCoroutine(autoCloseCoroutine);
+            autoCloseCoroutine = null;
+        }
+
+        rewardPanel.SetActive(false);
     }
 }

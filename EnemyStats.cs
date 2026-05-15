@@ -1,58 +1,128 @@
-using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
 
-public class EnemyStats : StatsBase
+public class SaveSlotUI : MonoBehaviour
 {
-    private static readonly WaitForSeconds _waitForSeconds0_1 = new(0.1f);
+    [Header("Slot Info")]
+    public int slotIndex;
 
-    [Header("Enemy Settings")]
-    public bool destroyOnDeath = true;
-    public float deathDelay = 0.1f;
+    [Header("UI References")]
+    public TextMeshProUGUI slotLabel;
+    public TextMeshProUGUI metaText;
+    public Button saveButton;
+    public Button loadButton;
+    public Button deleteButton;
 
-    protected override void Awake()
+    private SaveUI parentUI;
+
+    public void Initialize(int index, SaveUI parent)
     {
-        base.Awake();
+        slotIndex = index;
+        parentUI = parent;
 
-        if (stats.Count == 0)
+        if (slotLabel != null)
+            slotLabel.text = $"Slot {index + 1}";
+
+        if (saveButton != null)
+            saveButton.onClick.AddListener(OnSave);
+
+        if (loadButton != null)
+            loadButton.onClick.AddListener(OnLoad);
+
+        if (deleteButton != null)
+            deleteButton.onClick.AddListener(OnDelete);
+
+        Refresh();
+    }
+
+    public void Refresh()
+    {
+        bool hasSave = SaveSystem.HasSaveFile(slotIndex);
+
+        if (loadButton != null)
+            loadButton.interactable = hasSave;
+
+        if (deleteButton != null)
+            deleteButton.interactable = hasSave;
+
+        if (metaText != null)
         {
-            stats = new List<Stat>
+            if (hasSave)
             {
-                new(StatType.MaxHealth, 100, 1, 999),
-                new(StatType.Health, 100, 0, 999),
-                new(StatType.Strength, 5, 0, 999),
-                new(StatType.Defense, 3, 0, 999)
-            };
-
-            InitializeStats();
+                var data = SaveSystem.PeekSlot(slotIndex);
+                metaText.text = data != null ? BuildMeta(data) : "Corrupted";
+            }
+            else
+            {
+                metaText.text = "Empty";
+            }
         }
     }
 
-    public void InitializeFromData(EnemyData data)
+    string BuildMeta(SaveData data)
     {
-        if (data == null)
-            return;
-
-        stats.Clear();
-        stats.Add(new Stat(StatType.MaxHealth, data.maxHealth, 1, data.maxHealth));
-        stats.Add(new Stat(StatType.Health, data.maxHealth, 0, data.maxHealth));
-        stats.Add(new Stat(StatType.Strength, data.attack, 0, 999));
-        stats.Add(new Stat(StatType.Defense, data.defense, 0, 999));
-        stats.Add(new Stat(StatType.Speed, data.speed, 0, 999));
-        InitializeStats();
+        string phase = data.currentTimePhase.ToString();
+        string day = $"Day {data.currentDay}";
+        string time = string.IsNullOrEmpty(data.savedAt) ? "" : $" · {data.savedAt}";
+        return $"{day} · {phase}{time}";
     }
 
-    protected override void OnDie()
+    public void SetInteractable(bool interactable)
     {
-        if (CombatManager.Instance != null && CombatManager.Instance.inCombat)
-            return;
+        if (saveButton != null)
+            saveButton.interactable = interactable;
 
-        if (destroyOnDeath)
-            StartCoroutine(DieDelayed());
+        if (loadButton != null)
+            loadButton.interactable = interactable;
+
+        if (deleteButton != null)
+            deleteButton.interactable = interactable;
     }
 
-    System.Collections.IEnumerator DieDelayed()
+    void OnSave()
     {
-        yield return _waitForSeconds0_1;
-        Destroy(gameObject);
+        if (SaveSystem.IsLoading)
+            return;
+
+        if (parentUI != null)
+            parentUI.SetAllSlotsInteractable(false);
+
+        SaveSystem.SetActiveSlot(slotIndex);
+        SaveSystem.SaveGame(slotIndex);
+        Refresh();
+
+        if (parentUI != null)
+        {
+            parentUI.SetAllSlotsInteractable(true);
+            parentUI.ShowToast("Game Saved!");
+        }
+    }
+
+    void OnLoad()
+    {
+        if (!SaveSystem.HasSaveFile(slotIndex))
+            return;
+
+        SaveSystem.SetActiveSlot(slotIndex);
+        SaveSystem.LoadGame(slotIndex);
+    }
+
+    void OnDelete()
+    {
+        SaveSystem.DeleteSave(slotIndex);
+        Refresh();
+    }
+
+    void OnDestroy()
+    {
+        if (saveButton != null)
+            saveButton.onClick.RemoveListener(OnSave);
+
+        if (loadButton != null)
+            loadButton.onClick.RemoveListener(OnLoad);
+
+        if (deleteButton != null)
+            deleteButton.onClick.RemoveListener(OnDelete);
     }
 }

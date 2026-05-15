@@ -1,61 +1,86 @@
 using UnityEngine;
 
-public class PhaseMusic : MonoBehaviour
+public class MarketUI : MonoBehaviour
 {
-    public AudioSource morning;
-    public AudioSource noon;
-    public AudioSource evening;
-    public AudioSource night;
+    public static MarketUI Instance;
+    public GameObject marketPanel;
+    private bool gameStarted = false;
 
-    void Start()
+    void Awake()
     {
-        TimePhaseManager.Instance.OnPhaseChanged += Play;
-        Play(TimePhaseManager.Instance.currentPhase);
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(gameObject);
     }
 
-    void Play(TimePhase p)
+    private void Update()
     {
-        if (morning != null)
-            morning.Stop();
+        if (!gameStarted || SaveSystem.IsLoading)
+            return;
 
-        if (noon != null)
-            noon.Stop();
-
-        if (evening != null)
-            evening.Stop();
-
-        if (night != null)
-            night.Stop();
-
-        switch (p)
+        if (Input.GetKeyDown(KeyCode.S))
         {
-            case TimePhase.Morning:
-
-                if (morning != null)
-                    morning.Play();
-
-                break;
-
-            case TimePhase.Noon:
-
-                if (noon != null)
-                    noon.Play();
-
-                break;
-
-            case TimePhase.Evening:
-
-                if (evening != null)
-                    evening.Play();
-
-                break;
-
-            case TimePhase.Night:
-
-                if (night != null)
-                    night.Play();
-
-                break;
+            if (marketPanel.activeSelf)
+                CloseAll();
+            else
+                OpenMarket();
         }
+    }
+
+    public void OnGameStarted()
+    {
+        gameStarted = true;
+    }
+
+    public void OpenMarket()
+    {
+        marketPanel.SetActive(true);
+        OpenShop();
+    }
+
+    public void OpenShop()
+    {
+        if (MarketController.Instance != null && !MarketController.Instance.IsOpen())
+        {
+            if (ShopUI.Instance != null)
+                ShopUI.Instance.ShowMarketClosed();
+
+            return;
+        }
+
+        if (SellUI.Instance != null)
+            SellUI.Instance.Close();
+
+        if (ShopUI.Instance != null)
+            ShopUI.Instance.Open();
+    }
+
+    public void OpenSell()
+    {
+        if (MarketController.Instance != null && !MarketController.Instance.IsOpen())
+        {
+            if (ShopUI.Instance != null)
+                ShopUI.Instance.ShowMarketClosed();
+
+            return;
+        }
+
+        if (ShopUI.Instance != null)
+            ShopUI.Instance.Close();
+
+        if (SellUI.Instance != null)
+            SellUI.Instance.Open();
+    }
+
+    public void CloseAll()
+    {
+        if (ShopUI.Instance != null)
+            ShopUI.Instance.Close();
+
+        if (SellUI.Instance != null)
+            SellUI.Instance.Close();
+
+        marketPanel.SetActive(false);
     }
 }

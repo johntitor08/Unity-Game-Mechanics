@@ -1,68 +1,86 @@
+using System.IO;
 using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
 
-public class LayerPanelUI : MonoBehaviour
+public class SaveManager : MonoBehaviour
 {
-    [Header("References")]
-    public Transform listParent;
-    public GameObject layerItemPrefab;
+    public static SaveManager Instance { get; private set; }
 
-    void Start()
+    [SerializeField] private string defaultFileName = "drawing";
+
+    void Awake()
     {
-        LayerManager.Instance.OnLayersChanged += Refresh;
-        Refresh();
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(gameObject);
     }
 
-    void Refresh()
+    public void SavePNG(string filename = "")
     {
-        foreach (Transform child in listParent)
-            Destroy(child.gameObject);
+        var flat = LayerManager.Instance.Flatten();
+        var bytes = flat.EncodeToPNG();
+        var name = string.IsNullOrEmpty(filename) ? defaultFileName : filename;
+        var path = Path.Combine(Application.persistentDataPath, name + ".png");
+        File.WriteAllBytes(path, bytes);
+        Debug.Log($"PNG kaydedildi: {path}");
+    }
 
+    public void SaveNative(string filename = "")
+    {
         var layers = LayerManager.Instance.Layers;
+        var name = string.IsNullOrEmpty(filename) ? defaultFileName : filename;
+        var dir = Path.Combine(Application.persistentDataPath, name);
+        Directory.CreateDirectory(dir);
 
-        for (int i = layers.Count - 1; i >= 0; i--)
+        for (int i = 0; i < layers.Count; i++)
         {
-            int idx = i;
-            var layer = layers[i];
-            var item = Instantiate(layerItemPrefab, listParent);
-            var label = item.GetComponentInChildren<TextMeshProUGUI>();
-
-            if (label != null)
-                label.text = layer.name;
-
-            var toggle = item.GetComponentInChildren<Toggle>();
-
-            if (toggle != null)
-            {
-                toggle.isOn = layer.visible;
-
-                toggle.onValueChanged.AddListener(v =>
-                {
-                    layer.visible = v;
-                    DrawingCanvas.Instance.SendMessage("RefreshDisplay");
-                });
-            }
-
-            
-            if (item.TryGetComponent<Button>(out var btn))
-                btn.onClick.AddListener(() => LayerManager.Instance.SetActive(idx));
-
-            var sliders = item.GetComponentsInChildren<Slider>();
-
-            foreach (var s in sliders)
-            {
-                if (s.name.ToLower().Contains("opacity"))
-                {
-                    s.value = layer.opacity;
-                    
-                    s.onValueChanged.AddListener(v =>
-                    {
-                        layer.opacity = v;
-                        DrawingCanvas.Instance.SendMessage("RefreshDisplay");
-                    });
-                }
-            }
+            var bytes = layers[i].texture.EncodeToPNG();
+            File.WriteAllBytes(Path.Combine(dir, $"layer_{i}_{layers[i].name}.png"), bytes);
         }
+
+        var meta = new LayerMeta { layerCount = layers.Count };
+        File.WriteAllText(Path.Combine(dir, "meta.json"), JsonUtility.ToJson(meta));
+        Debug.Log($"Native kayıt: {dir}");
+    }
+
+    public void LoadNative(string filename)
+    {
+        var dir = Path.Combine(Application.persistentDataPath, filename);
+
+        if (!Directory.Exists(dir))
+        {
+            Debug.LogWarning("Kayıt bulunamadı.");
+            return;
+        }
+
+        var metaPath = Path.Combine(dir, "meta.json");
+        var meta = JsonUtility.FromJson<LayerMeta>(File.ReadAllText(metaPath));
+        var lm = LayerManager.Instance;
+
+        while (lm.Layers.Count > 1)
+            lm.RemoveLayer(lm.Layers.Count - 1);
+
+        for (int i = 0; i < meta.layerCount; i++)
+        {
+            var files = Directory.GetFiles(dir, $"layer_{i}_*.png");
+
+            if (files.Length == 0)
+                continue;
+
+            var bytes = File.ReadAllBytes(files[0]);
+            var tex = new Texture2D(2, 2);
+            tex.LoadImage(bytes);
+            var layer = i == 0 ? lm.Layers[0] : lm.AddLayer();
+            layer.texture.SetPixels32(tex.GetPixels32());
+            layer.texture.Apply();
+        }
+
+        Debug.Log("Yükleme tamamlandı.");
+    }
+
+    [System.Serializable]
+    class LayerMeta
+    {
+        public int layerCount;
     }
 }

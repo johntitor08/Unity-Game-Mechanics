@@ -1,217 +1,116 @@
-using System;
-using TMPro;
 using UnityEngine;
+using TMPro;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
-public class EquipmentSlotUI : MonoBehaviour
+[RequireComponent(typeof(CanvasGroup))]
+public class EquipmentTooltip : MonoBehaviour
 {
+    public static EquipmentTooltip Instance;
+    private CanvasGroup canvasGroup;
+    private readonly List<TextMeshProUGUI> activeSetTexts = new();
+
     [Header("UI References")]
-    public Image iconImage;
+    public TextMeshProUGUI nameText;
+    public TextMeshProUGUI statsText;
+    public TextMeshProUGUI requirementsText;
+    public TextMeshProUGUI rarityText;
+    public Transform setBonusParent;
+    public TextMeshProUGUI setBonusTextPrefab;
     public Image backgroundImage;
-    public TextMeshProUGUI slotNameText;
-    public TextMeshProUGUI upgradeBadgeText;
-    public GameObject emptyIndicator;
-    public Button slotButton;
-
-    [Header("Visual Feedback")]
-    public Color emptyColor = new(0.3f, 0.3f, 0.3f, 0.5f);
-
-    private Sprite emptySprite;
-    private Sprite commonSprite;
-    private Sprite rareSprite;
-    private Sprite epicSprite;
-    private Sprite legendarySprite;
-    private Sprite godlySprite;
-    private EquipmentSlot slotType;
-    private EquipmentInstance currentInstance;
-    private Button iconButton;
-    public event Action<EquipmentInstance> OnItemClicked;
-    public event Action<EquipmentInstance> OnDetailClicked;
+    public RectTransform backgroundRect;
 
     void Awake()
     {
-        if (slotButton != null)
-            slotButton.onClick.AddListener(ShowDetailPanel);
-
-        if (iconImage != null && iconImage.TryGetComponent<Button>(out var ib))
+        if (Instance != null && Instance != this)
         {
-            iconButton = ib;
-            iconButton.onClick.AddListener(ShowEquipmentPanel);
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+        canvasGroup = GetComponent<CanvasGroup>();
+        Hide();
+    }
+
+    void Update()
+    {
+        if (canvasGroup.alpha > 0)
+        {
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(transform.parent as RectTransform, Input.mousePosition, null, out Vector2 position);
+            backgroundRect.anchoredPosition = position + new Vector2(10, -10);
         }
     }
 
-    void OnEnable()
+    public void Show(EquipmentData equipment)
     {
-        if (EquipmentManager.Instance != null)
-            EquipmentManager.Instance.OnEquipmentChanged += Refresh;
-    }
-
-    void OnDisable()
-    {
-        if (EquipmentManager.Instance != null)
-            EquipmentManager.Instance.OnEquipmentChanged -= Refresh;
-    }
-
-    public void Setup(EquipmentSlot slot)
-    {
-        slotType = slot;
-
-        if (slotNameText != null)
-            slotNameText.text = GetSlotDisplayName(slot);
-
-        Refresh();
-    }
-
-    public void SetRaritySprites(Sprite empty, Sprite common, Sprite rare, Sprite epic, Sprite legendary, Sprite godly)
-    {
-        emptySprite = empty;
-        commonSprite = common;
-        rareSprite = rare;
-        epicSprite = epic;
-        legendarySprite = legendary;
-        godlySprite = godly;
-    }
-
-    public void Refresh()
-    {
-        if (EquipmentManager.Instance == null)
+        if (equipment == null)
             return;
 
-        currentInstance = EquipmentManager.Instance.GetEquipped(slotType);
-
-        if (currentInstance != null)
-            ShowEquipped(currentInstance);
-        else
-            ShowEmpty();
-    }
-
-    void ShowEquipped(EquipmentInstance instance)
-    {
-        var data = instance.baseData;
-
-        if (iconImage != null)
-        {
-            iconImage.sprite = data.icon;
-            iconImage.color = Color.white;
-            iconImage.enabled = true;
-        }
+        canvasGroup.alpha = 1f;
+        canvasGroup.blocksRaycasts = false;
+        nameText.text = equipment.itemName;
+        rarityText.text = equipment.rarity.ToString();
+        statsText.text = equipment.GetStatsDescription();
+        requirementsText.text = GetRequirementsText(equipment);
+        Color rarityColor = equipment.GetRarityColor();
+        nameText.color = rarityColor;
+        rarityText.color = rarityColor;
 
         if (backgroundImage != null)
-        {
-            Sprite s = GetRaritySprite(data.rarity);
+            backgroundImage.color = rarityColor * new Color(1f, 1f, 1f, 0.2f);
 
-            if (s != null)
-            {
-                backgroundImage.sprite = s;
-                backgroundImage.color = Color.white;
-            }
-            else
-            {
-                backgroundImage.sprite = null;
-                Color c = data.GetRarityColor();
-                c.a = 0.7f;
-                backgroundImage.color = c;
-            }
-        }
-
-        if (upgradeBadgeText != null)
-        {
-            upgradeBadgeText.gameObject.SetActive(instance.upgradeLevel > 0);
-            upgradeBadgeText.text = $"+{instance.upgradeLevel}";
-        }
-
-        if (emptyIndicator != null)
-            emptyIndicator.SetActive(false);
-
-        if (slotButton != null)
-            slotButton.interactable = true;
-
-        if (iconButton != null)
-            iconButton.interactable = true;
+        UpdateSetBonuses(equipment);
     }
 
-    void ShowEmpty()
+    void UpdateSetBonuses(EquipmentData equipment)
     {
-        if (iconImage != null)
-        {
-            iconImage.sprite = null;
-            iconImage.color = emptyColor;
-            iconImage.enabled = false;
-        }
+        foreach (var t in activeSetTexts)
+            if (t != null) t.gameObject.SetActive(false);
 
-        if (backgroundImage != null)
-        {
-            if (emptySprite != null)
-            {
-                backgroundImage.sprite = emptySprite;
-                backgroundImage.color = Color.white;
-            }
-            else
-            {
-                backgroundImage.sprite = null;
-                backgroundImage.color = emptyColor;
-            }
-        }
-
-        if (upgradeBadgeText != null)
-            upgradeBadgeText.gameObject.SetActive(false);
-
-        if (emptyIndicator != null)
-            emptyIndicator.SetActive(true);
-
-        if (slotButton != null)
-            slotButton.interactable = false;
-
-        if (iconButton != null)
-            iconButton.interactable = false;
-    }
-
-    Sprite GetRaritySprite(Rarity rarity) => rarity switch
-    {
-        Rarity.Common => commonSprite,
-        Rarity.Rare => rareSprite,
-        Rarity.Epic => epicSprite,
-        Rarity.Legendary => legendarySprite,
-        Rarity.Godly => godlySprite,
-        _ => null
-    };
-
-    public void ShowEquipmentPanel()
-    {
-        if (currentInstance == null)
+        if (EquipmentManager.Instance == null || setBonusParent == null || setBonusTextPrefab == null || equipment.setData == null)
             return;
 
-        if (EquipmentUI.Instance != null)
-            EquipmentUI.Instance.OpenItemPanel(currentInstance);
+        int pieces = EquipmentManager.Instance.GetEquippedSetPieces(equipment.setData.setID);
+        var bonuses = equipment.setData.bonuses;
 
-        OnItemClicked?.Invoke(currentInstance);
+        while (activeSetTexts.Count < bonuses.Count)
+            activeSetTexts.Add(Instantiate(setBonusTextPrefab, setBonusParent));
+
+        for (int i = 0; i < activeSetTexts.Count; i++)
+        {
+            if (i >= bonuses.Count)
+            {
+                activeSetTexts[i].gameObject.SetActive(false);
+                continue;
+            }
+
+            var bonus = bonuses[i];
+            activeSetTexts[i].text = $"{bonus.requiredPieces}-Piece: +{bonus.value} {bonus.stat}";
+            activeSetTexts[i].color = pieces >= bonus.requiredPieces ? bonus.requiredPieces switch { 2 => Color.green, 3 => Color.cyan, 4 => new Color(0.8f, 0f, 0.8f), _ => Color.white } : Color.gray;
+            activeSetTexts[i].gameObject.SetActive(true);
+        }
     }
 
-    public void ShowDetailPanel()
+    public void Hide()
     {
-        if (currentInstance == null)
-            return;
+        canvasGroup.alpha = 0f;
+        canvasGroup.blocksRaycasts = false;
 
-        if (EquipmentUI.Instance != null)
-            EquipmentUI.Instance.OpenDetailPanel(currentInstance);
-
-        OnDetailClicked?.Invoke(currentInstance);
+        foreach (var t in activeSetTexts)
+            if (t != null) t.gameObject.SetActive(false);
     }
 
-    static string GetSlotDisplayName(EquipmentSlot slot) => slot switch
+    string GetRequirementsText(EquipmentData equipment)
     {
-        EquipmentSlot.Weapon => "Weapon",
-        EquipmentSlot.Armor => "Armor",
-        EquipmentSlot.Helmet => "Helmet",
-        EquipmentSlot.Accessory => "Accessory",
-        EquipmentSlot.Shield => "Shield",
-        EquipmentSlot.Boots => "Boots",
-        _ => "Unknown"
-    };
+        string text = "";
 
-    public EquipmentData GetEquippedItem() => currentInstance?.baseData;
+        if (equipment.requiredLevel > 1)
+            text += $"Level {equipment.requiredLevel}+ required\n";
 
-    public EquipmentInstance GetEquippedInstance() => currentInstance;
+        if (equipment.requiredStatValue > 0)
+            text += $"{equipment.requiredStat} {equipment.requiredStatValue}+ required";
 
-    public EquipmentSlot GetSlotType() => slotType;
+        return text;
+    }
 }

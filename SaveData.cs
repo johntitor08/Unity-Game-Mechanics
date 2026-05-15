@@ -1,52 +1,78 @@
 using UnityEngine;
-using TMPro;
-using System.Collections.Generic;
+using UnityEngine.Events;
 
-public class QuestTrackerEntry : MonoBehaviour
+[CreateAssetMenu(fileName = "Quest", menuName = "Quest/Quest Data")]
+public class QuestData : ScriptableObject
 {
-    [Header("UI Elements")]
-    public TextMeshProUGUI questNameText;
-    public Transform objectivesParent;
-    public TextMeshProUGUI objectiveTextPrefab;
+    [Header("Quest Info")]
+    public string questID;
+    public string questName;
+    [TextArea(3, 6)]
+    public string description;
+    public Sprite icon;
+    public QuestType questType = QuestType.Main;
+    public QuestDifficulty difficulty = QuestDifficulty.Normal;
 
-    private readonly List<TextMeshProUGUI> objectiveTexts = new();
+    [Header("Requirements")]
+    public int requiredLevel = 1;
+    public string[] requiredFlags;
+    public QuestData[] prerequisiteQuests;
 
-    public void Setup(QuestData quest)
-    {
-        if (QuestManager.Instance == null)
-            return;
+    [Header("Quest Objectives")]
+    public QuestObjective[] objectives;
 
-        if (questNameText != null)
-            questNameText.text = quest.questName;
+    [Header("Dialogue")]
+    public DialogueNode startDialogue;
+    public DialogueNode progressDialogue;
+    public DialogueNode completionDialogue;
+    public DialogueNode completeDialogue;
+    public DialogueNode failureDialogue;
 
-        var incompleteObjectives = new List<(QuestObjective obj, ObjectiveRuntimeState state)>();
+    [Header("Rewards")]
+    public int experienceReward = 100;
+    public CurrencyReward[] currencyRewards;
+    public ItemData[] itemRewards;
+    public int[] itemRewardQuantities;
 
-        foreach (var objective in quest.objectives)
-        {
-            var state = QuestManager.Instance.GetObjectiveState(quest.questID, objective.objectiveID);
+    [Header("Optional Rewards (Choose One)")]
+    public ItemData[] optionalRewards;
 
-            if (!state.isCompleted)
-                incompleteObjectives.Add((objective, state));
-        }
+    [Header("Quest Tracking")]
+    public bool trackObjectives = true;
+    public bool showOnMap = true;
+    public Vector3 questMarkerPosition;
 
-        while (objectiveTexts.Count < incompleteObjectives.Count)
-        {
-            var t = Instantiate(objectiveTextPrefab, objectivesParent);
-            objectiveTexts.Add(t);
-        }
+    [Header("Time Limit")]
+    public bool hasTimeLimit = false;
+    public float timeLimitSeconds = 300f;
 
-        for (int i = 0; i < objectiveTexts.Count; i++)
-        {
-            if (i < incompleteObjectives.Count)
-            {
-                var (obj, state) = incompleteObjectives[i];
-                objectiveTexts[i].text = $"• {obj.description} ({state.currentProgress}/{obj.GetRequiredCount()})";
-                objectiveTexts[i].gameObject.SetActive(true);
-            }
-            else
-            {
-                objectiveTexts[i].gameObject.SetActive(false);
-            }
-        }
-    }
+    [Header("Failure")]
+    public bool canFail = false;
+
+    [Header("Events")]
+    public UnityEvent onQuestStart;
+    public UnityEvent onQuestComplete;
+    public UnityEvent onQuestFail;
+
+    [Header("Flags")]
+    public string[] flagsToSetOnStart;
+    public string[] flagsToSetOnComplete;
+}
+
+public enum QuestType
+{
+    Main,
+    Side,
+    Daily,
+    Repeatable,
+    Event
+}
+
+public enum QuestDifficulty
+{
+    Easy,
+    Normal,
+    Hard,
+    Elite,
+    Epic
 }

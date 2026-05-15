@@ -1,124 +1,146 @@
-using UnityEngine;
+using System.Collections.Generic;
 using TMPro;
+using UnityEngine;
 using UnityEngine.UI;
 
-public class TimeDebugPanel : MonoBehaviour
+public class SellUI : MonoBehaviour
 {
+    public static SellUI Instance;
+    private readonly List<SellSlot> slots = new();
+
     [Header("Panel")]
-    public GameObject debugPanel;
+    public GameObject sellPanel;
 
-    [Header("Buttons")]
-    public Button morningButton;
-    public Button noonButton;
-    public Button eveningButton;
-    public Button nightButton;
-    public Button nextPhaseButton;
+    [Header("Content")]
+    public Transform sellContent;
+    public SellSlot sellSlotPrefab;
 
-    [Header("Speed Control")]
-    public Slider speedSlider;
-    public TextMeshProUGUI speedText;
+    [Header("Header Elements")]
+    public TextMeshProUGUI currencyText;
+    public TextMeshProUGUI titleText;
 
-    [Header("Info Display")]
-    public TextMeshProUGUI currentPhaseText;
-    public TextMeshProUGUI timeRemainingText;
+    [Header("Footer Elements")]
+    public Button closeButton;
+    public Button switchToShopButton;
+
+    [Header("Scroll")]
+    public ScrollRect sellScrollRect;
+
+    [Header("Sell Settings")]
+    [Range(0f, 1f)]
+    public float sellPriceRatio = 0.5f;
+
+    void Awake()
+    {
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(gameObject);
+    }
 
     void Start()
     {
-        if (debugPanel != null)
-            debugPanel.SetActive(false);
+        if (CurrencyManager.Instance != null)
+            CurrencyManager.Instance.OnCurrencyChanged += OnGoldChanged;
 
-        if (morningButton != null)
-            morningButton.onClick.AddListener(() => SetPhase(TimePhase.Morning));
+        if (closeButton != null)
+            closeButton.onClick.AddListener(() =>
+            {
+                if (MarketUI.Instance != null)
+                    MarketUI.Instance.CloseAll();
+            });
 
-        if (noonButton != null)
-            noonButton.onClick.AddListener(() => SetPhase(TimePhase.Noon));
+        if (switchToShopButton != null)
+            switchToShopButton.onClick.AddListener(() =>
+            {
+                if (MarketUI.Instance != null)
+                    MarketUI.Instance.OpenShop();
+            });
 
-        if (eveningButton != null)
-            eveningButton.onClick.AddListener(() => SetPhase(TimePhase.Evening));
+        if (sellPanel != null)
+            sellPanel.SetActive(false);
 
-        if (nightButton != null)
-            nightButton.onClick.AddListener(() => SetPhase(TimePhase.Night));
+        UpdateCurrency();
+    }
 
-        if (nextPhaseButton != null)
-            nextPhaseButton.onClick.AddListener(NextPhase);
+    void OnDisable()
+    {
+        if (CurrencyManager.Instance != null)
+            CurrencyManager.Instance.OnCurrencyChanged -= OnGoldChanged;
+    }
 
-        if (speedSlider != null)
+    public void Open()
+    {
+        if (sellPanel != null)
         {
-            speedSlider.minValue = 0.1f;
-            speedSlider.maxValue = 10f;
-            speedSlider.value = 1f;
-            speedSlider.onValueChanged.AddListener(OnSpeedChanged);
+            sellPanel.SetActive(true);
+            Refresh();
         }
     }
 
-    void Update()
+    public void Close()
     {
-        if (Input.GetKeyDown(KeyCode.T))
-        {
-            if (debugPanel != null)
-                debugPanel.SetActive(!debugPanel.activeSelf);
-        }
-
-        if (Input.GetKeyDown(KeyCode.Alpha1))
-            SetPhase(TimePhase.Morning);
-
-        if (Input.GetKeyDown(KeyCode.Alpha2))
-            SetPhase(TimePhase.Noon);
-
-        if (Input.GetKeyDown(KeyCode.Alpha3))
-            SetPhase(TimePhase.Evening);
-
-        if (Input.GetKeyDown(KeyCode.Alpha4))
-            SetPhase(TimePhase.Night);
-
-        if (Input.GetKeyDown(KeyCode.Space))
-            NextPhase();
-
-        UpdateDebugInfo();
+        if (sellPanel != null)
+            sellPanel.SetActive(false);
     }
 
-    void UpdateDebugInfo()
+    public void Refresh()
     {
-        if (TimePhaseManager.Instance == null)
+        if (InventoryManager.Instance == null || sellPanel == null)
             return;
 
-        if (currentPhaseText != null)
+        int index = 0;
+
+        foreach (var (inst, qty) in InventoryManager.Instance.GetEquipmentInstances())
         {
-            currentPhaseText.text = "Current Phase: " + TimePhaseManager.Instance.currentPhase.ToString();
+            EnsureSlot(index);
+            slots[index].SetupEquipment(inst.baseData, inst.upgradeLevel, qty, sellPriceRatio);
+            slots[index].gameObject.SetActive(true);
+            index++;
         }
 
-        if (timeRemainingText != null)
+        foreach (var (item, qty) in InventoryManager.Instance.GetNonEquipmentItems())
         {
-            timeRemainingText.text = "Time Remaining: " + TimePhaseManager.Instance.GetTimeRemainingFormatted();
+            EnsureSlot(index);
+            slots[index].Setup(item, qty, sellPriceRatio);
+            slots[index].gameObject.SetActive(true);
+            index++;
         }
+
+        for (int i = index; i < slots.Count; i++)
+            if (slots[i] != null) slots[i].gameObject.SetActive(false);
+
+        ScrollToTop(sellScrollRect);
+        UpdateCurrency();
     }
 
-    void SetPhase(TimePhase phase)
+    void EnsureSlot(int index)
     {
-        if (TimePhaseManager.Instance != null)
-        {
-            TimePhaseManager.Instance.SetPhase(phase);
-        }
+        if (index >= slots.Count)
+            slots.Add(Instantiate(sellSlotPrefab, sellContent));
     }
 
-    void NextPhase()
+    void OnGoldChanged(CurrencyType type, int oldAmount, int newAmount)
     {
-        if (TimePhaseManager.Instance != null)
-        {
-            TimePhaseManager.Instance.NextPhase();
-        }
+        if (type == CurrencyType.Gold)
+            UpdateCurrency();
     }
 
-    void OnSpeedChanged(float value)
+    void UpdateCurrency()
     {
-        if (TimePhaseManager.Instance != null)
-        {
-            TimePhaseManager.Instance.timeScale = value;
+        if (currencyText == null)
+            return;
 
-            if (speedText != null)
-            {
-                speedText.text = $"Speed: {value:F1}x";
-            }
-        }
+        int gold = CurrencyManager.Instance != null ? CurrencyManager.Instance.Get(CurrencyType.Gold) : 0;
+        currencyText.text = $"{gold} Gold";
+    }
+
+    private static void ScrollToTop(ScrollRect sr)
+    {
+        if (sr == null)
+            return;
+
+        Canvas.ForceUpdateCanvases();
+        sr.verticalNormalizedPosition = 1f;
     }
 }

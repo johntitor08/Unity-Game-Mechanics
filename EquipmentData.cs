@@ -1,96 +1,57 @@
 using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
 
-public class UpgradeFusionButton : MonoBehaviour
+[CreateAssetMenu(fileName = "EquipmentData", menuName = "Equipment/EquipmentData")]
+public class EquipmentData : ItemData
 {
-    [Header("References")]
-    public Button upgradeButton;
-    public TextMeshProUGUI upgradeButtonText;
+    [Header("Equipment Properties")]
+    public EquipmentSlot slot;
 
-    private EquipmentData watchedItem;
+    [Header("Combat Bonuses")]
+    public int damageBonus = 0;
+    public int defenseBonus = 0;
 
-    void Awake()
-    {
-        if (upgradeButton != null)
-            upgradeButton.onClick.AddListener(OnUpgradeClicked);
-    }
+    [Header("Stat Bonuses")]
+    public StatType primaryStat;
+    public int primaryStatBonus = 0;
+    public StatType secondaryStat;
+    public int secondaryStatBonus = 0;
+
+    [Header("Requirements")]
+    public int requiredLevel = 1;
+    public StatType requiredStat;
+    public int requiredStatValue = 0;
+
+    [Header("Set Data")]
+    public EquipmentSetData setData;
+
+    [Header("Upgrade")]
+    public int maxUpgradeLevel = 5;
 
     void OnEnable()
     {
-        if (EquipmentManager.Instance != null)
-            EquipmentManager.Instance.OnEquipmentChanged += Refresh;
-
-        if (InventoryManager.Instance != null)
-            InventoryManager.Instance.OnInventoryChanged += Refresh;
+        itemType = ItemType.Equipment;
+        stackable = false;
+        maxStack = 1;
     }
 
-    void OnDisable()
+    public override bool IsEquipment() => true;
+
+    public string GetStatsDescription()
     {
-        if (EquipmentManager.Instance != null)
-            EquipmentManager.Instance.OnEquipmentChanged -= Refresh;
+        string desc = "";
 
-        if (InventoryManager.Instance != null)
-            InventoryManager.Instance.OnInventoryChanged -= Refresh;
-    }
+        if (damageBonus > 0)
+            desc += $"Damage: +{damageBonus}\n";
 
-    public void SetItem(EquipmentData item)
-    {
-        watchedItem = item;
-        Refresh();
-    }
+        if (defenseBonus > 0)
+            desc += $"Defense: +{defenseBonus}\n";
 
-    void Refresh()
-    {
-        if (upgradeButton == null)
-            return;
+        if (primaryStatBonus > 0)
+            desc += $"{primaryStat}: +{primaryStatBonus}\n";
 
-        if (watchedItem == null)
-        {
-            upgradeButton.gameObject.SetActive(false);
-            return;
-        }
+        if (secondaryStatBonus > 0)
+            desc += $"{secondaryStat}: +{secondaryStatBonus}\n";
 
-        bool canUpgrade = FusionManager.Instance != null && FusionManager.Instance.CanUpgradeFuse(watchedItem);
-        upgradeButton.gameObject.SetActive(canUpgrade);
-
-        if (!canUpgrade || upgradeButtonText == null)
-            return;
-
-        int bestLevel = 0;
-        var em = EquipmentManager.Instance;
-
-        if (em != null)
-        {
-            var equipped = em.GetEquipped(watchedItem.slot);
-
-            if (equipped != null && equipped.baseData.itemID == watchedItem.itemID)
-                bestLevel = Mathf.Max(bestLevel, equipped.upgradeLevel);
-        }
-
-        if (InventoryManager.Instance != null)
-        {
-            foreach (var (inst, _) in InventoryManager.Instance.GetEquipmentInstances())
-                if (inst.baseData.itemID == watchedItem.itemID)
-                    bestLevel = Mathf.Max(bestLevel, inst.upgradeLevel);
-        }
-
-        upgradeButtonText.text = $"Upgrade  +{bestLevel} → +{bestLevel + 1}";
-    }
-
-    void OnUpgradeClicked()
-    {
-        if (watchedItem == null || FusionManager.Instance == null)
-            return;
-
-        var result = FusionManager.Instance.UpgradeFuse(watchedItem);
-
-        if (result != null)
-        {
-            if (ItemDetailPanel.Instance != null)
-                ItemDetailPanel.Instance.ShowItemDetail(result.baseData, -1, result.upgradeLevel);
-        }
-
-        Refresh();
+        return desc;
     }
 }

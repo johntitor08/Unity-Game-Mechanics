@@ -1,175 +1,69 @@
-﻿using System;
-using System.Collections.Generic;
 using UnityEngine;
 
-[RequireComponent(typeof(StatusEffectManager))]
-public abstract class StatsBase : MonoBehaviour, IStatOwner
+[CreateAssetMenu(menuName = "Scenario/Scenario Data")]
+public class ScenarioData : ScriptableObject
 {
-    [System.Serializable]
-    public class Stat
-    {
-        public StatType type;
-        public int baseValue;
-        public int currentValue;
-        public int minValue;
-        public int maxValue;
+    [Header("Scenario Info")]
+    public string scenarioID;
+    public string scenarioName;
+    [TextArea] public string description;
+    public Sprite thumbnail;
 
-        public Stat(StatType type, int baseValue, int min = 0, int max = 999)
-        {
-            this.type = type;
-            this.baseValue = baseValue;
-            this.currentValue = baseValue;
-            this.minValue = min;
-            this.maxValue = max;
-        }
-    }
+    [Header("Requirements")]
+    public int requiredLevel = 1;
+    public string[] requiredFlags;
+    public ScenarioData[] prerequisiteScenarios;
 
-    [Header("Stats")]
-    public List<Stat> stats = new();
+    [Header("Scenario Flow")]
+    public DialogueNode introDialogue;
+    public ScenarioStep[] steps;
+    public DialogueNode outroDialogue;
 
-    protected readonly Dictionary<StatType, Stat> statDict = new();
-    public event Action<StatType, int, int> OnStatChanged;
-    public event Action OnDeath;
-    protected StatusEffectManager statusEffectManager;
+    [Header("Rewards")]
+    public int experienceReward;
+    public CurrencyReward[] currencyRewards;
+    public ItemReward[] itemRewards;
+    public string[] flagsToSet;
 
-    protected virtual void Awake()
-    {
-        statusEffectManager = GetComponent<StatusEffectManager>();
-        InitializeStats();
-    }
+    [Header("Failure")]
+    public bool canFail = false;
+    public DialogueNode failureDialogue;
+}
 
-    protected void InitializeStats()
-    {
-        statDict.Clear();
+[System.Serializable]
+public class ScenarioStep
+{
+    public string stepName;
+    [TextArea] public string stepDescription;
+    public ScenarioStepType type;
 
-        foreach (var stat in stats)
-        {
-            if (stat.currentValue <= 0)
-                stat.currentValue = stat.baseValue;
+    [Header("Step Data")]
+    public EnemyData enemy;
+    public DialogueNode dialogue;
+    public ItemData requiredItem;
+    [Min(1)] public int requiredQuantity = 1;
+    public string targetLocationTag;
+    [Min(0f)] public float waitDuration = 5f;
 
-            statDict[stat.type] = stat;
-        }
-    }
+    [Header("Events")]
+    public UnityEngine.Events.UnityEvent onStepStart;
+    public UnityEngine.Events.UnityEvent onStepComplete;
+    public UnityEngine.Events.UnityEvent onCustomStepEvent;
+}
 
-    public int Get(StatType type)
-    {
-        if (!statDict.ContainsKey(type))
-        {
-            Debug.LogWarning($"Stat type {type} not found!");
-            return 0;
-        }
+public enum ScenarioStepType
+{
+    Dialogue,
+    Combat,
+    CollectItem,
+    GoToLocation,
+    Wait,
+    Custom
+}
 
-        int baseValue = statDict[type].currentValue;
-        return ApplyEffectModifiers(type, baseValue);
-    }
-
-    public virtual void Set(StatType type, int value, bool save = true)
-    {
-        if (!statDict.TryGetValue(type, out var stat))
-        {
-            Debug.LogWarning($"Stat type {type} not found!");
-            return;
-        }
-
-        int oldValue = stat.currentValue;
-        stat.currentValue = Mathf.Clamp(value, stat.minValue, stat.maxValue);
-
-        if (oldValue != stat.currentValue)
-        {
-            OnStatChanged?.Invoke(type, oldValue, stat.currentValue);
-
-            if (type == StatType.Health && stat.currentValue <= 0)
-            {
-                OnDeath?.Invoke();
-                OnDie();
-            }
-
-            if (save)
-                SaveStats();
-        }
-    }
-
-    public virtual void Modify(StatType type, int amount, bool save = true)
-    {
-        if (!statDict.TryGetValue(type, out var stat))
-            return;
-
-        int oldValue = stat.currentValue;
-
-        if (amount < 0 && type == StatType.Health && statusEffectManager != null)
-        {
-            float reduction = statusEffectManager.GetDamageReduction();
-            amount = Mathf.RoundToInt(amount * (1f - reduction));
-        }
-
-        int maxValue = GetMaxValue(type, stat);
-        stat.currentValue = Mathf.Clamp(stat.currentValue + amount, stat.minValue, maxValue);
-
-        if (oldValue == stat.currentValue)
-            return;
-
-        OnStatChanged?.Invoke(type, oldValue, stat.currentValue);
-
-        if (type == StatType.Health && stat.currentValue <= 0)
-        {
-            OnDeath?.Invoke();
-            OnDie();
-        }
-
-        if (save)
-            SaveStats();
-    }
-
-    protected virtual int GetMaxValue(StatType type, Stat stat)
-    {
-        if (type == StatType.Health)
-            return Get(StatType.MaxHealth);
-        else if (type == StatType.Energy)
-            return Get(StatType.MaxEnergy);
-
-        return stat.maxValue;
-    }
-
-    protected virtual int ApplyEffectModifiers(StatType type, int baseValue)
-    {
-        int value = baseValue;
-
-        if (statusEffectManager == null)
-            return value;
-
-        foreach (var effect in statusEffectManager.activeEffects)
-        {
-            if (effect.data.statModifiers == null)
-                continue;
-
-            foreach (var mod in effect.data.statModifiers)
-            {
-                if (mod.statType != type)
-                    continue;
-
-                int amount = mod.amount * effect.currentStacks;
-                value += mod.isPercentage ? Mathf.RoundToInt(baseValue * amount / 100f) : amount;
-            }
-        }
-
-        return value;
-    }
-
-    protected virtual void SaveStats() { }
-
-    protected abstract void OnDie();
-
-    public void ResetToBase(StatType type)
-    {
-        if (statDict.TryGetValue(type, out var stat))
-            Set(type, stat.baseValue);
-    }
-
-    public void ResetAllToBase()
-    {
-        foreach (var stat in stats)
-            Set(stat.type, stat.baseValue, false);
-
-        SaveStats();
-    }
+[System.Serializable]
+public class ItemReward
+{
+    public ItemData item;
+    public int quantity = 1;
 }

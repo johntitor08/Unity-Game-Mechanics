@@ -1,32 +1,24 @@
 using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
-using System;
 
-public class IconSlotUI : MonoBehaviour
+public class PuzzleMainMenu : MonoBehaviour
 {
-    public Image iconImage;
-    public Image lockedOverlay;
-    public Image selectedOutline;
-    public TextMeshProUGUI costText;
-    public Button button;
-    private string iconID;
-    private Action<string> onClicked;
-
-    public void Setup(IconEntry entry, bool unlocked, bool selected, Action<string> onClick)
+    public void Easy()
     {
-        iconID = entry.id;
-        onClicked = onClick;
-        if (iconImage != null) iconImage.sprite = entry.sprite;
-        if (lockedOverlay != null) lockedOverlay.gameObject.SetActive(!unlocked);
-        if (selectedOutline != null) selectedOutline.gameObject.SetActive(selected);
-        if (costText != null) costText.text = unlocked ? "" : $"{entry.cost}g";
+        PuzzleEvents.OnDifficultyChanged?.Invoke(Difficulty.Easy);
+    }
 
-        if (button != null)
-        {
-            button.onClick.RemoveAllListeners();
-            button.onClick.AddListener(() => onClicked?.Invoke(iconID));
-            button.interactable = true;
-        }
+    public void Medium()
+    {
+        PuzzleEvents.OnDifficultyChanged?.Invoke(Difficulty.Medium);
+    }
+
+    public void Hard()
+    {
+        PuzzleEvents.OnDifficultyChanged?.Invoke(Difficulty.Hard);
+    }
+
+    public void Play()
+    {
+        PuzzleEvents.OnPuzzleRestarted?.Invoke();
     }
 }

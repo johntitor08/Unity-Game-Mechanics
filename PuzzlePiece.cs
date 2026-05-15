@@ -1,84 +1,55 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.UI;
 
-[RequireComponent(typeof(RectTransform))]
-[RequireComponent(typeof(Image))]
-public class PuzzlePiece : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+public static class ShapeTool
 {
-    public Vector2Int gridPos;
-    private PuzzleManager manager;
-    private RectTransform rt;
-    private Canvas canvas;
-    private bool placed;
-    private Vector2 dragOffset;
-    private Camera uiCamera;
-
-    void Awake()
+    public static void DrawShape(Texture2D tex, Vector2 from, Vector2 to, ShapeType shape, Color color, int thickness)
     {
-        rt = GetComponent<RectTransform>();
-        canvas = GetComponentInParent<Canvas>();
-        uiCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay
-            ? null
-            : canvas.worldCamera;
-    }
-
-    public void Initialize(Vector2Int gp, PuzzleManager pm)
-    {
-        gridPos = gp;
-        manager = pm;
-    }
-
-    public void OnBeginDrag(PointerEventData e)
-    {
-        if (placed) return;
-
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            rt.parent as RectTransform,
-            e.position,
-            uiCamera,
-            out Vector2 localMousePos
-        );
-
-        dragOffset = rt.anchoredPosition - localMousePos;
-        PuzzleEvents.OnMoveMade?.Invoke();
-    }
-
-    public void OnDrag(PointerEventData e)
-    {
-        if (placed) return;
-
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            rt.parent as RectTransform,
-            e.position,
-            uiCamera,
-            out Vector2 localMousePos
-        );
-
-        rt.anchoredPosition = localMousePos + dragOffset;
-    }
-
-    public void OnEndDrag(PointerEventData e)
-    {
-        if (placed) return;
-        Vector2 correct = manager.GetCorrectPosition(gridPos);
-
-        if (Vector2.Distance(rt.anchoredPosition, correct) < manager.GetSnapDistance())
+        switch (shape)
         {
-            rt.anchoredPosition = correct;
-            placed = true;
-            GetComponent<Image>().raycastTarget = false;
-            rt.SetAsLastSibling();
-            manager.PlaySnapSound();
-            manager.CheckWin();
+            case ShapeType.Line:
+                DrawLine(tex, from, to, color, thickness);
+                break;
+
+            case ShapeType.Rectangle:
+                DrawRect(tex, from, to, color, thickness);
+                break;
+
+            case ShapeType.Circle:
+                DrawEllipse(tex, from, to, color, thickness);
+                break;
         }
     }
 
-    public bool IsInCorrectPosition() => placed;
-
-    public void ResetPiece()
+    static void DrawLine(Texture2D tex, Vector2 a, Vector2 b, Color color, int thick)
     {
-        placed = false;
-        GetComponent<Image>().raycastTarget = true;
+        BrushTool.DrawLine(tex, a, b, thick, color, 1f, false);
+    }
+
+    static void DrawRect(Texture2D tex, Vector2 a, Vector2 b, Color color, int thick)
+    {
+        BrushTool.DrawLine(tex, new Vector2(a.x, a.y), new Vector2(b.x, a.y), thick, color, 1f, false);
+        BrushTool.DrawLine(tex, new Vector2(b.x, a.y), new Vector2(b.x, b.y), thick, color, 1f, false);
+        BrushTool.DrawLine(tex, new Vector2(b.x, b.y), new Vector2(a.x, b.y), thick, color, 1f, false);
+        BrushTool.DrawLine(tex, new Vector2(a.x, b.y), new Vector2(a.x, a.y), thick, color, 1f, false);
+    }
+
+    static void DrawEllipse(Texture2D tex, Vector2 a, Vector2 b, Color color, int thick)
+    {
+        Vector2 center = (a + b) / 2f;
+        float rx = Mathf.Abs(b.x - a.x) / 2f;
+        float ry = Mathf.Abs(b.y - a.y) / 2f;
+        int steps = Mathf.Max(64, (int)(2 * Mathf.PI * Mathf.Max(rx, ry)));
+        Vector2 prev = Vector2.zero;
+
+        for (int i = 0; i <= steps; i++)
+        {
+            float angle = 2 * Mathf.PI * i / steps;
+            var curr = new Vector2(center.x + rx * Mathf.Cos(angle), center.y + ry * Mathf.Sin(angle));
+
+            if (i > 0)
+                BrushTool.DrawLine(tex, prev, curr, thick, color, 1f, false);
+
+            prev = curr;
+        }
     }
 }

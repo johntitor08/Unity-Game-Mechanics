@@ -1,74 +1,62 @@
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
-[System.Serializable]
-public class CombatAction
+public class CombatActionButton : MonoBehaviour
 {
-    [Header("Basic Info")]
-    public string actionName = "Attack";
-    public string description = "A basic attack";
-    public Sprite icon;
+    [Header("UI Elements")]
+    public Button button;
+    public TextMeshProUGUI actionNameText;
+    public TextMeshProUGUI energyCostText;
+    public Image iconImage;
+    public GameObject notEnoughEnergyIndicator;
+    public CombatAction action;
 
-    [Header("Damage")]
-    public int baseDamage = 10;
-    public StatType scalingStat = StatType.Strength;
-    public float statScaling = 0.5f;
-
-    [Header("Energy Cost")]
-    public int energyCost = 10;
-
-    [Header("Defensive")]
-    public bool isDefensive = false;
-    public int defenseBonus = 30;
-    public float defenseStatScaling = 0.5f;
-    public int healAmount = 0;
-
-    [Header("Special Effects")]
-    public bool guaranteedCrit = false;
-    public float critChanceBonus = 0f;
-    public bool ignoreDefense = false;
-
-    [Header("Armor Interaction")]
-    [Range(0f, 1f)]
-    public float armorPenetration = 0f;
-
-    [Header("Flee")]
-    public bool isFlee = false;
-    public bool isDisabled = false;
-
-    [Header("Buff")]
-    public bool applyBuff = false;
-    public string buffId;
-    public string buffDisplayName;
-    public PlayerBuffManager.BuffType buffType;
-    public float buffDamageMultiplier = 1f;
-    public float buffDamageReduction = 0f;
-    public float buffDuration = 5f;
-    public Sprite buffIcon;
-
-    public int CalculateDamage()
+    public void Setup(CombatAction combatAction)
     {
-        if (PlayerStats.Instance == null)
-            return baseDamage;
+        action = combatAction;
 
-        int statValue = PlayerStats.Instance.Get(scalingStat);
-        int damage = baseDamage + Mathf.RoundToInt(statValue * statScaling);
+        if (actionNameText != null)
+            actionNameText.text = action.actionName;
 
-        if (EquipmentManager.Instance != null)
-            damage += EquipmentManager.Instance.GetTotalDamageBonus();
+        if (energyCostText != null)
+            energyCostText.text = $"{action.energyCost} Energy";
 
-        return Mathf.Max(1, damage);
+        if (iconImage != null && action.icon != null)
+            iconImage.sprite = action.icon;
+
+        if (button != null)
+        {
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(OnClick);
+        }
+
+        UpdateInteractable(true);
     }
 
-    public int CalculateDefenseBonus()
+    void OnClick()
     {
-        int bonus = defenseBonus;
+        if (CombatManager.Instance == null)
+            return;
 
-        if (PlayerStats.Instance != null)
-            bonus += Mathf.RoundToInt(PlayerStats.Instance.Get(StatType.Defense) * defenseStatScaling);
+        if (button != null)
+            button.interactable = false;
 
-        if (EquipmentManager.Instance != null)
-            bonus += Mathf.RoundToInt(EquipmentManager.Instance.GetTotalDefenseBonus() * defenseStatScaling);
+        if (CombatUI.Instance != null)
+            CombatUI.Instance.DisableAllActionButtons();
 
-        return bonus;
+        CombatManager.Instance.ExecutePlayerAction(action);
+    }
+
+    public void UpdateInteractable(bool canUse)
+    {
+        bool hasEnoughEnergy = PlayerStats.Instance != null && PlayerStats.Instance.HasEnoughEnergy(action.energyCost);
+        bool disabled = action.isDisabled;
+
+        if (button != null)
+            button.interactable = canUse && hasEnoughEnergy && !disabled;
+
+        if (notEnoughEnergyIndicator != null)
+            notEnoughEnergyIndicator.SetActive(!hasEnoughEnergy && !disabled);
     }
 }

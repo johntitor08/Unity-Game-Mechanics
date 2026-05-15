@@ -1,30 +1,28 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
-using System.Collections;
 
-public class QuestRewardUI : MonoBehaviour
+[Serializable]
+public class PlayerProfile
 {
-    public static QuestRewardUI Instance { get; private set; }
-    private Coroutine autoCloseCoroutine;
+    public string playerName = "Player";
+    public int level = 1;
+    public int experience = 0;
+    public int experienceToNextLevel = 100;
+    public string profileIconID = "default";
+    public List<string> unlockedIconIDs = new() { "default" };
+    public int statPoints = 0;
+}
 
-    [Header("Reward Panel")]
-    public GameObject rewardPanel;
-    public TextMeshProUGUI titleText;
-    public TextMeshProUGUI questNameText;
-    public Transform rewardsContainer;
-    public RewardItemUI rewardItemPrefab;
-    public Button closeButton;
-
-    [Header("Optional Rewards")]
-    public Transform optionalRewardsContainer;
-    public TextMeshProUGUI optionalRewardsLabel;
-
-    [Header("Animation")]
-    public float displayDuration = 5f;
-
-    [Header("Display")]
-    [SerializeField] private string completionTitle = "Quest Complete!";
+public class ProfileManager : MonoBehaviour
+{
+    public static ProfileManager Instance;
+    public PlayerProfile profile;
+    public event Action<PlayerProfile> OnProfileChanged;
+    public event Action<PlayerProfile> OnLevelUp;
+    public event Action<PlayerProfile> OnCurrencyChanged;
+    public static event Action OnReady;
+    public bool IsLoaded { get; private set; }
 
     void Awake()
     {
@@ -35,117 +33,131 @@ public class QuestRewardUI : MonoBehaviour
         }
 
         Instance = this;
-        rewardPanel.SetActive(false);
+        DontDestroyOnLoad(gameObject);
+        profile ??= new PlayerProfile();
+        OnReady?.Invoke();
     }
 
-    void Start()
+    public void CreateNewProfile(string playerName = "Player")
     {
-        if (closeButton != null)
-            closeButton.onClick.AddListener(Close);
+        profile = new PlayerProfile
+        {
+            playerName = playerName
+        };
+
+        OnProfileChanged?.Invoke(profile);
+        SaveSystem.SaveGame();
     }
 
-    void OnDestroy()
+    public void SetPlayerName(string name)
     {
-        if (Instance == this)
-            Instance = null;
-    }
-
-    public void ShowRewards(QuestData quest)
-    {
-        if (quest == null)
-        {
-            Debug.LogWarning("QuestRewardUI.ShowRewards called with null quest.");
-            return;
-        }
-
-        if (rewardItemPrefab == null)
-        {
-            Debug.LogError("QuestRewardUI: rewardItemPrefab is not assigned.");
-            return;
-        }
-
-        if (autoCloseCoroutine != null)
-            StopCoroutine(autoCloseCoroutine);
-
-        rewardPanel.SetActive(true);
-
-        if (questNameText != null)
-            questNameText.text = quest.questName;
-
-        if (titleText != null)
-            titleText.text = completionTitle;
-
-        ClearContainer(rewardsContainer);
-
-        if (quest.experienceReward > 0)
-            SpawnRewardItem(rewardsContainer, "Experience", quest.experienceReward.ToString(), null);
-
-        if (quest.currencyRewards != null)
-        {
-            foreach (var reward in quest.currencyRewards)
-            {
-                var currencyInfo = CurrencyManager.Instance != null ? CurrencyManager.Instance.GetCurrencyInfo(reward.type) : null;
-                SpawnRewardItem(rewardsContainer, reward.type.ToString(), reward.amount.ToString(), currencyInfo?.icon);
-            }
-        }
-
-        if (quest.itemRewards != null)
-        {
-            for (int i = 0; i < quest.itemRewards.Length; i++)
-            {
-                int qty = (quest.itemRewardQuantities != null && i < quest.itemRewardQuantities.Length) ? quest.itemRewardQuantities[i] : 1;
-                SpawnRewardItem(rewardsContainer, quest.itemRewards[i].itemName, $"x{qty}", quest.itemRewards[i].icon);
-            }
-        }
-
-        bool hasOptional = quest.optionalRewards != null && quest.optionalRewards.Length > 0;
-
-        if (optionalRewardsLabel != null)
-            optionalRewardsLabel.gameObject.SetActive(hasOptional);
-
-        ClearContainer(optionalRewardsContainer);
-
-        if (hasOptional && optionalRewardsContainer != null)
-        {
-            foreach (var item in quest.optionalRewards)
-                SpawnRewardItem(optionalRewardsContainer, item.itemName, "x1", item.icon);
-        }
-
-        autoCloseCoroutine = StartCoroutine(AutoClose());
-    }
-
-    private void ClearContainer(Transform container)
-    {
-        if (container == null)
+        if (string.IsNullOrWhiteSpace(name))
             return;
 
-        foreach (Transform child in container)
-            Destroy(child.gameObject);
+        profile.playerName = name;
+        OnProfileChanged?.Invoke(profile);
+        SaveSystem.SaveGame();
     }
 
-    private void SpawnRewardItem(Transform container, string label, string value, Sprite icon)
+    public void AddExperience(int amount)
     {
-        if (container == null)
+        if (amount <= 0)
             return;
 
-        var rewardUI = Instantiate(rewardItemPrefab, container);
-        rewardUI.Setup(label, value, icon);
-    }
+        profile.experience += amount;
+        bool leveledUp = false;
 
-    IEnumerator AutoClose()
-    {
-        yield return new WaitForSeconds(displayDuration);
-        Close();
-    }
-
-    void Close()
-    {
-        if (autoCloseCoroutine != null)
+        while (profile.experience >= profile.experienceToNextLevel)
         {
-            StopCoroutine(autoCloseCoroutine);
-            autoCloseCoroutine = null;
+            LevelUp();
+            leveledUp = true;
         }
 
-        rewardPanel.SetActive(false);
+        OnProfileChanged?.Invoke(profile);
+
+        if (amount > 0 || leveledUp)
+            SaveSystem.SaveGame();
     }
+
+    void LevelUp()
+    {
+        profile.experience -= profile.experienceToNextLevel;
+        profile.level++;
+        profile.experienceToNextLevel = Mathf.RoundToInt(profile.experienceToNextLevel * 1.5f);
+        profile.statPoints += 3;
+
+        if (PlayerStats.Instance != null)
+        {
+            PlayerStats.Instance.Modify(StatType.Health, 10);
+            PlayerStats.Instance.Modify(StatType.Energy, 5);
+            PlayerStats.Instance.Modify(StatType.Strength, 2);
+            PlayerStats.Instance.Modify(StatType.Intelligence, 2);
+        }
+
+        OnLevelUp?.Invoke(profile);
+    }
+
+    public void AddCurrency(int amount)
+    {
+        CurrencyManager.Instance.Add(CurrencyType.Gold, amount);
+        OnProfileChanged?.Invoke(profile);
+    }
+
+    public bool SpendCurrency(int amount)
+    {
+        bool success = CurrencyManager.Instance.Spend(CurrencyType.Gold, amount);
+
+        if (success)
+            OnProfileChanged?.Invoke(profile);
+
+        return success;
+    }
+
+    public void ApplyLoadedProfile(PlayerProfile saved)
+    {
+        profile.playerName = saved.playerName;
+        profile.level = saved.level;
+        profile.experience = saved.experience;
+        profile.experienceToNextLevel = saved.experienceToNextLevel;
+        profile.profileIconID = saved.profileIconID;
+        profile.statPoints = saved.statPoints;
+        profile.unlockedIconIDs = saved.unlockedIconIDs;
+        OnCurrencyChanged?.Invoke(profile);
+        OnProfileChanged?.Invoke(profile);
+        IsLoaded = true;
+    }
+
+    public bool PurchaseIcon(string iconID, int cost)
+    {
+        if (profile.unlockedIconIDs.Contains(iconID) || !CurrencyManager.Instance.Spend(CurrencyType.Gold, cost))
+            return false;
+
+        profile.unlockedIconIDs.Add(iconID);
+        OnProfileChanged?.Invoke(profile);
+        SaveSystem.SaveGame();
+        return true;
+    }
+
+    public void UnlockIcon(string iconID)
+    {
+        if (profile.unlockedIconIDs.Contains(iconID))
+            return;
+
+        profile.unlockedIconIDs.Add(iconID);
+        OnProfileChanged?.Invoke(profile);
+        SaveSystem.SaveGame();
+    }
+
+    public bool SelectIcon(string iconID)
+    {
+        if (!profile.unlockedIconIDs.Contains(iconID))
+            return false;
+
+        profile.profileIconID = iconID;
+        OnProfileChanged?.Invoke(profile);
+        SaveSystem.SaveGame();
+        return true;
+    }
+
+    public bool IsIconUnlocked(string iconID) => profile.unlockedIconIDs.Contains(iconID);
 }

@@ -1,74 +1,32 @@
 using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+using System;
 
-[System.Serializable]
-public class QuestObjective
+public class IconSlotUI : MonoBehaviour
 {
-    public ItemData targetItem;
-    public int itemCount = 1;
-    public bool consumeItems = true;
-    public string npcTag;
-    public string locationTag;
-    public float locationRadius = 2f;
-    public string interactObjectTag;
-    public ItemData craftTarget;
-    public int craftCount = 1;
-    public CurrencyType currencyType;
-    public int currencyAmount = 100;
+    public Image iconImage;
+    public Image lockedOverlay;
+    public Image selectedOutline;
+    public TextMeshProUGUI costText;
+    public Button button;
+    private string iconID;
+    private Action<string> onClicked;
 
-    [Header("Objective Info")]
-    public string objectiveID;
-    public string description;
-    public QuestObjectiveType type;
-
-    [Header("Target")]
-    public EnemyData targetEnemy;
-    public int targetCount = 1;
-
-    [Header("Progress")]
-    [System.NonSerialized] public int currentProgress = 0;
-    [System.NonSerialized] public bool isCompleted = false;
-    public bool isOptional = false;
-
-    [Header("Events")]
-    public UnityEngine.Events.UnityEvent onObjectiveStart;
-    public UnityEngine.Events.UnityEvent onObjectiveComplete;
-
-    public bool IsComplete()
+    public void Setup(IconEntry entry, bool unlocked, bool selected, Action<string> onClick)
     {
-        return currentProgress >= GetRequiredCount();
-    }
+        iconID = entry.id;
+        onClicked = onClick;
+        if (iconImage != null) iconImage.sprite = entry.sprite;
+        if (lockedOverlay != null) lockedOverlay.gameObject.SetActive(!unlocked);
+        if (selectedOutline != null) selectedOutline.gameObject.SetActive(selected);
+        if (costText != null) costText.text = unlocked ? "" : $"{entry.cost}g";
 
-    public int GetRequiredCount()
-    {
-        return type switch
+        if (button != null)
         {
-            QuestObjectiveType.KillEnemies => targetCount,
-            QuestObjectiveType.CollectItems => itemCount,
-            QuestObjectiveType.CraftItems => craftCount,
-            QuestObjectiveType.SpendCurrency => currencyAmount,
-            _ => 1
-        };
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(() => onClicked?.Invoke(iconID));
+            button.interactable = true;
+        }
     }
-
-    public float GetProgressPercentage()
-    {
-        int required = GetRequiredCount();
-
-        if (required == 0)
-            return 1f;
-
-        return Mathf.Clamp01((float)currentProgress / required);
-    }
-}
-
-public enum QuestObjectiveType
-{
-    KillEnemies,
-    CollectItems,
-    TalkToNPC,
-    GoToLocation,
-    InteractWithObject,
-    CraftItems,
-    SpendCurrency,
-    Custom
 }

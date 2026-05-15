@@ -1,37 +1,30 @@
 using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
+using System.Collections.Generic;
 
-public class QuestObjectiveUI : MonoBehaviour
+[CreateAssetMenu(fileName = "ProfileIconDatabase", menuName = "Database/ProfileIconDatabase")]
+public class ProfileIconDatabase : ScriptableObject
 {
-    [Header("UI Elements")]
-    public TextMeshProUGUI descriptionText;
-    public TextMeshProUGUI progressText;
-    public Slider progressBar;
-    public Image checkmarkIcon;
+    public List<IconEntry> icons;
+    private static ProfileIconDatabase _instance;
+    public static ProfileIconDatabase Instance => _instance;
+    private void OnEnable() => _instance = this;
 
-    public void Setup(QuestObjective objective, ObjectiveRuntimeState state)
+    public Sprite GetIconSprite(string id)
     {
-        if (descriptionText != null)
-            descriptionText.text = objective.description;
+        foreach (var icon in icons)
+            if (icon.id == id) return icon.sprite;
 
-        UpdateProgress(objective, state);
+        return null;
     }
 
-    public void UpdateProgress(QuestObjective objective, ObjectiveRuntimeState state)
-    {
-        int required = objective.GetRequiredCount();
+    public static Sprite GetSprite(string id) => _instance != null ? _instance.GetIconSprite(id) : null;
+}
 
-        if (progressText != null)
-            progressText.text = $"{state.currentProgress}/{required}";
-
-        if (progressBar != null)
-        {
-            float pct = required == 0 ? 1f : Mathf.Clamp01((float)state.currentProgress / required);
-            progressBar.value = pct;
-        }
-
-        if (checkmarkIcon != null)
-            checkmarkIcon.gameObject.SetActive(state.isCompleted);
-    }
+[System.Serializable]
+public struct IconEntry
+{
+    public string id;
+    public Sprite sprite;
+    public int cost;
+    public string displayName;
 }

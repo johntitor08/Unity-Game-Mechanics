@@ -1,95 +1,49 @@
-using System.Collections.Generic;
 using UnityEngine;
 
-public class UndoRedoManager : MonoBehaviour
+public class AudioManager : MonoBehaviour
 {
-    public static UndoRedoManager Instance { get; private set; }
-    private readonly int maxHistory = 50;
-    private readonly LinkedList<Texture2D[]> _undoHistory = new();
-    private readonly Stack<Texture2D[]> _redoStack = new();
+    public static AudioManager Instance { get; private set; }
+    private AudioSource _src;
+
+    [Header("Clips")]
+    public AudioClip brushStroke;
+    public AudioClip eraserStroke;
+    public AudioClip fillSound;
+    public AudioClip undoSound;
+    public AudioClip saveSound;
+
+    [Header("Settings")]
+    [Range(0f, 1f)] public float masterVolume = 0.6f;
 
     void Awake()
     {
         if (Instance == null)
             Instance = this;
         else
-            Destroy(gameObject);
-    }
-
-    public void Push(Texture2D[] layerSnapshots)
-    {
-        if (_undoHistory.Count >= maxHistory)
         {
-            DestroySnapshot(_undoHistory.Last.Value);
-            _undoHistory.RemoveLast();
+            Destroy(gameObject);
+            return;
         }
 
-        _undoHistory.AddFirst(layerSnapshots);
-        ClearRedoStack();
+        _src = gameObject.AddComponent<AudioSource>();
+        _src.volume = masterVolume;
     }
 
-    public Texture2D[] Undo()
+    public void Play(AudioClip clip)
     {
-        if (_undoHistory.Count <= 1)
-            return null;
-
-        var current = _undoHistory.First.Value;
-        _undoHistory.RemoveFirst();
-        _redoStack.Push(current);
-        return _undoHistory.First.Value;
-    }
-
-    public Texture2D[] Redo()
-    {
-        if (_redoStack.Count == 0)
-            return null;
-
-        var state = _redoStack.Pop();
-        _undoHistory.AddFirst(state);
-        return state;
-    }
-
-    public bool CanUndo => _undoHistory.Count > 1;
-    public bool CanRedo => _redoStack.Count > 0;
-
-    void ClearRedoStack()
-    {
-        while (_redoStack.Count > 0)
-            DestroySnapshot(_redoStack.Pop());
-    }
-
-    void DestroySnapshot(Texture2D[] snapshot)
-    {
-        if (snapshot == null)
+        if (clip == null || _src == null)
             return;
 
-        foreach (var tex in snapshot)
-            if (tex != null)
-                Destroy(tex);
+        _src.PlayOneShot(clip, masterVolume);
     }
 
-    void OnDestroy()
-    {
-        foreach (var snap in _undoHistory)
-            DestroySnapshot(snap);
+    public void PlayBrush() => Play(brushStroke);
 
-        _undoHistory.Clear();
-        ClearRedoStack();
-    }
+    public void PlayEraser() => Play(eraserStroke);
 
-    public static Texture2D[] TakeSnapshot(List<LayerManager.Layer> layers)
-    {
-        var snaps = new Texture2D[layers.Count];
+    public void PlayFill() => Play(fillSound);
 
-        for (int i = 0; i < layers.Count; i++)
-        {
-            var src = layers[i].texture;
-            var snap = new Texture2D(src.width, src.height, TextureFormat.RGBA32, false);
-            snap.SetPixels32(src.GetPixels32());
-            snap.Apply();
-            snaps[i] = snap;
-        }
+    public void PlayUndo() => Play(undoSound);
 
-        return snaps;
-    }
+    public void PlaySave() => Play(saveSound);
 }

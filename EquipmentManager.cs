@@ -1,114 +1,247 @@
-using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
+using System.Collections.Generic;
+using System;
 
-[CreateAssetMenu(fileName = "EquipmentLootTable", menuName = "Equipment/Equipment Loot Table")]
-public class EquipmentLootTable : ScriptableObject
+public class EquipmentManager : MonoBehaviour
 {
-    [System.Serializable]
-    public class EquipmentDrop
+    public static EquipmentManager Instance;
+    private readonly Dictionary<EquipmentSlot, EquipmentInstance> equippedItems = new();
+    private readonly Dictionary<int, int> activeSetPieces = new();
+    public event Action OnEquipmentChanged;
+    public event Action<EquipmentInstance> OnEquipmentEquipped;
+    public event Action<EquipmentInstance> OnEquipmentUnequipped;
+    public static event Action OnReady;
+
+    [Header("Equipment Sets")]
+    public EquipmentSetBonus[] equipmentSets;
+
+    void Awake()
     {
-        public EquipmentData equipment;
-        [Range(0f, 1f)]
-        public float baseDropChance = 0.5f;
-        [Tooltip("Bu drop için minimum luck deðeri")]
-        public int minLuckRequired = 0;
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+            activeSetPieces.Clear();
+        }
+        else
+            Destroy(gameObject);
     }
 
-    [Header("Equipment Pool")]
-    public List<EquipmentDrop> possibleEquipment = new();
+    void Start() => OnReady?.Invoke();
 
-    [Header("Rarity Drop Chances")]
-    [Range(0f, 1f)] public float commonChance = 0.50f;
-    [Range(0f, 1f)] public float rareChance = 0.15f;
-    [Range(0f, 1f)] public float epicChance = 0.04f;
-    [Range(0f, 1f)] public float legendaryChance = 0.01f;
+    public EquipmentInstance GetEquipped(EquipmentSlot slot) => equippedItems.TryGetValue(slot, out var v) ? v : null;
 
-    [Header("Drop Settings")]
-    public int minDrops = 0;
-    public int maxDrops = 2;
-    [Range(0f, 1f)]
-    public float equipmentDropChance = 0.3f;
-
-    [Header("Luck Bonus")]
-    [Tooltip("Her luck puaný için ekstra þans (%)")]
-    public float luckBonusPerPoint = 0.5f;
-
-    public List<EquipmentData> RollLoot(int playerLuck)
+    public bool IsEquipped(EquipmentData data)
     {
-        List<EquipmentData> droppedItems = new();
-        float totalDropChance = equipmentDropChance + (playerLuck * luckBonusPerPoint / 100f);
+        if (data == null)
+            return false;
 
-        if (Random.value > totalDropChance)
+        foreach (var kvp in equippedItems)
+            if (kvp.Value != null && kvp.Value.baseData.itemID == data.itemID)
+                return true;
+
+        return false;
+    }
+
+    public Dictionary<EquipmentSlot, EquipmentInstance> GetAllEquipped() => new(equippedItems);
+
+    public int GetTotalDamageBonus()
+    {
+        int total = 0;
+
+        foreach (var inst in equippedItems.Values)
+            total += inst.GetDamageBonus();
+
+        return total;
+    }
+
+    public int GetTotalDefenseBonus()
+    {
+        int total = 0;
+
+        foreach (var inst in equippedItems.Values)
+            total += inst.GetDefenseBonus();
+
+        return total;
+    }
+
+    public bool CanEquip(EquipmentInstance instance)
+    {
+        if (instance == null || instance.baseData == null || IsEquipped(instance.baseData))
+            return false;
+
+        if (ProfileManager.Instance != null && ProfileManager.Instance.profile.level < instance.baseData.requiredLevel)
         {
-            return droppedItems;
+            Debug.Log($"Level {instance.baseData.requiredLevel} required!");
+            return false;
         }
 
-        int dropCount = Random.Range(minDrops, maxDrops + 1);
-
-        for (int i = 0; i < dropCount; i++)
+        if (instance.baseData.requiredStatValue > 0 && PlayerStats.Instance != null)
         {
-            EquipmentData item = RollSingleItem(playerLuck);
+            int cur = PlayerStats.Instance.Get(instance.baseData.requiredStat);
 
-            if (item != null)
+            if (cur < instance.baseData.requiredStatValue)
             {
-                droppedItems.Add(item);
+                Debug.Log($"{instance.baseData.requiredStat} {instance.baseData.requiredStatValue} required!");
+                return false;
             }
         }
 
-        return droppedItems;
+        return true;
     }
 
-    EquipmentData RollSingleItem(int playerLuck)
+    public bool CanEquip(EquipmentData data) => data != null && CanEquip(new EquipmentInstance(data));
+
+    public bool Equip(EquipmentInstance instance)
     {
-        Rarity targetRarity = RollRarity(playerLuck);
-        var eligibleItems = possibleEquipment.Where(e => e.equipment != null && e.equipment.rarity == targetRarity && playerLuck >= e.minLuckRequired).ToList();
+        if (!CanEquip(instance))
+            return false;
 
-        if (eligibleItems.Count == 0)
+        if (equippedItems.TryGetValue(instance.baseData.slot, out var existing))
         {
-            eligibleItems = possibleEquipment.Where(e => e.equipment != null && playerLuck >= e.minLuckRequired).ToList();
+            RemoveStats(existing);
+            equippedItems.Remove(instance.baseData.slot);
+            UpdateSetBonuses();
+            OnEquipmentUnequipped?.Invoke(existing);
 
-            if (eligibleItems.Count == 0)
-                return null;
+            if (InventoryManager.Instance != null)
+                InventoryManager.Instance.AddInstance(existing, 1);
         }
 
-        float totalWeight = eligibleItems.Sum(e => e.baseDropChance);
-        float roll = Random.value * totalWeight;
-        float current = 0f;
+        if (InventoryManager.Instance != null)
+            InventoryManager.Instance.RemoveInstance(instance, 1);
 
-        foreach (var drop in eligibleItems)
-        {
-            current += drop.baseDropChance;
-
-            if (roll <= current)
-            {
-                return drop.equipment;
-            }
-        }
-
-        return eligibleItems[Random.Range(0, eligibleItems.Count)].equipment;
+        equippedItems[instance.baseData.slot] = instance;
+        ApplyStats(instance);
+        UpdateSetBonuses();
+        OnEquipmentEquipped?.Invoke(instance);
+        OnEquipmentChanged?.Invoke();
+        SaveSystem.SaveGame();
+        return true;
     }
 
-    Rarity RollRarity(int playerLuck)
+    public bool Equip(EquipmentData data) => data != null && Equip(new EquipmentInstance(data));
+
+    public bool Unequip(EquipmentSlot slot, bool returnToInventory = true, bool save = true)
     {
-        float luckBonus = Mathf.Min(playerLuck * luckBonusPerPoint / 100f, 0.05f);
-        float roll = Random.value;
-        float cumulative = 0f;
-        cumulative += legendaryChance + luckBonus;
+        if (!equippedItems.TryGetValue(slot, out var instance))
+            return false;
 
-        if (roll <= cumulative)
-            return Rarity.Legendary;
+        RemoveStats(instance);
+        equippedItems.Remove(slot);
+        UpdateSetBonuses();
+        OnEquipmentUnequipped?.Invoke(instance);
+        OnEquipmentChanged?.Invoke();
 
-        cumulative += epicChance + luckBonus * 0.5f;
+        if (returnToInventory && InventoryManager.Instance != null)
+            InventoryManager.Instance.AddInstance(instance, 1);
 
-        if (roll <= cumulative)
-            return Rarity.Epic;
+        if (save)
+            SaveSystem.SaveGame();
 
-        cumulative += rareChance + luckBonus * 0.3f;
+        return true;
+    }
 
-        if (roll <= cumulative)
-            return Rarity.Rare;
+    public bool UpgradeEquipped(EquipmentSlot slot)
+    {
+        if (!equippedItems.TryGetValue(slot, out var instance) || !instance.CanUpgrade())
+            return false;
 
-        return Rarity.Common;
+        ApplyUpgradeDelta(instance);
+        instance.upgradeLevel++;
+        OnEquipmentChanged?.Invoke();
+        SaveSystem.SaveGame();
+        return true;
+    }
+
+    void ApplyStats(EquipmentInstance inst) => ModifyStats(inst, 1);
+
+    void RemoveStats(EquipmentInstance inst) => ModifyStats(inst, -1);
+
+    void ModifyStats(EquipmentInstance inst, int mult)
+    {
+        if (PlayerStats.Instance == null)
+            return;
+
+        if (inst.GetDamageBonus() != 0)
+            PlayerStats.Instance.Modify(StatType.Damage, inst.GetDamageBonus() * mult, false);
+
+        if (inst.GetDefenseBonus() != 0)
+            PlayerStats.Instance.Modify(StatType.Defense, inst.GetDefenseBonus() * mult, false);
+
+        if (inst.GetPrimaryBonus() != 0)
+            PlayerStats.Instance.Modify(inst.baseData.primaryStat, inst.GetPrimaryBonus() * mult, false);
+
+        if (inst.GetSecondaryBonus() != 0)
+            PlayerStats.Instance.Modify(inst.baseData.secondaryStat, inst.GetSecondaryBonus() * mult, false);
+    }
+
+    void ApplyUpgradeDelta(EquipmentInstance inst)
+    {
+        if (PlayerStats.Instance == null)
+            return;
+
+        if (inst.baseData.damageBonus > 0)
+            PlayerStats.Instance.Modify(StatType.Damage, 1, false);
+
+        if (inst.baseData.defenseBonus > 0)
+            PlayerStats.Instance.Modify(StatType.Defense, 1, false);
+
+        if (inst.baseData.primaryStatBonus > 0)
+            PlayerStats.Instance.Modify(inst.baseData.primaryStat, 1, false);
+
+        if (inst.baseData.secondaryStatBonus > 0)
+            PlayerStats.Instance.Modify(inst.baseData.secondaryStat, 1, false);
+    }
+
+    public int GetEquippedSetPieces(int setID)
+    {
+        int count = 0;
+
+        foreach (var inst in equippedItems.Values)
+            if (inst.baseData.setData != null && inst.baseData.setData.setID == setID)
+                count++;
+
+        return count;
+    }
+
+    void UpdateSetBonuses()
+    {
+        if (equipmentSets == null || PlayerStats.Instance == null)
+            return;
+
+        foreach (var set in equipmentSets)
+        {
+            int prev = activeSetPieces.TryGetValue(set.data.setID, out int p) ? p : 0;
+            int curr = GetEquippedSetPieces(set.data.setID);
+
+            if (prev == curr)
+                continue;
+
+            set.Apply(prev, false);
+            set.Apply(curr, true);
+            activeSetPieces[set.data.setID] = curr;
+        }
+    }
+
+    public List<string> GetActiveSetBonusDescriptions()
+    {
+        var list = new List<string>();
+
+        if (equipmentSets == null)
+            return list;
+
+        foreach (var set in equipmentSets)
+        {
+            int pieces = GetEquippedSetPieces(set.data.setID);
+
+            if (pieces == 0)
+                continue;
+
+            list.Add($"{set.data.setName} ({pieces}/{set.data.totalPieces})");
+            list.Add(set.GetDescription(pieces));
+        }
+
+        return list;
     }
 }

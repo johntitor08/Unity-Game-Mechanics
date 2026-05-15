@@ -1,92 +1,48 @@
-using System.Collections.Generic;
-using System.Linq;
+using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
-public class StatusEffectUI : MonoBehaviour
+public class BuffUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
-    [Header("References")]
-    public StatusEffectManager effectManager;
-    public Transform iconContainer;
-    public StatusEffectIcon iconPrefab;
+    public Image icon;
+    public TextMeshProUGUI timerText;
+    public GameObject tooltip;
+    public TextMeshProUGUI tooltipText;
+    private string buffName;
+    private float duration;
 
-    private readonly List<StatusEffectIcon> activeIcons = new();
-    private bool isSubscribed = false;
-
-    void OnEnable()
+    public void Setup(Sprite buffIcon, string name, float duration)
     {
-        TrySubscribe();
-    }
+        icon.sprite = buffIcon;
+        buffName = name;
+        this.duration = duration;
+        timerText.text = duration.ToString("F1") + "s";
 
-    void OnDisable()
-    {
-        if (isSubscribed && effectManager != null)
+        if (tooltip != null)
         {
-            effectManager.OnEffectApplied -= OnEffectApplied;
-            effectManager.OnEffectRemoved -= OnEffectRemoved;
-            isSubscribed = false;
+            tooltip.SetActive(false);
+            tooltipText.text = $"{buffName}\nDuration: {duration:F1}s";
         }
     }
 
-    void TrySubscribe()
+    public void UpdateTimer(float timeLeft)
     {
-        if (effectManager != null && !isSubscribed)
-        {
-            effectManager.OnEffectApplied += OnEffectApplied;
-            effectManager.OnEffectRemoved += OnEffectRemoved;
-            isSubscribed = true;
-        }
+        timerText.text = Mathf.Max(0f, timeLeft).ToString("F1") + "s";
+
+        if (tooltip != null)
+            tooltipText.text = $"{buffName}\nDuration: {Mathf.Max(0f, timeLeft):F1}s";
     }
 
-    void Update()
+    public void OnPointerEnter(PointerEventData eventData)
     {
-        if (effectManager == null)
-            return;
-
-        for (int i = activeIcons.Count - 1; i >= 0; i--)
-        {
-            var icon = activeIcons[i];
-
-            if (icon == null)
-                continue;
-
-            ActiveStatusEffect effect = effectManager.GetActiveEffect(icon.effectType);
-
-            if (effect != null)
-            {
-                icon.UpdateEffect(effect);
-            }
-            else
-            {
-                activeIcons.RemoveAt(i);
-                Destroy(icon.gameObject);
-            }
-        }
+        if (tooltip != null)
+            tooltip.SetActive(true);
     }
 
-    private void OnEffectApplied(StatusEffectData effect)
+    public void OnPointerExit(PointerEventData eventData)
     {
-        StatusEffectIcon icon = activeIcons.FirstOrDefault(i => i.effectType == effect.effectType);
-
-        if (icon != null)
-        {
-            icon.UpdateEffect(effectManager.GetActiveEffect(effect.effectType));
-        }
-        else
-        {
-            icon = Instantiate(iconPrefab, iconContainer);
-            icon.Setup(effectManager.GetActiveEffect(effect.effectType));
-            activeIcons.Add(icon);
-        }
-    }
-
-    private void OnEffectRemoved(StatusEffectData effect)
-    {
-        StatusEffectIcon icon = activeIcons.FirstOrDefault(i => i.effectType == effect.effectType);
-
-        if (icon != null)
-        {
-            activeIcons.Remove(icon);
-            Destroy(icon.gameObject);
-        }
+        if (tooltip != null)
+            tooltip.SetActive(false);
     }
 }

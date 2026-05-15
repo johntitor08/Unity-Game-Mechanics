@@ -1,43 +1,37 @@
-using System;
-using System.Collections.Generic;
+using UnityEngine;
+using TMPro;
+using UnityEngine.UI;
 
-[Serializable]
-public class SaveData
+public class QuestObjectiveUI : MonoBehaviour
 {
-    public int version = 1;
-    public string savedAt = "";
-    public string playerName = "Player";
-    public int playerLevel = 1;
-    public int playerExperience = 0;
-    public int playerExperienceToNext = 100;
-    public string currentScene;
-    public int sceneProgress;
-    public List<string> storyFlags = new();
-    public TimePhase currentTimePhase = TimePhase.Morning;
-    public int currentDay = 1;
-    public float phaseProgress = 0f;
-    public bool resumeDialogueOnLoad;
-    public List<string> inventoryKeys = new();
-    public List<int> inventoryCounts = new();
-    public List<EquippedItemSave> equippedItems = new();
-    public List<CurrencyType> currencyTypes = new();
-    public List<int> currencyAmounts = new();
-    public List<string> shopStockIDs = new();
-    public List<int> shopStockAmounts = new();
-    public List<StatType> statTypes = new();
-    public List<int> statValues = new();
-    public List<QuestRuntimeState> activeQuests = new();
-    public List<string> completedQuests = new();
-    public List<string> trackedQuests = new();
-    public string activeScenarioID = "";
-    public int activeScenarioStep = 0;
-    public List<string> completedScenarios = new();
-}
+    [Header("UI Elements")]
+    public TextMeshProUGUI descriptionText;
+    public TextMeshProUGUI progressText;
+    public Slider progressBar;
+    public Image checkmarkIcon;
 
-[Serializable]
-public class EquippedItemSave
-{
-    public EquipmentSlot slot;
-    public string itemID;
-    public int upgradeLevel;
+    public void Setup(QuestObjective objective, ObjectiveRuntimeState state)
+    {
+        if (descriptionText != null)
+            descriptionText.text = objective.description;
+
+        UpdateProgress(objective, state);
+    }
+
+    public void UpdateProgress(QuestObjective objective, ObjectiveRuntimeState state)
+    {
+        int required = objective.GetRequiredCount();
+
+        if (progressText != null)
+            progressText.text = $"{state.currentProgress}/{required}";
+
+        if (progressBar != null)
+        {
+            float pct = required == 0 ? 1f : Mathf.Clamp01((float)state.currentProgress / required);
+            progressBar.value = pct;
+        }
+
+        if (checkmarkIcon != null)
+            checkmarkIcon.gameObject.SetActive(state.isCompleted);
+    }
 }

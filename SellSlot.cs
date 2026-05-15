@@ -1,22 +1,52 @@
+using UnityEngine;
+using TMPro;
 using System.Collections.Generic;
 
-public static class StoryFlags
+public class QuestTrackerEntry : MonoBehaviour
 {
-    private static readonly HashSet<string> flags = new();
+    [Header("UI Elements")]
+    public TextMeshProUGUI questNameText;
+    public Transform objectivesParent;
+    public TextMeshProUGUI objectiveTextPrefab;
 
-    public static void Add(string flag) => flags.Add(flag);
+    private readonly List<TextMeshProUGUI> objectiveTexts = new();
 
-    public static bool Has(string flag) => flags.Contains(flag);
-
-    public static void Load(IEnumerable<string> savedFlags)
+    public void Setup(QuestData quest)
     {
-        flags.Clear();
+        if (QuestManager.Instance == null)
+            return;
 
-        if (savedFlags != null)
-            flags.UnionWith(savedFlags);
+        if (questNameText != null)
+            questNameText.text = quest.questName;
+
+        var incompleteObjectives = new List<(QuestObjective obj, ObjectiveRuntimeState state)>();
+
+        foreach (var objective in quest.objectives)
+        {
+            var state = QuestManager.Instance.GetObjectiveState(quest.questID, objective.objectiveID);
+
+            if (!state.isCompleted)
+                incompleteObjectives.Add((objective, state));
+        }
+
+        while (objectiveTexts.Count < incompleteObjectives.Count)
+        {
+            var t = Instantiate(objectiveTextPrefab, objectivesParent);
+            objectiveTexts.Add(t);
+        }
+
+        for (int i = 0; i < objectiveTexts.Count; i++)
+        {
+            if (i < incompleteObjectives.Count)
+            {
+                var (obj, state) = incompleteObjectives[i];
+                objectiveTexts[i].text = $"• {obj.description} ({state.currentProgress}/{obj.GetRequiredCount()})";
+                objectiveTexts[i].gameObject.SetActive(true);
+            }
+            else
+            {
+                objectiveTexts[i].gameObject.SetActive(false);
+            }
+        }
     }
-
-    public static void Reset() => flags.Clear();
-
-    public static IReadOnlyCollection<string> GetAll() => flags;
 }

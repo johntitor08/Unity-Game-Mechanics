@@ -1,29 +1,98 @@
 using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
 
-public class RewardItemUI : MonoBehaviour
+public class QuestMarker : MonoBehaviour
 {
-    public Image icon;
-    public TextMeshProUGUI nameText;
-    public TextMeshProUGUI amountText;
+    [Header("Quest")]
+    public string questID;
+    public string objectiveID;
 
-    public void Setup(string itemName, string amount, Sprite itemIcon)
+    [Header("Visual")]
+    public GameObject markerVisual;
+    public float floatHeight = 0.5f;
+    public float floatSpeed = 1f;
+
+    private Vector3 startPos;
+    private bool isVisible = false;
+    private System.Action<QuestData> onQuestStarted;
+    private System.Action<QuestData> onQuestCompleted;
+    private System.Action<QuestData, QuestObjective> onObjectiveCompleted;
+
+    void Start()
     {
-        if (nameText != null)
-            nameText.text = itemName;
+        startPos = transform.position;
+        onQuestStarted = _ => RefreshVisibility();
+        onQuestCompleted = _ => RefreshVisibility();
+        onObjectiveCompleted = (_, __) => RefreshVisibility();
+        RefreshVisibility();
 
-        if (amountText != null)
-            amountText.text = amount;
+        if (QuestManager.Instance != null)
+            Subscribe(QuestManager.Instance);
+        else
+            QuestManager.OnReady += OnQuestManagerReady;
+    }
 
-        if (icon != null && itemIcon != null)
+    void Update()
+    {
+        if (!isVisible || markerVisual == null)
+            return;
+
+        float newY = startPos.y + Mathf.Sin(Time.time * floatSpeed) * floatHeight;
+        transform.position = new Vector3(startPos.x, newY, startPos.z);
+    }
+
+    void OnDestroy()
+    {
+        QuestManager.OnReady -= OnQuestManagerReady;
+
+        if (QuestManager.Instance != null)
+            Unsubscribe(QuestManager.Instance);
+    }
+
+    void OnQuestManagerReady()
+    {
+        QuestManager.OnReady -= OnQuestManagerReady;
+        Subscribe(QuestManager.Instance);
+        RefreshVisibility();
+    }
+
+    void Subscribe(QuestManager qm)
+    {
+        qm.OnQuestStarted += onQuestStarted;
+        qm.OnQuestCompleted += onQuestCompleted;
+        qm.OnObjectiveCompleted += onObjectiveCompleted;
+    }
+
+    void Unsubscribe(QuestManager qm)
+    {
+        qm.OnQuestStarted -= onQuestStarted;
+        qm.OnQuestCompleted -= onQuestCompleted;
+        qm.OnObjectiveCompleted -= onObjectiveCompleted;
+    }
+
+    void RefreshVisibility()
+    {
+        if (QuestManager.Instance == null)
+            return;
+
+        if (string.IsNullOrEmpty(objectiveID))
         {
-            icon.sprite = itemIcon;
-            icon.enabled = true;
+            isVisible = QuestManager.Instance.IsQuestActive(questID);
         }
-        else if (icon != null)
+        else
         {
-            icon.enabled = false;
+            var quest = QuestManager.Instance.GetActiveQuest(questID);
+            isVisible = false;
+
+            if (quest != null)
+            {
+                var objective = QuestManager.Instance.GetObjective(quest, objectiveID);
+
+                if (objective != null)
+                    isVisible = !QuestManager.Instance.GetObjectiveState(questID, objectiveID).isCompleted;
+            }
         }
+
+        if (markerVisual != null)
+            markerVisual.SetActive(isVisible);
     }
 }

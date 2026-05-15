@@ -1,251 +1,186 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using System.Collections.Generic;
-using System.Linq;
-using UnityEngine.UI;
 
-public class QuestTrackerUI : MonoBehaviour
+public class QuestGiver : MonoBehaviour, IPointerClickHandler
 {
-    public static QuestTrackerUI Instance;
-    private HashSet<string> trackedQuestIDs = new();
-    private readonly Dictionary<string, QuestTrackerEntry> trackerEntries = new();
-    private bool isSubscribed = false;
+    [Header("Quests")]
+    public List<QuestData> availableQuests;
 
-    [Header("Tracker")]
-    public GameObject trackerPanel;
-    public Transform trackedQuestsParent;
-    public QuestTrackerEntry trackerEntryPrefab;
-    public int maxTrackedQuests = 3;
-    public Button closeButton;
+    [Header("Interaction")]
+    public GameObject exclamationMark;
+    public GameObject questionMark;
+    public GameObject goldExclamation;
+    public float interactionRange = 2f;
+    public KeyCode interactionKey = KeyCode.E;
 
-    [Header("Settings")]
-    public bool autoTrackNewQuests = true;
-    public bool persistAcrossScenes = false;
+    [Header("Visual")]
+    public GameObject interactionPrompt;
 
-    [Header("Visibility")]
-    [SerializeField] private bool isPanelHiddenByUser = false;
-
-    void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-
-        Instance = this;
-
-        if (persistAcrossScenes)
-            DontDestroyOnLoad(gameObject);
-    }
+    private bool playerInRange = false;
 
     void Start()
     {
-        if (closeButton != null)
-            closeButton.onClick.AddListener(OnCloseClicked);
+        if (interactionPrompt != null)
+            interactionPrompt.SetActive(false);
+
+        if (QuestManager.Instance != null)
+            Subscribe();
+        else
+            QuestManager.OnReady += OnQuestManagerReady;
+
+        UpdateQuestIndicators();
     }
 
     void OnDestroy()
     {
-        if (Instance == this)
-            Instance = null;
-    }
+        QuestManager.OnReady -= OnQuestManagerReady;
 
-    void OnEnable()
-    {
-        QuestManager.OnReady += TrySubscribe;
-        TrySubscribe();
-    }
-
-    void OnDisable()
-    {
-        if (isSubscribed && QuestManager.Instance != null)
+        if (QuestManager.Instance != null)
         {
-            QuestManager.Instance.OnQuestStarted -= OnQuestStarted;
-            QuestManager.Instance.OnQuestCompleted -= OnQuestCompleted;
-            QuestManager.Instance.OnObjectiveUpdated -= OnObjectiveUpdated;
-            QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveCompleted;
-            QuestManager.Instance.OnTrackingToggleRequested -= OnTrackingToggleRequested;
-            QuestManager.Instance.OnSaveDataRequested -= OnSaveDataRequested;
-            QuestManager.Instance.OnTrackedQuestsLoaded -= OnTrackedQuestsLoaded;
-            QuestManager.Instance.OnQuestAbandoned -= OnQuestAbandoned;
-            isSubscribed = false;
-        }
-
-        QuestManager.OnReady -= TrySubscribe;
-    }
-
-    void TrySubscribe()
-    {
-        if (QuestManager.Instance != null && !isSubscribed)
-        {
-            QuestManager.Instance.OnQuestStarted += OnQuestStarted;
-            QuestManager.Instance.OnQuestCompleted += OnQuestCompleted;
-            QuestManager.Instance.OnObjectiveUpdated += OnObjectiveUpdated;
-            QuestManager.Instance.OnObjectiveCompleted += OnObjectiveCompleted;
-            QuestManager.Instance.OnTrackingToggleRequested += OnTrackingToggleRequested;
-            QuestManager.Instance.OnSaveDataRequested += OnSaveDataRequested;
-            QuestManager.Instance.OnTrackedQuestsLoaded += OnTrackedQuestsLoaded;
-            QuestManager.Instance.OnQuestAbandoned += OnQuestAbandoned;
-            isSubscribed = true;
-            UpdateTracker();
+            QuestManager.Instance.OnQuestStarted -= OnQuestChanged;
+            QuestManager.Instance.OnQuestCompleted -= OnQuestChanged;
+            QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveChanged;
         }
     }
 
-    void OnQuestStarted(QuestData quest)
+    void OnQuestManagerReady()
     {
-        if (autoTrackNewQuests && quest.trackObjectives)
+        QuestManager.OnReady -= OnQuestManagerReady;
+        Subscribe();
+        UpdateQuestIndicators();
+    }
+
+    void Subscribe()
+    {
+        QuestManager.Instance.OnQuestStarted += OnQuestChanged;
+        QuestManager.Instance.OnQuestCompleted += OnQuestChanged;
+        QuestManager.Instance.OnObjectiveCompleted += OnObjectiveChanged;
+    }
+
+    void OnQuestChanged(QuestData _) => UpdateQuestIndicators();
+
+    void OnObjectiveChanged(QuestData _, QuestObjective __) => UpdateQuestIndicators();
+
+    void Update()
+    {
+        if (playerInRange && Input.GetKeyDown(interactionKey))
+            Interact();
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (playerInRange)
+            Interact();
+    }
+
+    void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.CompareTag("Player"))
         {
-            if (!TrackQuest(quest.questID))
-                Debug.Log($"[QuestTrackerUI] Max limit ({maxTrackedQuests}) dolu, '{quest.questName}' takibe alınamadı.");
+            playerInRange = true;
+
+            if (interactionPrompt != null)
+                interactionPrompt.SetActive(true);
         }
     }
 
-    void OnQuestCompleted(QuestData quest) => UntrackQuest(quest.questID);
-
-    void OnQuestAbandoned(QuestData quest) => UntrackQuest(quest.questID);
-
-    void OnObjectiveUpdated(QuestData quest, QuestObjective objective) => RefreshEntries();
-
-    void OnObjectiveCompleted(QuestData quest, QuestObjective objective) => RefreshEntries();
-
-    void OnTrackingToggleRequested(QuestData quest) => ToggleQuest(quest);
-
-    void OnSaveDataRequested(QuestSaveData data)
+    void OnTriggerExit2D(Collider2D other)
     {
-        data.trackedQuestIDs = new List<string>(trackedQuestIDs);
+        if (other.CompareTag("Player"))
+        {
+            playerInRange = false;
+
+            if (interactionPrompt != null)
+                interactionPrompt.SetActive(false);
+        }
     }
 
-    void OnTrackedQuestsLoaded(List<string> questIDs)
+    bool AreAllObjectivesComplete(QuestData quest)
     {
-        if (questIDs == null)
-            return;
+        foreach (var obj in quest.objectives)
+        {
+            if (!obj.isOptional)
+            {
+                var state = QuestManager.Instance.GetObjectiveState(quest.questID, obj.objectiveID);
 
-        var qm = QuestManager.Instance;
-        var validIDs = questIDs.Where(id => qm != null && qm.GetActiveQuest(id) != null).Take(maxTrackedQuests);
-        trackedQuestIDs = new HashSet<string>(validIDs);
-        UpdateTracker();
-    }
+                if (!state.isCompleted)
+                    return false;
+            }
+        }
 
-    public bool IsTracked(string questID) => trackedQuestIDs.Contains(questID);
-
-    public void ToggleQuest(QuestData quest)
-    {
-        if (IsTracked(quest.questID))
-            UntrackQuest(quest.questID);
-        else
-            TrackQuest(quest.questID);
-    }
-
-    public bool TrackQuest(string questID)
-    {
-        if (trackedQuestIDs.Count >= maxTrackedQuests)
-            return false;
-
-        var qm = QuestManager.Instance;
-
-        if (qm == null || qm.GetActiveQuest(questID) == null || !trackedQuestIDs.Add(questID))
-            return false;
-
-        isPanelHiddenByUser = false;
-        UpdateTracker();
         return true;
     }
 
-    public void UntrackQuest(string questID)
+    void UpdateQuestIndicators()
     {
-        if (!trackedQuestIDs.Remove(questID))
+        if (QuestManager.Instance == null)
             return;
 
-        UpdateTracker();
-    }
+        bool hasNewQuest = false;
+        bool hasActiveQuest = false;
+        bool hasCompleteQuest = false;
 
-    public void SetTrackedQuests(List<string> questIDs)
-    {
-        OnTrackedQuestsLoaded(questIDs);
-    }
-
-    public List<string> GetTrackedQuests() => new(trackedQuestIDs);
-
-    void OnCloseClicked()
-    {
-        isPanelHiddenByUser = true;
-
-        if (trackerPanel != null)
-            trackerPanel.SetActive(false);
-    }
-
-    void UpdateTracker()
-    {
-        var toRemove = new List<string>();
-
-        foreach (var questID in trackerEntries.Keys)
-            if (!trackedQuestIDs.Contains(questID))
-                toRemove.Add(questID);
-
-        foreach (var questID in toRemove)
+        foreach (var quest in availableQuests)
         {
-            if (trackerEntries[questID] != null)
-                Destroy(trackerEntries[questID].gameObject);
-
-            trackerEntries.Remove(questID);
+            if (QuestManager.Instance.CanStartQuest(quest))
+            {
+                hasNewQuest = true;
+            }
+            else if (QuestManager.Instance.IsQuestActive(quest.questID))
+            {
+                if (AreAllObjectivesComplete(quest))
+                    hasCompleteQuest = true;
+                else
+                    hasActiveQuest = true;
+            }
         }
 
-        foreach (var questID in trackedQuestIDs)
+        if (exclamationMark != null)
+            exclamationMark.SetActive(hasNewQuest);
+
+        if (questionMark != null)
+            questionMark.SetActive(hasActiveQuest && !hasCompleteQuest);
+
+        if (goldExclamation != null)
+            goldExclamation.SetActive(hasCompleteQuest);
+    }
+
+    void Interact()
+    {
+        foreach (var quest in availableQuests)
         {
-            if (QuestManager.Instance == null)
-                break;
-
-            var quest = QuestManager.Instance.GetActiveQuest(questID);
-
-            if (quest == null)
+            if (!QuestManager.Instance.IsQuestActive(quest.questID))
                 continue;
 
-            if (!trackerEntries.ContainsKey(questID))
+            if (AreAllObjectivesComplete(quest))
             {
-                if (trackerEntryPrefab == null)
-                {
-                    Debug.LogError("[QuestTrackerUI] trackerEntryPrefab atanmamış.", this);
-                    continue;
-                }
+                if (quest.completionDialogue != null && DialogueManager.Instance != null)
+                    DialogueManager.Instance.StartDialogue(quest.completionDialogue, () => QuestManager.Instance.CompleteQuest(quest));
+                else
+                    QuestManager.Instance.CompleteQuest(quest);
 
-                var entry = Instantiate(trackerEntryPrefab, trackedQuestsParent);
-                trackerEntries[questID] = entry;
+                return;
             }
 
-            trackerEntries[questID].Setup(quest);
-        }
-
-        if (trackerPanel != null)
-            trackerPanel.SetActive(!isPanelHiddenByUser && trackedQuestIDs.Count > 0);
-    }
-
-    void RefreshEntries()
-    {
-        List<string> orphaned = null;
-        var qm = QuestManager.Instance;
-
-        foreach (var (questID, entry) in trackerEntries)
-        {
-            if (entry == null)
+            if (quest.progressDialogue != null)
             {
-                (orphaned ??= new()).Add(questID);
-                continue;
+                DialogueManager.Instance.StartDialogue(quest.progressDialogue);
+                return;
             }
-
-            var quest = qm != null ? qm.GetActiveQuest(questID) : null;
-
-            if (quest != null)
-                entry.Setup(quest);
-            else
-                (orphaned ??= new()).Add(questID);
         }
 
-        if (orphaned != null)
+        foreach (var quest in availableQuests)
         {
-            foreach (var id in orphaned)
-                trackedQuestIDs.Remove(id);
+            if (QuestManager.Instance.CanStartQuest(quest))
+            {
+                if (quest.startDialogue != null)
+                    DialogueManager.Instance.StartDialogue(quest.startDialogue, () => QuestManager.Instance.StartQuest(quest));
+                else
+                    QuestManager.Instance.StartQuest(quest);
 
-            UpdateTracker();
+                return;
+            }
         }
     }
 }

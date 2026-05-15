@@ -1,186 +1,47 @@
-using UnityEngine;
-using UnityEngine.EventSystems;
-using System.Collections.Generic;
-
-public class QuestGiver : MonoBehaviour, IPointerClickHandler
+public class NameValidator
 {
-    [Header("Quests")]
-    public List<QuestData> availableQuests;
-
-    [Header("Interaction")]
-    public GameObject exclamationMark;
-    public GameObject questionMark;
-    public GameObject goldExclamation;
-    public float interactionRange = 2f;
-    public KeyCode interactionKey = KeyCode.E;
-
-    [Header("Visual")]
-    public GameObject interactionPrompt;
-
-    private bool playerInRange = false;
-
-    void Start()
+    public static bool IsValidName(string name, out string error)
     {
-        if (interactionPrompt != null)
-            interactionPrompt.SetActive(false);
+        error = "";
 
-        if (QuestManager.Instance != null)
-            Subscribe();
-        else
-            QuestManager.OnReady += OnQuestManagerReady;
-
-        UpdateQuestIndicators();
-    }
-
-    void OnDestroy()
-    {
-        QuestManager.OnReady -= OnQuestManagerReady;
-
-        if (QuestManager.Instance != null)
+        if (string.IsNullOrWhiteSpace(name))
         {
-            QuestManager.Instance.OnQuestStarted -= OnQuestChanged;
-            QuestManager.Instance.OnQuestCompleted -= OnQuestChanged;
-            QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveChanged;
+            error = "Ýsim boþ olamaz!";
+            return false;
         }
-    }
 
-    void OnQuestManagerReady()
-    {
-        QuestManager.OnReady -= OnQuestManagerReady;
-        Subscribe();
-        UpdateQuestIndicators();
-    }
-
-    void Subscribe()
-    {
-        QuestManager.Instance.OnQuestStarted += OnQuestChanged;
-        QuestManager.Instance.OnQuestCompleted += OnQuestChanged;
-        QuestManager.Instance.OnObjectiveCompleted += OnObjectiveChanged;
-    }
-
-    void OnQuestChanged(QuestData _) => UpdateQuestIndicators();
-
-    void OnObjectiveChanged(QuestData _, QuestObjective __) => UpdateQuestIndicators();
-
-    void Update()
-    {
-        if (playerInRange && Input.GetKeyDown(interactionKey))
-            Interact();
-    }
-
-    public void OnPointerClick(PointerEventData eventData)
-    {
-        if (playerInRange)
-            Interact();
-    }
-
-    void OnTriggerEnter2D(Collider2D other)
-    {
-        if (other.CompareTag("Player"))
+        if (name.Length < 3)
         {
-            playerInRange = true;
-
-            if (interactionPrompt != null)
-                interactionPrompt.SetActive(true);
+            error = "Ýsim çok kýsa!";
+            return false;
         }
-    }
 
-    void OnTriggerExit2D(Collider2D other)
-    {
-        if (other.CompareTag("Player"))
+        if (name.Length > 15)
         {
-            playerInRange = false;
-
-            if (interactionPrompt != null)
-                interactionPrompt.SetActive(false);
-        }
-    }
-
-    bool AreAllObjectivesComplete(QuestData quest)
-    {
-        foreach (var obj in quest.objectives)
-        {
-            if (!obj.isOptional)
-            {
-                var state = QuestManager.Instance.GetObjectiveState(quest.questID, obj.objectiveID);
-
-                if (!state.isCompleted)
-                    return false;
-            }
+            error = "Ýsim çok uzun!";
+            return false;
         }
 
         return true;
     }
 
-    void UpdateQuestIndicators()
+    public static string SanitizeName(string name)
     {
-        if (QuestManager.Instance == null)
-            return;
+        // Remove extra spaces
+        name = name.Trim();
 
-        bool hasNewQuest = false;
-        bool hasActiveQuest = false;
-        bool hasCompleteQuest = false;
-
-        foreach (var quest in availableQuests)
+        // Replace multiple spaces with single space
+        while (name.Contains("  "))
         {
-            if (QuestManager.Instance.CanStartQuest(quest))
-            {
-                hasNewQuest = true;
-            }
-            else if (QuestManager.Instance.IsQuestActive(quest.questID))
-            {
-                if (AreAllObjectivesComplete(quest))
-                    hasCompleteQuest = true;
-                else
-                    hasActiveQuest = true;
-            }
+            name = name.Replace("  ", " ");
         }
 
-        if (exclamationMark != null)
-            exclamationMark.SetActive(hasNewQuest);
-
-        if (questionMark != null)
-            questionMark.SetActive(hasActiveQuest && !hasCompleteQuest);
-
-        if (goldExclamation != null)
-            goldExclamation.SetActive(hasCompleteQuest);
-    }
-
-    void Interact()
-    {
-        foreach (var quest in availableQuests)
+        // Capitalize first letter
+        if (name.Length > 0)
         {
-            if (!QuestManager.Instance.IsQuestActive(quest.questID))
-                continue;
-
-            if (AreAllObjectivesComplete(quest))
-            {
-                if (quest.completionDialogue != null && DialogueManager.Instance != null)
-                    DialogueManager.Instance.StartDialogue(quest.completionDialogue, () => QuestManager.Instance.CompleteQuest(quest));
-                else
-                    QuestManager.Instance.CompleteQuest(quest);
-
-                return;
-            }
-
-            if (quest.progressDialogue != null)
-            {
-                DialogueManager.Instance.StartDialogue(quest.progressDialogue);
-                return;
-            }
+            name = char.ToUpper(name[0]) + name[1..];
         }
 
-        foreach (var quest in availableQuests)
-        {
-            if (QuestManager.Instance.CanStartQuest(quest))
-            {
-                if (quest.startDialogue != null)
-                    DialogueManager.Instance.StartDialogue(quest.startDialogue, () => QuestManager.Instance.StartQuest(quest));
-                else
-                    QuestManager.Instance.StartQuest(quest);
-
-                return;
-            }
-        }
+        return name;
     }
 }

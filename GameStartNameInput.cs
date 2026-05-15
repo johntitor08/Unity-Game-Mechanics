@@ -1,118 +1,85 @@
-using System;
-using System.Collections;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.U2D;
+using UnityEngine.UI;
 
-[RequireComponent(typeof(SpriteShapeRenderer))]
-[RequireComponent(typeof(PolygonCollider2D))]
-public class UIHoverRegion : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
+public class ColorWheelUI : MonoBehaviour
 {
-    public SpriteShapeRenderer hoverShape;
-    public float maxAlpha = 0.2f;
-    public float fadeSpeed = 6f;
-    private float currentAlpha = 0f;
-    private Coroutine fadeRoutine;
-    private bool isDialogueSubscribed;
-    public event Action OnRegionClicked;
+    [Header("Preview")]
+    public Image colorPreview;
+
+    [Header("HSV Sliders")]
+    public Slider hueSlider;
+    public Slider satSlider;
+    public Slider valSlider;
+
+    [Header("Hex Input")]
+    public TMPro.TMP_InputField hexInput;
 
     void Start()
     {
-        if (hoverShape == null)
-            hoverShape = GetComponent<SpriteShapeRenderer>();
+        if (hueSlider != null)
+            hueSlider.onValueChanged.AddListener(_ => OnHSVChanged());
 
-        SetAlpha(0);
+        if (satSlider != null)
+            satSlider.onValueChanged.AddListener(_ => OnHSVChanged());
+
+        if (valSlider != null)
+            valSlider.onValueChanged.AddListener(_ => OnHSVChanged());
+
+        if (hexInput != null)
+            hexInput.onEndEdit.AddListener(OnHexInput);
+
+        SyncFromBrush();
     }
 
-    void OnEnable()
+    void OnHSVChanged()
     {
-        StartCoroutine(TrySubscribe());
+        float h = hueSlider != null ? hueSlider.value : 0f;
+        float s = satSlider != null ? satSlider.value : 1f;
+        float v = valSlider != null ? valSlider.value : 1f;
+        var color = Color.HSVToRGB(h, s, v);
+        BrushSettings.Instance.color = color;
+
+        if (colorPreview != null)
+            colorPreview.color = color;
+
+        if (hexInput != null)
+            hexInput.text = ColorUtility.ToHtmlStringRGB(color);
     }
 
-    private IEnumerator TrySubscribe()
+    void OnHexInput(string hex)
     {
-        while (DialogueManager.Instance == null)
-            yield return null;
-
-        SubscribeDialogue();
-    }
-
-    void OnDisable() => UnsubscribeDialogue();
-
-    void OnDestroy() => OnRegionClicked = null;
-
-    private void SubscribeDialogue()
-    {
-        if (isDialogueSubscribed)
-            return;
-
-        DialogueManager.Instance.OnDialogueStart += HandleDialogueStarted;
-        isDialogueSubscribed = true;
-    }
-
-    private void UnsubscribeDialogue()
-    {
-        if (!isDialogueSubscribed || DialogueManager.Instance == null)
-            return;
-
-        DialogueManager.Instance.OnDialogueStart -= HandleDialogueStarted;
-        isDialogueSubscribed = false;
-    }
-
-    public void OnPointerEnter(PointerEventData eventData)
-    {
-        if (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue())
-            return;
-
-        StartFade(1f);
-    }
-
-    public void OnPointerExit(PointerEventData eventData)
-    {
-        StartFade(0f);
-    }
-
-    public void OnPointerClick(PointerEventData eventData)
-    {
-        if (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue())
-            return;
-
-        if (fadeRoutine != null)
-            StopCoroutine(fadeRoutine);
-
-        currentAlpha = 0f;
-        SetAlpha(0f);
-        OnRegionClicked?.Invoke();
-    }
-
-    private void HandleDialogueStarted(DialogueNode node)
-    {
-        StartFade(0f);
-    }
-
-    private void StartFade(float target)
-    {
-        if (fadeRoutine != null)
-            StopCoroutine(fadeRoutine);
-
-        fadeRoutine = StartCoroutine(FadeRoutine(target));
-    }
-
-    private IEnumerator FadeRoutine(float targetAlpha)
-    {
-        while (!Mathf.Approximately(currentAlpha, targetAlpha))
+        if (ColorUtility.TryParseHtmlString("#" + hex, out var color))
         {
-            float finalTarget = (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue()) ? 0f : targetAlpha;
-            currentAlpha = Mathf.MoveTowards(currentAlpha, finalTarget, Time.deltaTime * fadeSpeed);
-            SetAlpha(currentAlpha);
-            yield return null;
+            BrushSettings.Instance.color = color;
+            if (colorPreview != null) colorPreview.color = color;
+            Color.RGBToHSV(color, out float h, out float s, out float v);
+
+            if (hueSlider != null)
+                hueSlider.value = h;
+
+            if (satSlider != null)
+                satSlider.value = s;
+
+            if (valSlider != null)
+                valSlider.value = v;
         }
     }
 
-    private void SetAlpha(float a)
+    void SyncFromBrush()
     {
-        Color c = hoverShape.color;
-        c.a = a * maxAlpha;
-        hoverShape.color = c;
+        var c = BrushSettings.Instance.color;
+        Color.RGBToHSV(c, out float h, out float s, out float v);
+
+        if (hueSlider != null)
+            hueSlider.value = h;
+
+        if (satSlider != null)
+            satSlider.value = s;
+
+        if (valSlider != null)
+            valSlider.value = v;
+
+        if (colorPreview != null)
+            colorPreview.color = c;
     }
 }

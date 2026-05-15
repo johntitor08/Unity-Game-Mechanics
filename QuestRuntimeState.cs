@@ -1,98 +1,124 @@
 using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+using System.Collections.Generic;
 
-public class QuestMarker : MonoBehaviour
+public class IconSelectionUI : MonoBehaviour
 {
-    [Header("Quest")]
-    public string questID;
-    public string objectiveID;
+    [Header("Panel")]
+    public GameObject selectionPanel;
+    public KeyCode toggleKey = KeyCode.I;
 
-    [Header("Visual")]
-    public GameObject markerVisual;
-    public float floatHeight = 0.5f;
-    public float floatSpeed = 1f;
+    [Header("Grid")]
+    public Transform iconGrid;
+    public GameObject iconSlotPrefab;
 
-    private Vector3 startPos;
-    private bool isVisible = false;
-    private System.Action<QuestData> onQuestStarted;
-    private System.Action<QuestData> onQuestCompleted;
-    private System.Action<QuestData, QuestObjective> onObjectiveCompleted;
+    [Header("Database")]
+    public ProfileIconDatabase iconDatabase;
 
-    void Start()
+    [Header("Selected Preview")]
+    public Image previewImage;
+    public TextMeshProUGUI previewNameText;
+    public TextMeshProUGUI previewCostText;
+    public Button selectButton;
+    public TextMeshProUGUI selectButtonText;
+    private string hoveredIconID;
+    private readonly List<IconSlotUI> spawnedSlots = new();
+
+    private void OnEnable()
     {
-        startPos = transform.position;
-        onQuestStarted = _ => RefreshVisibility();
-        onQuestCompleted = _ => RefreshVisibility();
-        onObjectiveCompleted = (_, __) => RefreshVisibility();
-        RefreshVisibility();
-
-        if (QuestManager.Instance != null)
-            Subscribe(QuestManager.Instance);
-        else
-            QuestManager.OnReady += OnQuestManagerReady;
+        ProfileManager.Instance.OnProfileChanged += OnProfileChanged;
+        BuildGrid();
     }
 
-    void Update()
+    private void OnDisable()
     {
-        if (!isVisible || markerVisual == null)
-            return;
-
-        float newY = startPos.y + Mathf.Sin(Time.time * floatSpeed) * floatHeight;
-        transform.position = new Vector3(startPos.x, newY, startPos.z);
+        if (ProfileManager.Instance != null)
+            ProfileManager.Instance.OnProfileChanged -= OnProfileChanged;
     }
 
-    void OnDestroy()
+    private void Update()
     {
-        QuestManager.OnReady -= OnQuestManagerReady;
-
-        if (QuestManager.Instance != null)
-            Unsubscribe(QuestManager.Instance);
-    }
-
-    void OnQuestManagerReady()
-    {
-        QuestManager.OnReady -= OnQuestManagerReady;
-        Subscribe(QuestManager.Instance);
-        RefreshVisibility();
-    }
-
-    void Subscribe(QuestManager qm)
-    {
-        qm.OnQuestStarted += onQuestStarted;
-        qm.OnQuestCompleted += onQuestCompleted;
-        qm.OnObjectiveCompleted += onObjectiveCompleted;
-    }
-
-    void Unsubscribe(QuestManager qm)
-    {
-        qm.OnQuestStarted -= onQuestStarted;
-        qm.OnQuestCompleted -= onQuestCompleted;
-        qm.OnObjectiveCompleted -= onObjectiveCompleted;
-    }
-
-    void RefreshVisibility()
-    {
-        if (QuestManager.Instance == null)
-            return;
-
-        if (string.IsNullOrEmpty(objectiveID))
+        if (Input.GetKeyDown(toggleKey) && selectionPanel != null)
         {
-            isVisible = QuestManager.Instance.IsQuestActive(questID);
+            selectionPanel.SetActive(!selectionPanel.activeSelf);
+
+            if (selectionPanel.activeSelf)
+                BuildGrid();
         }
-        else
+    }
+
+    private void BuildGrid()
+    {
+        foreach (var slot in spawnedSlots)
+            if (slot != null) Destroy(slot.gameObject);
+
+        spawnedSlots.Clear();
+        if (iconDatabase == null || iconGrid == null || iconSlotPrefab == null) return;
+
+        foreach (var entry in iconDatabase.icons)
         {
-            var quest = QuestManager.Instance.GetActiveQuest(questID);
-            isVisible = false;
+            var go = Instantiate(iconSlotPrefab, iconGrid);
+            var slot = go.GetComponent<IconSlotUI>();
+            if (slot == null) continue;
+            bool unlocked = ProfileManager.Instance.IsIconUnlocked(entry.id);
+            bool selected = ProfileManager.Instance.profile.profileIconID == entry.id;
+            slot.Setup(entry, unlocked, selected, OnSlotClicked);
+            spawnedSlots.Add(slot);
+        }
+    }
 
-            if (quest != null)
+    private void OnSlotClicked(string iconID)
+    {
+        hoveredIconID = iconID;
+        var entry = iconDatabase.icons.Find(e => e.id == iconID);
+        bool unlocked = ProfileManager.Instance.IsIconUnlocked(iconID);
+        bool selected = ProfileManager.Instance.profile.profileIconID == iconID;
+
+        if (previewImage != null)
+            previewImage.sprite = entry.sprite;
+
+        if (previewNameText != null)
+            previewNameText.text = entry.displayName;
+
+        if (previewCostText != null)
+            previewCostText.text = unlocked ? "Unlocked" : $"{entry.cost} Gold";
+
+        if (selectButton != null)
+        {
+            selectButton.interactable = !selected;
+
+            if (selectButtonText != null)
             {
-                var objective = QuestManager.Instance.GetObjective(quest, objectiveID);
-
-                if (objective != null)
-                    isVisible = !QuestManager.Instance.GetObjectiveState(questID, objectiveID).isCompleted;
+                if (selected) selectButtonText.text = "Selected";
+                else if (unlocked) selectButtonText.text = "Select";
+                else selectButtonText.text = $"Buy ({entry.cost} Gold)";
             }
         }
-
-        if (markerVisual != null)
-            markerVisual.SetActive(isVisible);
     }
+
+    public void OnSelectButtonClicked()
+    {
+        if (string.IsNullOrEmpty(hoveredIconID)) return;
+        bool unlocked = ProfileManager.Instance.IsIconUnlocked(hoveredIconID);
+
+        if (unlocked)
+        {
+            ProfileManager.Instance.SelectIcon(hoveredIconID);
+        }
+        else
+        {
+            var entry = iconDatabase.icons.Find(e => e.id == hoveredIconID);
+            bool success = ProfileManager.Instance.PurchaseIcon(hoveredIconID, entry.cost);
+
+            if (success)
+                ProfileManager.Instance.SelectIcon(hoveredIconID);
+            else
+            {
+                Debug.Log("Not enough currency.");
+            }
+        }
+    }
+
+    private void OnProfileChanged(PlayerProfile _) => BuildGrid();
 }
