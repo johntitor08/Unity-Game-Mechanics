@@ -1,141 +1,217 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class FusionUI : MonoBehaviour
+public class EquipmentSlotUI : MonoBehaviour
 {
-    public static FusionUI Instance;
-    private EquipmentData selectedA;
-    private EquipmentData selectedB;
+    [Header("UI References")]
+    public Image iconImage;
+    public Image backgroundImage;
+    public TextMeshProUGUI slotNameText;
+    public TextMeshProUGUI upgradeBadgeText;
+    public GameObject emptyIndicator;
+    public Button slotButton;
 
-    [Header("Slots")]
-    public Button slotA;
-    public Button slotB;
-    public Image iconA;
-    public Image iconB;
-    public TextMeshProUGUI nameA;
-    public TextMeshProUGUI nameB;
+    [Header("Visual Feedback")]
+    public Color emptyColor = new(0.3f, 0.3f, 0.3f, 0.5f);
 
-    [Header("Result Preview")]
-    public Image resultIcon;
-    public TextMeshProUGUI resultName;
-    public TextMeshProUGUI successChanceText;
-
-    [Header("Controls")]
-    public Button fuseButton;
-    public TextMeshProUGUI statusText;
+    private Sprite emptySprite;
+    private Sprite commonSprite;
+    private Sprite rareSprite;
+    private Sprite epicSprite;
+    private Sprite legendarySprite;
+    private Sprite godlySprite;
+    private EquipmentSlot slotType;
+    private EquipmentInstance currentInstance;
+    private Button iconButton;
+    public event Action<EquipmentInstance> OnItemClicked;
+    public event Action<EquipmentInstance> OnDetailClicked;
 
     void Awake()
     {
-        if (Instance != null)
-        {
-            Destroy(gameObject);
-            return;
-        }
+        if (slotButton != null)
+            slotButton.onClick.AddListener(ShowDetailPanel);
 
-        Instance = this;
+        if (iconImage != null && iconImage.TryGetComponent<Button>(out var ib))
+        {
+            iconButton = ib;
+            iconButton.onClick.AddListener(ShowEquipmentPanel);
+        }
     }
 
     void OnEnable()
     {
-        fuseButton.onClick.RemoveAllListeners();
-        fuseButton.onClick.AddListener(OnFuseClicked);
-        ClearAll();
+        if (EquipmentManager.Instance != null)
+            EquipmentManager.Instance.OnEquipmentChanged += Refresh;
     }
 
-    public void SelectItem(EquipmentData equipment)
+    void OnDisable()
     {
-        if (equipment == null)
+        if (EquipmentManager.Instance != null)
+            EquipmentManager.Instance.OnEquipmentChanged -= Refresh;
+    }
+
+    public void Setup(EquipmentSlot slot)
+    {
+        slotType = slot;
+
+        if (slotNameText != null)
+            slotNameText.text = GetSlotDisplayName(slot);
+
+        Refresh();
+    }
+
+    public void SetRaritySprites(Sprite empty, Sprite common, Sprite rare, Sprite epic, Sprite legendary, Sprite godly)
+    {
+        emptySprite = empty;
+        commonSprite = common;
+        rareSprite = rare;
+        epicSprite = epic;
+        legendarySprite = legendary;
+        godlySprite = godly;
+    }
+
+    public void Refresh()
+    {
+        if (EquipmentManager.Instance == null)
             return;
 
-        if (selectedA == null)
-            selectedA = equipment;
-        else if (selectedB == null)
-            selectedB = equipment;
+        currentInstance = EquipmentManager.Instance.GetEquipped(slotType);
+
+        if (currentInstance != null)
+            ShowEquipped(currentInstance);
         else
-        {
-            selectedA = selectedB;
-            selectedB = equipment;
-        }
-
-        RefreshSlots();
-        RefreshPreview();
+            ShowEmpty();
     }
 
-    void RefreshSlots()
+    void ShowEquipped(EquipmentInstance instance)
     {
-        SetSlot(iconA, nameA, selectedA);
-        SetSlot(iconB, nameB, selectedB);
+        var data = instance.baseData;
+
+        if (iconImage != null)
+        {
+            iconImage.sprite = data.icon;
+            iconImage.color = Color.white;
+            iconImage.enabled = true;
+        }
+
+        if (backgroundImage != null)
+        {
+            Sprite s = GetRaritySprite(data.rarity);
+
+            if (s != null)
+            {
+                backgroundImage.sprite = s;
+                backgroundImage.color = Color.white;
+            }
+            else
+            {
+                backgroundImage.sprite = null;
+                Color c = data.GetRarityColor();
+                c.a = 0.7f;
+                backgroundImage.color = c;
+            }
+        }
+
+        if (upgradeBadgeText != null)
+        {
+            upgradeBadgeText.gameObject.SetActive(instance.upgradeLevel > 0);
+            upgradeBadgeText.text = $"+{instance.upgradeLevel}";
+        }
+
+        if (emptyIndicator != null)
+            emptyIndicator.SetActive(false);
+
+        if (slotButton != null)
+            slotButton.interactable = true;
+
+        if (iconButton != null)
+            iconButton.interactable = true;
     }
 
-    void SetSlot(Image icon, TextMeshProUGUI label, EquipmentData eq)
+    void ShowEmpty()
     {
-        if (eq != null)
+        if (iconImage != null)
         {
-            icon.sprite = eq.icon;
-            icon.enabled = true;
-            label.text = eq.itemName;
+            iconImage.sprite = null;
+            iconImage.color = emptyColor;
+            iconImage.enabled = false;
         }
-        else
+
+        if (backgroundImage != null)
         {
-            icon.enabled = false;
-            label.text = "—";
+            if (emptySprite != null)
+            {
+                backgroundImage.sprite = emptySprite;
+                backgroundImage.color = Color.white;
+            }
+            else
+            {
+                backgroundImage.sprite = null;
+                backgroundImage.color = emptyColor;
+            }
         }
+
+        if (upgradeBadgeText != null)
+            upgradeBadgeText.gameObject.SetActive(false);
+
+        if (emptyIndicator != null)
+            emptyIndicator.SetActive(true);
+
+        if (slotButton != null)
+            slotButton.interactable = false;
+
+        if (iconButton != null)
+            iconButton.interactable = false;
     }
 
-    void RefreshPreview()
+    Sprite GetRaritySprite(Rarity rarity) => rarity switch
     {
-        if (selectedA == null || selectedB == null)
-        {
-            resultIcon.enabled = false;
-            resultName.text = "";
-            successChanceText.text = "";
-            fuseButton.interactable = false;
+        Rarity.Common => commonSprite,
+        Rarity.Rare => rareSprite,
+        Rarity.Epic => epicSprite,
+        Rarity.Legendary => legendarySprite,
+        Rarity.Godly => godlySprite,
+        _ => null
+    };
+
+    public void ShowEquipmentPanel()
+    {
+        if (currentInstance == null)
             return;
-        }
 
-        var recipe = FusionManager.Instance.FindRecipe(selectedA, selectedB);
+        if (EquipmentUI.Instance != null)
+            EquipmentUI.Instance.OpenItemPanel(currentInstance);
 
-        if (recipe != null)
-        {
-            resultIcon.sprite = recipe.result.icon;
-            resultIcon.enabled = true;
-            resultName.text = recipe.result.itemName;
-            successChanceText.text = $"Success: {recipe.successChance * 100:0}%";
-            fuseButton.interactable = FusionManager.Instance.CanFuse(selectedA, selectedB);
-            statusText.text = "";
-        }
-        else
-        {
-            resultIcon.enabled = false;
-            resultName.text = "No recipe found";
-            successChanceText.text = "";
-            fuseButton.interactable = false;
-        }
+        OnItemClicked?.Invoke(currentInstance);
     }
 
-    void OnFuseClicked()
+    public void ShowDetailPanel()
     {
-        if (selectedA == null || selectedB == null || FusionManager.Instance == null)
-        {
-            statusText.text = "Select two items to fuse.";
+        if (currentInstance == null)
             return;
-        }
 
-        var result = FusionManager.Instance.Fuse(selectedA, selectedB);
-        ClearAll();
+        if (EquipmentUI.Instance != null)
+            EquipmentUI.Instance.OpenDetailPanel(currentInstance);
 
-        if (result != null)
-            statusText.text = $"Created: {result.itemName}!";
-        else
-            statusText.text = "Fusion failed — items were not consumed.";
+        OnDetailClicked?.Invoke(currentInstance);
     }
 
-    void ClearAll()
+    static string GetSlotDisplayName(EquipmentSlot slot) => slot switch
     {
-        selectedA = null;
-        selectedB = null;
-        RefreshSlots();
-        RefreshPreview();
-    }
+        EquipmentSlot.Weapon => "Weapon",
+        EquipmentSlot.Armor => "Armor",
+        EquipmentSlot.Helmet => "Helmet",
+        EquipmentSlot.Accessory => "Accessory",
+        EquipmentSlot.Shield => "Shield",
+        EquipmentSlot.Boots => "Boots",
+        _ => "Unknown"
+    };
+
+    public EquipmentData GetEquippedItem() => currentInstance?.baseData;
+
+    public EquipmentInstance GetEquippedInstance() => currentInstance;
+
+    public EquipmentSlot GetSlotType() => slotType;
 }

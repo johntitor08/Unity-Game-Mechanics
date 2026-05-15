@@ -1,92 +1,271 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-public class StatusEffectUI : MonoBehaviour
+[RequireComponent(typeof(IStatOwner))]
+public class StatusEffectManager : MonoBehaviour
 {
-    [Header("References")]
-    public StatusEffectManager effectManager;
-    public Transform iconContainer;
-    public StatusEffectIcon iconPrefab;
+    [Header("Effect Settings")]
+    public Transform particleParent;
+    public List<ActiveStatusEffect> activeEffects = new();
 
-    private readonly List<StatusEffectIcon> activeIcons = new();
-    private bool isSubscribed = false;
+    public event Action<StatusEffectData> OnEffectApplied;
+    public event Action<StatusEffectData> OnEffectRemoved;
+    public event Action<StatusEffectData, int> OnEffectTick;
+    public event Action<StatusEffectData> OnEffectExpired;
+    private IStatOwner statOwner;
 
-    void OnEnable()
+    private void Awake()
     {
-        TrySubscribe();
+        statOwner = GetComponent<IStatOwner>();
+
+        if (statOwner == null)
+            Debug.LogError($"{name}: IStatOwner component missing!", this);
+
+        if (particleParent == null)
+            particleParent = transform;
     }
 
-    void OnDisable()
+    private void Update()
     {
-        if (isSubscribed && effectManager != null)
-        {
-            effectManager.OnEffectApplied -= OnEffectApplied;
-            effectManager.OnEffectRemoved -= OnEffectRemoved;
-            isSubscribed = false;
-        }
+        UpdateEffects();
     }
 
-    void TrySubscribe()
+    private void UpdateEffects()
     {
-        if (effectManager != null && !isSubscribed)
-        {
-            effectManager.OnEffectApplied += OnEffectApplied;
-            effectManager.OnEffectRemoved += OnEffectRemoved;
-            isSubscribed = true;
-        }
-    }
-
-    void Update()
-    {
-        if (effectManager == null)
+        if (activeEffects.Count == 0)
             return;
 
-        for (int i = activeIcons.Count - 1; i >= 0; i--)
-        {
-            var icon = activeIcons[i];
+        float dt = Time.deltaTime;
 
-            if (icon == null)
+        for (int i = activeEffects.Count - 1; i >= 0; i--)
+        {
+            var effect = activeEffects[i];
+
+            if (!effect.data.isPermanent && !effect.data.isRoundBased)
+            {
+                effect.remainingDuration -= dt;
+
+                if (effect.IsExpired())
+                {
+                    RemoveEffect(effect);
+                    continue;
+                }
+            }
+
+            if (effect.data.hasTicks && effect.data.tickInterval > 0f)
+            {
+                effect.nextTickTime -= dt;
+
+                while (effect.nextTickTime <= 0f)
+                {
+                    ProcessTick(effect);
+                    effect.nextTickTime += effect.data.tickInterval;
+                }
+            }
+        }
+    }
+
+    public void OnEnemyTurnStart()
+    {
+        for (int i = activeEffects.Count - 1; i >= 0; i--)
+        {
+            var effect = activeEffects[i];
+
+            if (!effect.data.isRoundBased)
                 continue;
 
-            ActiveStatusEffect effect = effectManager.GetActiveEffect(icon.effectType);
+            ProcessTick(effect);
+            effect.remainingRounds--;
 
-            if (effect != null)
-            {
-                icon.UpdateEffect(effect);
-            }
-            else
-            {
-                activeIcons.RemoveAt(i);
-                Destroy(icon.gameObject);
-            }
+            if (effect.remainingRounds <= 0)
+                RemoveEffect(effect);
         }
     }
 
-    private void OnEffectApplied(StatusEffectData effect)
+    public void ApplyEffect(StatusEffectData effectData)
     {
-        StatusEffectIcon icon = activeIcons.FirstOrDefault(i => i.effectType == effect.effectType);
+        if (effectData == null || statOwner == null)
+            return;
 
-        if (icon != null)
+        ActiveStatusEffect existing = GetActiveEffect(effectData.effectType);
+
+        if (existing != null)
         {
-            icon.UpdateEffect(effectManager.GetActiveEffect(effect.effectType));
+            if (effectData.canStack)
+            {
+                existing.AddStack();
+                ApplyStatModifiers(existing, true);
+            }
+
+            if (effectData.refreshOnReapply)
+            {
+                existing.RefreshDuration();
+                OnEffectApplied?.Invoke(existing.data);
+            }
+
+            return;
         }
+
+        ActiveStatusEffect newEffect = new(effectData);
+        activeEffects.Add(newEffect);
+        ApplyStatModifiers(newEffect, true);
+
+        if (effectData.particleEffectPrefab != null && particleParent != null)
+        {
+            newEffect.particleInstance = Instantiate(effectData.particleEffectPrefab, particleParent);
+            newEffect.particleInstance.transform.localPosition = Vector3.zero;
+        }
+
+        PlaySound(effectData.applySound);
+        OnEffectApplied?.Invoke(effectData);
+
+        if (effectData.statModifiers != null && effectData.statModifiers.Length > 0)
+            SaveSystem.SaveGame();
+    }
+
+    private void RemoveEffect(ActiveStatusEffect effect)
+    {
+        if (effect == null || statOwner == null)
+            return;
+
+        ApplyStatModifiers(effect, false);
+
+        if (effect.particleInstance != null)
+            Destroy(effect.particleInstance);
+
+        activeEffects.Remove(effect);
+        OnEffectExpired?.Invoke(effect.data);
+        OnEffectRemoved?.Invoke(effect.data);
+
+        if (effect.data.statModifiers != null && effect.data.statModifiers.Length > 0)
+            SaveSystem.SaveGame();
+    }
+
+    private void ProcessTick(ActiveStatusEffect effect)
+    {
+        if (effect == null || statOwner == null)
+            return;
+
+        int totalDamage = effect.data.tickDamage * effect.currentStacks;
+
+        if (totalDamage != 0)
+        {
+            statOwner.Modify(StatType.Health, -totalDamage, false);
+            OnEffectTick?.Invoke(effect.data, totalDamage);
+            PlaySound(effect.data.tickSound);
+        }
+    }
+
+    public void RemoveEffect(StatusEffectType type)
+    {
+        ActiveStatusEffect effect = GetActiveEffect(type);
+
+        if (effect != null)
+            RemoveEffect(effect);
+    }
+
+    public void RemoveAllEffects()
+    {
+        for (int i = activeEffects.Count - 1; i >= 0; i--)
+            RemoveEffect(activeEffects[i]);
+    }
+
+    public void RemoveAllDebuffs()
+    {
+        for (int i = activeEffects.Count - 1; i >= 0; i--)
+        {
+            if (activeEffects[i].data.isDebuff && activeEffects[i].data.isPurgeableByPlayer)
+                RemoveEffect(activeEffects[i]);
+        }
+    }
+
+    public bool HasEffect(StatusEffectType type) => GetActiveEffect(type) != null;
+
+    public ActiveStatusEffect GetActiveEffect(StatusEffectType type) => activeEffects.FirstOrDefault(e => e.data.effectType == type);
+
+    public bool CanAct() => !activeEffects.Any(e => e.data.preventActions);
+
+    public bool CanMove() => !activeEffects.Any(e => e.data.preventMovement);
+
+    public float GetDamageMultiplier()
+    {
+        float multiplier = 1f;
+
+        foreach (var effect in activeEffects)
+            multiplier *= effect.data.damageMultiplier != 0f ? effect.data.damageMultiplier : 1f;
+
+        return multiplier;
+    }
+
+    public float GetDamageReduction()
+    {
+        float reduction = 0f;
+
+        foreach (var effect in activeEffects)
+            reduction += effect.data.damageReduction;
+
+        return Mathf.Clamp01(reduction);
+    }
+
+    private void ApplyStatModifiers(ActiveStatusEffect effect, bool apply)
+    {
+        if (effect.data.statModifiers == null || statOwner == null)
+            return;
+
+        if (apply)
+            ApplyAndSnapshot(effect);
         else
+            RemoveFromSnapshot(effect);
+    }
+
+    private void ApplyAndSnapshot(ActiveStatusEffect effect)
+    {
+        var mods = effect.data.statModifiers;
+
+        for (int i = 0; i < mods.Length; i++)
         {
-            icon = Instantiate(iconPrefab, iconContainer);
-            icon.Setup(effectManager.GetActiveEffect(effect.effectType));
-            activeIcons.Add(icon);
+            var mod = mods[i];
+            int newAmount;
+
+            if (mod.isPercentage)
+                newAmount = Mathf.RoundToInt(statOwner.Get(mod.statType) * (mod.amount * effect.currentStacks) / 100f);
+            else
+                newAmount = mod.amount * effect.currentStacks;
+
+            if (newAmount == 0)
+                continue;
+
+            effect.appliedModifierAmounts.TryGetValue(i, out int alreadyApplied);
+            int delta = newAmount - alreadyApplied;
+
+            if (delta == 0)
+                continue;
+
+            effect.appliedModifierAmounts[i] = newAmount;
+            statOwner.Modify(mod.statType, delta, false);
         }
     }
 
-    private void OnEffectRemoved(StatusEffectData effect)
+    private void RemoveFromSnapshot(ActiveStatusEffect effect)
     {
-        StatusEffectIcon icon = activeIcons.FirstOrDefault(i => i.effectType == effect.effectType);
+        var mods = effect.data.statModifiers;
 
-        if (icon != null)
+        for (int i = 0; i < mods.Length; i++)
         {
-            activeIcons.Remove(icon);
-            Destroy(icon.gameObject);
+            if (!effect.appliedModifierAmounts.TryGetValue(i, out int applied) || applied == 0)
+                continue;
+
+            statOwner.Modify(mods[i].statType, -applied, false);
         }
+
+        effect.appliedModifierAmounts.Clear();
+    }
+
+    private void PlaySound(AudioClip clip)
+    {
+        if (clip != null && Camera.main != null)
+            AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, 0.5f);
     }
 }

@@ -1,69 +1,75 @@
-using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 
-public class LootNotificationUI : MonoBehaviour
+[CreateAssetMenu(fileName = "ItemData", menuName = "Inventory/ItemData")]
+public class ItemData : ScriptableObject
 {
-    public static LootNotificationUI Instance;
-    private static readonly Queue<GameObject> notificationPool = new();
+    [Header("Identity")]
+    public string itemID;
+    public string itemName;
+    public Sprite icon;
+    [TextArea]
+    public string description;
 
-    [Header("Notification")]
-    public GameObject notificationPrefab;
-    public Transform notificationParent;
-    public float notificationDuration = 3f;
+    [Header("Type")]
+    public ItemType itemType = ItemType.Consumable;
 
-    void Awake()
+    [Header("Stacking")]
+    public bool stackable = true;
+    public int maxStack = 99;
+
+    [Header("Usage")]
+    public bool useable;
+    public UnityEvent onUse;
+
+    [Header("Economy")]
+    public int basePrice = 10;
+
+    [Header("Rarity")]
+    public Rarity rarity = Rarity.Common;
+
+    public virtual bool IsEquipment()
     {
-        if (Instance == null)
-            Instance = this;
-        else
-            Destroy(gameObject);
+        return itemType == ItemType.Equipment || this is EquipmentData;
     }
 
-    private void OnDestroy()
+    public Color GetRarityColor()
     {
-        notificationPool.Clear();
+        return rarity switch
+        {
+            Rarity.Common => new Color(0.8f, 0.8f, 0.8f),
+            Rarity.Rare => new Color(0.2f, 0.5f, 1f),
+            Rarity.Epic => new Color(0.8f, 0.2f, 0.8f),
+            Rarity.Legendary => new Color(1f, 0.6f, 0f),
+            Rarity.Godly => new Color(1f, 0.15f, 0.15f),
+            _ => Color.white
+        };
     }
 
-    public void ShowLoot(EquipmentData equipment)
+    public float GetRarityMultiplier()
     {
-        if (equipment == null)
-            return;
-
-        string message = $"+1 {equipment.itemName}";
-        Color color = equipment.GetRarityColor();
-        ShowNotification(message, color, equipment.icon);
+        return rarity switch
+        {
+            Rarity.Common => 1f,
+            Rarity.Rare => 1.5f,
+            Rarity.Epic => 2.5f,
+            Rarity.Legendary => 5f,
+            Rarity.Godly => 10f,
+            _ => 1f
+        };
     }
 
-    public void ShowLoot(ItemData item)
+    public int GetSellPrice(float sellRatio = 0.5f)
     {
-        if (item == null)
-            return;
-
-        string message = $"+1 {item.itemName}";
-        ShowNotification(message, Color.white, item.icon);
+        return Mathf.RoundToInt(basePrice * GetRarityMultiplier() * sellRatio);
     }
+}
 
-    void ShowNotification(string message, Color color, Sprite icon = null)
-    {
-        GameObject notification = GetNotification();
-        
-        if (notification.TryGetComponent<LootNotification>(out LootNotification notifScript))
-            notifScript.Setup(message, color, icon, notificationDuration);
-
-        notification.SetActive(true);
-    }
-
-    GameObject GetNotification()
-    {
-        if (notificationPool.Count > 0)
-            return notificationPool.Dequeue();
-
-        return Instantiate(notificationPrefab, notificationParent);
-    }
-
-    public void ReturnToPool(GameObject notification)
-    {
-        notification.SetActive(false);
-        notificationPool.Enqueue(notification);
-    }
+public enum Rarity
+{
+    Common,
+    Rare,
+    Epic,
+    Legendary,
+    Godly
 }

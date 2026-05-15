@@ -1,74 +1,165 @@
+using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
-using UnityEngine.Events;
+using UnityEngine.UI;
 
-[CreateAssetMenu(menuName = "Dialogue/Dialogue Node")]
-public class DialogueNode : ScriptableObject
+public class CurrencyUI : MonoBehaviour
 {
-    [Header("Speaker")]
-    public string speakerName = "NPC";
-    public Sprite speakerPortrait;
-    public Color speakerNameColor = Color.gold;
+    public static CurrencyUI Instance;
+    private readonly Dictionary<CurrencyType, Coroutine> animationCoroutines = new();
+    private readonly Dictionary<CurrencyType, CurrencyDisplay> displayDict = new();
+    public GameObject panel;
+    private bool _subscribed;
+    private bool gameStarted = false;
 
-    [Header("Dialogue Lines")]
-    [TextArea(2, 5)]
-    public string[] lines;
+    [Header("Currency Displays")]
+    public List<CurrencyDisplay> currencyDisplays = new();
 
-    [Header("Choices")]
-    public DialogueChoice[] choices;
+    [System.Serializable]
+    public class CurrencyDisplay
+    {
+        public CurrencyType type;
+        public GameObject container;
+        public Image icon;
+        public TextMeshProUGUI amountText;
+        public bool animateOnChange = true;
+    }
 
-    [Header("Auto Continue")]
-    public bool autoAdvance = false;
-    public float autoAdvanceDelay = 3f;
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
 
-    [Header("Events")]
-    public UnityEvent onEnter;
-    public UnityEvent onExit;
+        Instance = this;
 
-    [Header("Camera")]
-    public bool changeCameraOnEnter = false;
-    public string cameraTargetTag = "MainCamera";
+        foreach (var display in currencyDisplays)
+            displayDict[display.type] = display;
+    }
 
-    [Header("Background")]
-    public Sprite backgroundImage;
-    public bool fadeToBlack = false;
+    void Start()
+    {
+        Subscribe();
+    }
 
-    [Header("Scene")]
-    public SceneProgress sceneContext = SceneProgress.Scene1;
+    private void Update()
+    {
+        if (!gameStarted)
+            return;
 
-    public bool isFinalNode;
-}
+        if (Input.GetKeyDown(KeyCode.C))
+            panel.SetActive(!panel.activeSelf);
+    }
 
-[System.Serializable]
-public class DialogueChoice
-{
-    [Header("Choice Text")]
-    public string choiceText;
-    public DialogueNode nextNode;
+    void OnEnable()
+    {
+        if (!_subscribed)
+            Subscribe();
+    }
 
-    [Header("Conditions")]
-    public bool requiresItem;
-    public ItemData requiredItem;
-    public bool requiresStat;
-    public StatType requiredStat;
-    public int requiredStatValue;
-    public bool requiresCurrency;
-    public CurrencyType requiredCurrency;
-    public int requiredCurrencyAmount;
-    public bool requiresFlag;
-    public string requiredFlag;
+    void OnDisable()
+    {
+        Unsubscribe();
+    }
 
-    [Header("Effects")]
-    public bool consumeItem;
-    public bool setFlag;
-    public string flagToSet;
+    private void Subscribe()
+    {
+        if (CurrencyManager.Instance == null)
+            return;
 
-    [Header("Rewards")]
-    public bool giveReward;
-    public CurrencyReward[] currencyRewards;
-    public ItemData[] itemRewards;
-    public int experienceReward;
+        CurrencyManager.Instance.OnCurrencyChanged += OnCurrencyChanged;
+        _subscribed = true;
+        RefreshAll();
+    }
 
-    [Header("Visual")]
-    public Color choiceColor = Color.black;
-    public bool isDisabledChoice = false;
+    private void Unsubscribe()
+    {
+        if (CurrencyManager.Instance == null)
+            return;
+
+        CurrencyManager.Instance.OnCurrencyChanged -= OnCurrencyChanged;
+        _subscribed = false;
+    }
+
+    public void OnGameStarted()
+    {
+        gameStarted = true;
+    }
+
+    void OnCurrencyChanged(CurrencyType type, int oldAmount, int newAmount)
+    {
+        UpdateDisplay(type, newAmount);
+
+        if (displayDict.TryGetValue(type, out var display) && display.animateOnChange)
+        {
+            if (animationCoroutines.TryGetValue(type, out var existing) && existing != null)
+                StopCoroutine(existing);
+
+            animationCoroutines[type] = StartCoroutine(
+                AnimateCountUp(display.amountText, oldAmount, newAmount, 0.5f)
+            );
+        }
+    }
+
+    public void UpdateMultiple(Dictionary<CurrencyType, int> newAmounts)
+    {
+        foreach (var kvp in newAmounts)
+            UpdateDisplay(kvp.Key, kvp.Value);
+    }
+
+    void UpdateDisplay(CurrencyType type, int amount)
+    {
+        if (!displayDict.TryGetValue(type, out var display))
+            return;
+
+        if (display.amountText != null)
+            display.amountText.text = FormatCurrency(amount);
+
+        if (display.icon != null)
+        {
+            var currencyInfo = CurrencyManager.Instance.GetCurrencyInfo(type);
+
+            if (currencyInfo != null && currencyInfo.icon != null)
+                display.icon.sprite = currencyInfo.icon;
+        }
+    }
+
+    System.Collections.IEnumerator AnimateCountUp(TextMeshProUGUI text, int start, int end, float duration)
+    {
+        if (start == end)
+            yield break;
+
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            text.text = FormatCurrency(Mathf.RoundToInt(Mathf.Lerp(start, end, t)));
+            yield return null;
+        }
+
+        text.text = FormatCurrency(end);
+    }
+
+    string FormatCurrency(int amount)
+    {
+        if (amount >= 1_000_000)
+            return $"{amount / 1_000_000f:F1}M";
+        else if (amount >= 1_000)
+            return $"{amount / 1_000f:F1}K";
+        else
+            return amount.ToString();
+    }
+
+    void RefreshAll()
+    {
+        foreach (var type in displayDict.Keys)
+        {
+            int amount = CurrencyManager.Instance.Get(type);
+            UpdateDisplay(type, amount);
+        }
+    }
 }

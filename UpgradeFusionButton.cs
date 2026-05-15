@@ -1,96 +1,116 @@
 using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
+using UnityEngine.UI;
+using System.Collections.Generic;
 
-public class UpgradeFusionButton : MonoBehaviour
+[RequireComponent(typeof(CanvasGroup))]
+public class EquipmentTooltip : MonoBehaviour
 {
-    [Header("References")]
-    public Button upgradeButton;
-    public TextMeshProUGUI upgradeButtonText;
+    public static EquipmentTooltip Instance;
+    private CanvasGroup canvasGroup;
+    private readonly List<TextMeshProUGUI> activeSetTexts = new();
 
-    private EquipmentData watchedItem;
+    [Header("UI References")]
+    public TextMeshProUGUI nameText;
+    public TextMeshProUGUI statsText;
+    public TextMeshProUGUI requirementsText;
+    public TextMeshProUGUI rarityText;
+    public Transform setBonusParent;
+    public TextMeshProUGUI setBonusTextPrefab;
+    public Image backgroundImage;
+    public RectTransform backgroundRect;
 
     void Awake()
     {
-        if (upgradeButton != null)
-            upgradeButton.onClick.AddListener(OnUpgradeClicked);
-    }
-
-    void OnEnable()
-    {
-        if (EquipmentManager.Instance != null)
-            EquipmentManager.Instance.OnEquipmentChanged += Refresh;
-
-        if (InventoryManager.Instance != null)
-            InventoryManager.Instance.OnInventoryChanged += Refresh;
-    }
-
-    void OnDisable()
-    {
-        if (EquipmentManager.Instance != null)
-            EquipmentManager.Instance.OnEquipmentChanged -= Refresh;
-
-        if (InventoryManager.Instance != null)
-            InventoryManager.Instance.OnInventoryChanged -= Refresh;
-    }
-
-    public void SetItem(EquipmentData item)
-    {
-        watchedItem = item;
-        Refresh();
-    }
-
-    void Refresh()
-    {
-        if (upgradeButton == null)
-            return;
-
-        if (watchedItem == null)
+        if (Instance != null && Instance != this)
         {
-            upgradeButton.gameObject.SetActive(false);
+            Destroy(gameObject);
             return;
         }
 
-        bool canUpgrade = FusionManager.Instance != null && FusionManager.Instance.CanUpgradeFuse(watchedItem);
-        upgradeButton.gameObject.SetActive(canUpgrade);
-
-        if (!canUpgrade || upgradeButtonText == null)
-            return;
-
-        int bestLevel = 0;
-        var em = EquipmentManager.Instance;
-
-        if (em != null)
-        {
-            var equipped = em.GetEquipped(watchedItem.slot);
-
-            if (equipped != null && equipped.baseData.itemID == watchedItem.itemID)
-                bestLevel = Mathf.Max(bestLevel, equipped.upgradeLevel);
-        }
-
-        if (InventoryManager.Instance != null)
-        {
-            foreach (var (inst, _) in InventoryManager.Instance.GetEquipmentInstances())
-                if (inst.baseData.itemID == watchedItem.itemID)
-                    bestLevel = Mathf.Max(bestLevel, inst.upgradeLevel);
-        }
-
-        upgradeButtonText.text = $"Upgrade  +{bestLevel} → +{bestLevel + 1}";
+        Instance = this;
+        canvasGroup = GetComponent<CanvasGroup>();
+        Hide();
     }
 
-    void OnUpgradeClicked()
+    void Update()
     {
-        if (watchedItem == null || FusionManager.Instance == null)
+        if (canvasGroup.alpha > 0)
+        {
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(transform.parent as RectTransform, Input.mousePosition, null, out Vector2 position);
+            backgroundRect.anchoredPosition = position + new Vector2(10, -10);
+        }
+    }
+
+    public void Show(EquipmentData equipment)
+    {
+        if (equipment == null)
             return;
 
-        var result = FusionManager.Instance.UpgradeFuse(watchedItem);
+        canvasGroup.alpha = 1f;
+        canvasGroup.blocksRaycasts = false;
+        nameText.text = equipment.itemName;
+        rarityText.text = equipment.rarity.ToString();
+        statsText.text = equipment.GetStatsDescription();
+        requirementsText.text = GetRequirementsText(equipment);
+        Color rarityColor = equipment.GetRarityColor();
+        nameText.color = rarityColor;
+        rarityText.color = rarityColor;
 
-        if (result != null)
+        if (backgroundImage != null)
+            backgroundImage.color = rarityColor * new Color(1f, 1f, 1f, 0.2f);
+
+        UpdateSetBonuses(equipment);
+    }
+
+    void UpdateSetBonuses(EquipmentData equipment)
+    {
+        foreach (var t in activeSetTexts)
+            if (t != null) t.gameObject.SetActive(false);
+
+        if (EquipmentManager.Instance == null || setBonusParent == null || setBonusTextPrefab == null || equipment.setData == null)
+            return;
+
+        int pieces = EquipmentManager.Instance.GetEquippedSetPieces(equipment.setData.setID);
+        var bonuses = equipment.setData.bonuses;
+
+        while (activeSetTexts.Count < bonuses.Count)
+            activeSetTexts.Add(Instantiate(setBonusTextPrefab, setBonusParent));
+
+        for (int i = 0; i < activeSetTexts.Count; i++)
         {
-            if (ItemDetailPanel.Instance != null)
-                ItemDetailPanel.Instance.ShowItemDetail(result.baseData, -1, result.upgradeLevel);
-        }
+            if (i >= bonuses.Count)
+            {
+                activeSetTexts[i].gameObject.SetActive(false);
+                continue;
+            }
 
-        Refresh();
+            var bonus = bonuses[i];
+            activeSetTexts[i].text = $"{bonus.requiredPieces}-Piece: +{bonus.value} {bonus.stat}";
+            activeSetTexts[i].color = pieces >= bonus.requiredPieces ? bonus.requiredPieces switch { 2 => Color.green, 3 => Color.cyan, 4 => new Color(0.8f, 0f, 0.8f), _ => Color.white } : Color.gray;
+            activeSetTexts[i].gameObject.SetActive(true);
+        }
+    }
+
+    public void Hide()
+    {
+        canvasGroup.alpha = 0f;
+        canvasGroup.blocksRaycasts = false;
+
+        foreach (var t in activeSetTexts)
+            if (t != null) t.gameObject.SetActive(false);
+    }
+
+    string GetRequirementsText(EquipmentData equipment)
+    {
+        string text = "";
+
+        if (equipment.requiredLevel > 1)
+            text += $"Level {equipment.requiredLevel}+ required\n";
+
+        if (equipment.requiredStatValue > 0)
+            text += $"{equipment.requiredStat} {equipment.requiredStatValue}+ required";
+
+        return text;
     }
 }

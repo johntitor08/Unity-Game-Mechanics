@@ -1,75 +1,41 @@
-﻿using TMPro;
+using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
 
-public class StatusEffectIcon : MonoBehaviour
+[System.Serializable]
+public class ActiveStatusEffect
 {
-    [Header("UI Elements")]
-    public Image iconImage;
-    public Image backgroundImage;
-    public TextMeshProUGUI durationText;
-    public TextMeshProUGUI stackText;
-    public Image fillImage;
+    public StatusEffectData data;
+    public float remainingDuration;
+    public float nextTickTime;
+    public int currentStacks;
+    public GameObject particleInstance;
+    public int remainingRounds;
+    public readonly Dictionary<int, int> appliedModifierAmounts = new();
 
-    [HideInInspector]
-    public StatusEffectType effectType;
-
-    private ActiveStatusEffect currentEffect;
-
-    public void Setup(ActiveStatusEffect effect)
+    public ActiveStatusEffect(StatusEffectData effectData)
     {
-        currentEffect = effect;
-        effectType = effect.data.effectType;
-
-        if (iconImage != null && effect.data.icon != null)
-            iconImage.sprite = effect.data.icon;
-
-        if (backgroundImage != null)
-        {
-            Color bgColor = effect.data.effectColor;
-            bgColor.a = 0.5f;
-            backgroundImage.color = bgColor;
-        }
-
-        if (fillImage != null)
-            fillImage.color = effect.data.effectColor;
-
-        UpdateEffect(effect);
+        data = effectData;
+        remainingDuration = effectData.duration;
+        nextTickTime = 0f;
+        currentStacks = 1;
+        remainingRounds = effectData.durationRounds;
     }
 
-    public void UpdateEffect(ActiveStatusEffect effect)
+    public bool IsExpired()
     {
-        currentEffect = effect;
+        return !data.isPermanent && remainingDuration <= 0f;
+    }
 
-        if (durationText != null)
-        {
-            if (effect.data.isPermanent)
-            {
-                durationText.text = "∞";
-            }
-            else
-            {
-                durationText.text = Mathf.Ceil(effect.remainingDuration).ToString();
-            }
-        }
+    public void RefreshDuration()
+    {
+        remainingDuration = data.duration;
+    }
 
-        if (stackText != null)
+    public void AddStack()
+    {
+        if (data.canStack && currentStacks < data.maxStacks)
         {
-            if (effect.data.canStack && effect.currentStacks > 1)
-            {
-                stackText.gameObject.SetActive(true);
-                stackText.text = $"x{effect.currentStacks}";
-            }
-            else
-            {
-                stackText.gameObject.SetActive(false);
-            }
-        }
-
-        if (fillImage != null && !effect.data.isPermanent)
-        {
-            float fillAmount = effect.remainingDuration / effect.data.duration;
-            fillImage.fillAmount = fillAmount;
+            currentStacks++;
         }
     }
 }

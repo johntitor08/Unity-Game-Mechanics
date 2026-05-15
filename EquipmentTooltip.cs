@@ -1,116 +1,247 @@
 using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
 using System.Collections.Generic;
+using System;
 
-[RequireComponent(typeof(CanvasGroup))]
-public class EquipmentTooltip : MonoBehaviour
+public class EquipmentManager : MonoBehaviour
 {
-    public static EquipmentTooltip Instance;
-    private CanvasGroup canvasGroup;
-    private readonly List<TextMeshProUGUI> activeSetTexts = new();
+    public static EquipmentManager Instance;
+    private readonly Dictionary<EquipmentSlot, EquipmentInstance> equippedItems = new();
+    private readonly Dictionary<int, int> activeSetPieces = new();
+    public event Action OnEquipmentChanged;
+    public event Action<EquipmentInstance> OnEquipmentEquipped;
+    public event Action<EquipmentInstance> OnEquipmentUnequipped;
+    public static event Action OnReady;
 
-    [Header("UI References")]
-    public TextMeshProUGUI nameText;
-    public TextMeshProUGUI statsText;
-    public TextMeshProUGUI requirementsText;
-    public TextMeshProUGUI rarityText;
-    public Transform setBonusParent;
-    public TextMeshProUGUI setBonusTextPrefab;
-    public Image backgroundImage;
-    public RectTransform backgroundRect;
+    [Header("Equipment Sets")]
+    public EquipmentSetBonus[] equipmentSets;
 
     void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (Instance == null)
         {
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+            activeSetPieces.Clear();
+        }
+        else
             Destroy(gameObject);
-            return;
+    }
+
+    void Start() => OnReady?.Invoke();
+
+    public EquipmentInstance GetEquipped(EquipmentSlot slot) => equippedItems.TryGetValue(slot, out var v) ? v : null;
+
+    public bool IsEquipped(EquipmentData data)
+    {
+        if (data == null)
+            return false;
+
+        foreach (var kvp in equippedItems)
+            if (kvp.Value != null && kvp.Value.baseData.itemID == data.itemID)
+                return true;
+
+        return false;
+    }
+
+    public Dictionary<EquipmentSlot, EquipmentInstance> GetAllEquipped() => new(equippedItems);
+
+    public int GetTotalDamageBonus()
+    {
+        int total = 0;
+
+        foreach (var inst in equippedItems.Values)
+            total += inst.GetDamageBonus();
+
+        return total;
+    }
+
+    public int GetTotalDefenseBonus()
+    {
+        int total = 0;
+
+        foreach (var inst in equippedItems.Values)
+            total += inst.GetDefenseBonus();
+
+        return total;
+    }
+
+    public bool CanEquip(EquipmentInstance instance)
+    {
+        if (instance == null || instance.baseData == null || IsEquipped(instance.baseData))
+            return false;
+
+        if (ProfileManager.Instance != null && ProfileManager.Instance.profile.level < instance.baseData.requiredLevel)
+        {
+            Debug.Log($"Level {instance.baseData.requiredLevel} required!");
+            return false;
         }
 
-        Instance = this;
-        canvasGroup = GetComponent<CanvasGroup>();
-        Hide();
-    }
-
-    void Update()
-    {
-        if (canvasGroup.alpha > 0)
+        if (instance.baseData.requiredStatValue > 0 && PlayerStats.Instance != null)
         {
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(transform.parent as RectTransform, Input.mousePosition, null, out Vector2 position);
-            backgroundRect.anchoredPosition = position + new Vector2(10, -10);
-        }
-    }
+            int cur = PlayerStats.Instance.Get(instance.baseData.requiredStat);
 
-    public void Show(EquipmentData equipment)
-    {
-        if (equipment == null)
-            return;
-
-        canvasGroup.alpha = 1f;
-        canvasGroup.blocksRaycasts = false;
-        nameText.text = equipment.itemName;
-        rarityText.text = equipment.rarity.ToString();
-        statsText.text = equipment.GetStatsDescription();
-        requirementsText.text = GetRequirementsText(equipment);
-        Color rarityColor = equipment.GetRarityColor();
-        nameText.color = rarityColor;
-        rarityText.color = rarityColor;
-
-        if (backgroundImage != null)
-            backgroundImage.color = rarityColor * new Color(1f, 1f, 1f, 0.2f);
-
-        UpdateSetBonuses(equipment);
-    }
-
-    void UpdateSetBonuses(EquipmentData equipment)
-    {
-        foreach (var t in activeSetTexts)
-            if (t != null) t.gameObject.SetActive(false);
-
-        if (EquipmentManager.Instance == null || setBonusParent == null || setBonusTextPrefab == null || equipment.setData == null)
-            return;
-
-        int pieces = EquipmentManager.Instance.GetEquippedSetPieces(equipment.setData.setID);
-        var bonuses = equipment.setData.bonuses;
-
-        while (activeSetTexts.Count < bonuses.Count)
-            activeSetTexts.Add(Instantiate(setBonusTextPrefab, setBonusParent));
-
-        for (int i = 0; i < activeSetTexts.Count; i++)
-        {
-            if (i >= bonuses.Count)
+            if (cur < instance.baseData.requiredStatValue)
             {
-                activeSetTexts[i].gameObject.SetActive(false);
-                continue;
+                Debug.Log($"{instance.baseData.requiredStat} {instance.baseData.requiredStatValue} required!");
+                return false;
             }
+        }
 
-            var bonus = bonuses[i];
-            activeSetTexts[i].text = $"{bonus.requiredPieces}-Piece: +{bonus.value} {bonus.stat}";
-            activeSetTexts[i].color = pieces >= bonus.requiredPieces ? bonus.requiredPieces switch { 2 => Color.green, 3 => Color.cyan, 4 => new Color(0.8f, 0f, 0.8f), _ => Color.white } : Color.gray;
-            activeSetTexts[i].gameObject.SetActive(true);
+        return true;
+    }
+
+    public bool CanEquip(EquipmentData data) => data != null && CanEquip(new EquipmentInstance(data));
+
+    public bool Equip(EquipmentInstance instance)
+    {
+        if (!CanEquip(instance))
+            return false;
+
+        if (equippedItems.TryGetValue(instance.baseData.slot, out var existing))
+        {
+            RemoveStats(existing);
+            equippedItems.Remove(instance.baseData.slot);
+            UpdateSetBonuses();
+            OnEquipmentUnequipped?.Invoke(existing);
+
+            if (InventoryManager.Instance != null)
+                InventoryManager.Instance.AddInstance(existing, 1);
+        }
+
+        if (InventoryManager.Instance != null)
+            InventoryManager.Instance.RemoveInstance(instance, 1);
+
+        equippedItems[instance.baseData.slot] = instance;
+        ApplyStats(instance);
+        UpdateSetBonuses();
+        OnEquipmentEquipped?.Invoke(instance);
+        OnEquipmentChanged?.Invoke();
+        SaveSystem.SaveGame();
+        return true;
+    }
+
+    public bool Equip(EquipmentData data) => data != null && Equip(new EquipmentInstance(data));
+
+    public bool Unequip(EquipmentSlot slot, bool returnToInventory = true, bool save = true)
+    {
+        if (!equippedItems.TryGetValue(slot, out var instance))
+            return false;
+
+        RemoveStats(instance);
+        equippedItems.Remove(slot);
+        UpdateSetBonuses();
+        OnEquipmentUnequipped?.Invoke(instance);
+        OnEquipmentChanged?.Invoke();
+
+        if (returnToInventory && InventoryManager.Instance != null)
+            InventoryManager.Instance.AddInstance(instance, 1);
+
+        if (save)
+            SaveSystem.SaveGame();
+
+        return true;
+    }
+
+    public bool UpgradeEquipped(EquipmentSlot slot)
+    {
+        if (!equippedItems.TryGetValue(slot, out var instance) || !instance.CanUpgrade())
+            return false;
+
+        ApplyUpgradeDelta(instance);
+        instance.upgradeLevel++;
+        OnEquipmentChanged?.Invoke();
+        SaveSystem.SaveGame();
+        return true;
+    }
+
+    void ApplyStats(EquipmentInstance inst) => ModifyStats(inst, 1);
+
+    void RemoveStats(EquipmentInstance inst) => ModifyStats(inst, -1);
+
+    void ModifyStats(EquipmentInstance inst, int mult)
+    {
+        if (PlayerStats.Instance == null)
+            return;
+
+        if (inst.GetDamageBonus() != 0)
+            PlayerStats.Instance.Modify(StatType.Damage, inst.GetDamageBonus() * mult, false);
+
+        if (inst.GetDefenseBonus() != 0)
+            PlayerStats.Instance.Modify(StatType.Defense, inst.GetDefenseBonus() * mult, false);
+
+        if (inst.GetPrimaryBonus() != 0)
+            PlayerStats.Instance.Modify(inst.baseData.primaryStat, inst.GetPrimaryBonus() * mult, false);
+
+        if (inst.GetSecondaryBonus() != 0)
+            PlayerStats.Instance.Modify(inst.baseData.secondaryStat, inst.GetSecondaryBonus() * mult, false);
+    }
+
+    void ApplyUpgradeDelta(EquipmentInstance inst)
+    {
+        if (PlayerStats.Instance == null)
+            return;
+
+        if (inst.baseData.damageBonus > 0)
+            PlayerStats.Instance.Modify(StatType.Damage, 1, false);
+
+        if (inst.baseData.defenseBonus > 0)
+            PlayerStats.Instance.Modify(StatType.Defense, 1, false);
+
+        if (inst.baseData.primaryStatBonus > 0)
+            PlayerStats.Instance.Modify(inst.baseData.primaryStat, 1, false);
+
+        if (inst.baseData.secondaryStatBonus > 0)
+            PlayerStats.Instance.Modify(inst.baseData.secondaryStat, 1, false);
+    }
+
+    public int GetEquippedSetPieces(int setID)
+    {
+        int count = 0;
+
+        foreach (var inst in equippedItems.Values)
+            if (inst.baseData.setData != null && inst.baseData.setData.setID == setID)
+                count++;
+
+        return count;
+    }
+
+    void UpdateSetBonuses()
+    {
+        if (equipmentSets == null || PlayerStats.Instance == null)
+            return;
+
+        foreach (var set in equipmentSets)
+        {
+            int prev = activeSetPieces.TryGetValue(set.data.setID, out int p) ? p : 0;
+            int curr = GetEquippedSetPieces(set.data.setID);
+
+            if (prev == curr)
+                continue;
+
+            set.Apply(prev, false);
+            set.Apply(curr, true);
+            activeSetPieces[set.data.setID] = curr;
         }
     }
 
-    public void Hide()
+    public List<string> GetActiveSetBonusDescriptions()
     {
-        canvasGroup.alpha = 0f;
-        canvasGroup.blocksRaycasts = false;
+        var list = new List<string>();
 
-        foreach (var t in activeSetTexts)
-            if (t != null) t.gameObject.SetActive(false);
-    }
+        if (equipmentSets == null)
+            return list;
 
-    string GetRequirementsText(EquipmentData equipment)
-    {
-        string text = "";
+        foreach (var set in equipmentSets)
+        {
+            int pieces = GetEquippedSetPieces(set.data.setID);
 
-        if (equipment.requiredLevel > 1)
-            text += $"Level {equipment.requiredLevel}+ required\n";
+            if (pieces == 0)
+                continue;
 
-        if (equipment.requiredStatValue > 0)
-            text += $"{equipment.requiredStat} {equipment.requiredStatValue}+ required";
+            list.Add($"{set.data.setName} ({pieces}/{set.data.totalPieces})");
+            list.Add(set.GetDescription(pieces));
+        }
 
-        return text;
+        return list;
     }
 }

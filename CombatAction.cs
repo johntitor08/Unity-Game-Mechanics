@@ -1,74 +1,48 @@
+using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
-[System.Serializable]
-public class CombatAction
+public class BuffUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
-    [Header("Basic Info")]
-    public string actionName = "Attack";
-    public string description = "A basic attack";
-    public Sprite icon;
+    public Image icon;
+    public TextMeshProUGUI timerText;
+    public GameObject tooltip;
+    public TextMeshProUGUI tooltipText;
+    private string buffName;
+    private float duration;
 
-    [Header("Damage")]
-    public int baseDamage = 10;
-    public StatType scalingStat = StatType.Strength;
-    public float statScaling = 0.5f;
-
-    [Header("Energy Cost")]
-    public int energyCost = 10;
-
-    [Header("Defensive")]
-    public bool isDefensive = false;
-    public int defenseBonus = 30;
-    public float defenseStatScaling = 0.5f;
-    public int healAmount = 0;
-
-    [Header("Special Effects")]
-    public bool guaranteedCrit = false;
-    public float critChanceBonus = 0f;
-    public bool ignoreDefense = false;
-
-    [Header("Armor Interaction")]
-    [Range(0f, 1f)]
-    public float armorPenetration = 0f;
-
-    [Header("Flee")]
-    public bool isFlee = false;
-    public bool isDisabled = false;
-
-    [Header("Buff")]
-    public bool applyBuff = false;
-    public string buffId;
-    public string buffDisplayName;
-    public PlayerBuffManager.BuffType buffType;
-    public float buffDamageMultiplier = 1f;
-    public float buffDamageReduction = 0f;
-    public float buffDuration = 5f;
-    public Sprite buffIcon;
-
-    public int CalculateDamage()
+    public void Setup(Sprite buffIcon, string name, float duration)
     {
-        if (PlayerStats.Instance == null)
-            return baseDamage;
+        icon.sprite = buffIcon;
+        buffName = name;
+        this.duration = duration;
+        timerText.text = duration.ToString("F1") + "s";
 
-        int statValue = PlayerStats.Instance.Get(scalingStat);
-        int damage = baseDamage + Mathf.RoundToInt(statValue * statScaling);
-
-        if (EquipmentManager.Instance != null)
-            damage += EquipmentManager.Instance.GetTotalDamageBonus();
-
-        return Mathf.Max(1, damage);
+        if (tooltip != null)
+        {
+            tooltip.SetActive(false);
+            tooltipText.text = $"{buffName}\nDuration: {duration:F1}s";
+        }
     }
 
-    public int CalculateDefenseBonus()
+    public void UpdateTimer(float timeLeft)
     {
-        int bonus = defenseBonus;
+        timerText.text = Mathf.Max(0f, timeLeft).ToString("F1") + "s";
 
-        if (PlayerStats.Instance != null)
-            bonus += Mathf.RoundToInt(PlayerStats.Instance.Get(StatType.Defense) * defenseStatScaling);
+        if (tooltip != null)
+            tooltipText.text = $"{buffName}\nDuration: {Mathf.Max(0f, timeLeft):F1}s";
+    }
 
-        if (EquipmentManager.Instance != null)
-            bonus += Mathf.RoundToInt(EquipmentManager.Instance.GetTotalDefenseBonus() * defenseStatScaling);
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (tooltip != null)
+            tooltip.SetActive(true);
+    }
 
-        return bonus;
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        if (tooltip != null)
+            tooltip.SetActive(false);
     }
 }

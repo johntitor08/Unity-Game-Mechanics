@@ -1,114 +1,90 @@
-using System.Collections.Generic;
-using System.Linq;
+ï»¿using System;
+using System.Collections;
+using TMPro;
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "EquipmentLootTable", menuName = "Equipment/Equipment Loot Table")]
-public class EquipmentLootTable : ScriptableObject
+public class Typewriter : MonoBehaviour
 {
-    [System.Serializable]
-    public class EquipmentDrop
+    [Header("Settings")]
+    public float speed = 0.03f;
+    public bool skipPunctuation = true;
+    public float punctuationDelay = 0.2f;
+
+    [Header("Audio")]
+    public AudioClip typeSound;
+    public float typeSoundVolume = 0.3f;
+    public bool playSoundPerCharacter = true;
+
+    private Coroutine routine;
+    private bool isTyping;
+    private string cachedText;
+    private TextMeshProUGUI cachedTextUI;
+    public event Action OnTypingComplete;
+    public bool IsTyping => isTyping;
+
+    public void StartTyping(TextMeshProUGUI textUI, string text)
     {
-        public EquipmentData equipment;
-        [Range(0f, 1f)]
-        public float baseDropChance = 0.5f;
-        [Tooltip("Bu drop için minimum luck deðeri")]
-        public int minLuckRequired = 0;
+        if (routine != null)
+            StopCoroutine(routine);
+
+        cachedText = text;
+        cachedTextUI = textUI;
+        routine = StartCoroutine(Type());
     }
 
-    [Header("Equipment Pool")]
-    public List<EquipmentDrop> possibleEquipment = new();
-
-    [Header("Rarity Drop Chances")]
-    [Range(0f, 1f)] public float commonChance = 0.50f;
-    [Range(0f, 1f)] public float rareChance = 0.15f;
-    [Range(0f, 1f)] public float epicChance = 0.04f;
-    [Range(0f, 1f)] public float legendaryChance = 0.01f;
-
-    [Header("Drop Settings")]
-    public int minDrops = 0;
-    public int maxDrops = 2;
-    [Range(0f, 1f)]
-    public float equipmentDropChance = 0.3f;
-
-    [Header("Luck Bonus")]
-    [Tooltip("Her luck puaný için ekstra þans (%)")]
-    public float luckBonusPerPoint = 0.5f;
-
-    public List<EquipmentData> RollLoot(int playerLuck)
+    IEnumerator Type()
     {
-        List<EquipmentData> droppedItems = new();
-        float totalDropChance = equipmentDropChance + (playerLuck * luckBonusPerPoint / 100f);
+        isTyping = true;
+        cachedTextUI.text = "";
 
-        if (Random.value > totalDropChance)
+        foreach (char c in cachedText)
         {
-            return droppedItems;
+            cachedTextUI.text += c;
+
+            if (playSoundPerCharacter && typeSound != null && !char.IsWhiteSpace(c))
+                PlayTypeSound();
+
+            if (skipPunctuation && IsPunctuation(c))
+                yield return new WaitForSeconds(punctuationDelay);
+            else
+                yield return new WaitForSeconds(speed);
         }
 
-        int dropCount = Random.Range(minDrops, maxDrops + 1);
-
-        for (int i = 0; i < dropCount; i++)
-        {
-            EquipmentData item = RollSingleItem(playerLuck);
-
-            if (item != null)
-            {
-                droppedItems.Add(item);
-            }
-        }
-
-        return droppedItems;
+        isTyping = false;
+        routine = null;
+        OnTypingComplete?.Invoke();
     }
 
-    EquipmentData RollSingleItem(int playerLuck)
+    public void Complete(TextMeshProUGUI textUI)
     {
-        Rarity targetRarity = RollRarity(playerLuck);
-        var eligibleItems = possibleEquipment.Where(e => e.equipment != null && e.equipment.rarity == targetRarity && playerLuck >= e.minLuckRequired).ToList();
+        if (!isTyping)
+            return;
 
-        if (eligibleItems.Count == 0)
-        {
-            eligibleItems = possibleEquipment.Where(e => e.equipment != null && playerLuck >= e.minLuckRequired).ToList();
+        if (routine != null)
+            StopCoroutine(routine);
 
-            if (eligibleItems.Count == 0)
-                return null;
-        }
-
-        float totalWeight = eligibleItems.Sum(e => e.baseDropChance);
-        float roll = Random.value * totalWeight;
-        float current = 0f;
-
-        foreach (var drop in eligibleItems)
-        {
-            current += drop.baseDropChance;
-
-            if (roll <= current)
-            {
-                return drop.equipment;
-            }
-        }
-
-        return eligibleItems[Random.Range(0, eligibleItems.Count)].equipment;
+        textUI.text = cachedText;
+        isTyping = false;
+        routine = null;
+        OnTypingComplete?.Invoke();
     }
 
-    Rarity RollRarity(int playerLuck)
+    bool IsPunctuation(char c)
     {
-        float luckBonus = Mathf.Min(playerLuck * luckBonusPerPoint / 100f, 0.05f);
-        float roll = Random.value;
-        float cumulative = 0f;
-        cumulative += legendaryChance + luckBonus;
+        return c == '.' || c == ',' || c == '!' || c == '?' || c == ';' || c == ':';
+    }
 
-        if (roll <= cumulative)
-            return Rarity.Legendary;
+    private AudioSource _audioSource;
 
-        cumulative += epicChance + luckBonus * 0.5f;
+    void Awake()
+    {
+        _audioSource = gameObject.AddComponent<AudioSource>();
+        _audioSource.playOnAwake = false;
+    }
 
-        if (roll <= cumulative)
-            return Rarity.Epic;
-
-        cumulative += rareChance + luckBonus * 0.3f;
-
-        if (roll <= cumulative)
-            return Rarity.Rare;
-
-        return Rarity.Common;
+    void PlayTypeSound()
+    {
+        if (_audioSource != null && typeSound != null)
+            _audioSource.PlayOneShot(typeSound, typeSoundVolume);
     }
 }

@@ -1,189 +1,331 @@
 using System.Collections;
+using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-[RequireComponent(typeof(CanvasGroup))]
-public class DamageFlash : MonoBehaviour
+public class CombatUI : MonoBehaviour
 {
-    private static readonly WaitForSeconds _waitForSeconds0_05 = new(0.05f);
-    private Coroutine flashRoutine;
-    private Vector2 originalPosition;
-    private bool isSubscribed = false;
-    private StatsBase subscribedTarget;
+    private static readonly WaitForSeconds _waitForSeconds2 = new(2f);
+    public static CombatUI Instance;
+    private readonly List<CombatActionButton> actionButtons = new();
+    private bool actionLocked;
+    private readonly List<string> logLines = new();
+    public bool IsInCombat => CombatManager.Instance != null && CombatManager.Instance.inCombat;
+    public bool IsPlayerTurn => CombatManager.Instance != null && CombatManager.Instance.IsPlayerTurn();
+    public EnemyData CurrentEnemy => CombatManager.Instance != null ? CombatManager.Instance.currentEnemy : null;
 
-    [Header("Target Stats")]
-    [SerializeField] private StatsBase _statsTarget;
-    public StatsBase StatsTarget
-    {
-        get => _statsTarget;
-        set
-        {
-            if (_statsTarget != null)
-                _statsTarget.OnStatChanged -= HandleStatChanged;
+    [Header("Panels")]
+    public GameObject combatPanel;
+    public GameObject combatMapPanel;
 
-            _statsTarget = value;
-            isSubscribed = false;
-            TrySubscribe();
-        }
-    }
+    [Header("Enemy Display")]
+    public Image enemySprite;
+    public TextMeshProUGUI enemyNameText;
+    public Slider enemyHealthBar;
+    public TextMeshProUGUI enemyHealthText;
 
-    [Header("Flash Settings")]
-    public Image flashImage;
-    public Color damageColor = new(1f, 0f, 0f, 1f);
-    public Color healColor = new(0f, 1f, 0f, 1f);
-    public float flashDuration = 0.2f;
+    [Header("Player Display")]
+    public Slider playerHealthBar;
+    public TextMeshProUGUI playerHealthText;
+    public Slider playerEnergyBar;
+    public TextMeshProUGUI playerEnergyText;
 
-    [Header("Shake Settings")]
-    public bool enableShake = false;
-    public RectTransform shakeTarget;
-    public float shakeMagnitude = 5f;
-    public float shakeDuration = 0.1f;
+    [Header("Turn Indicator")]
+    public GameObject playerTurnIndicator;
+    public GameObject enemyTurnIndicator;
+    public TextMeshProUGUI turnText;
 
-    [Header("Health Bar")]
-    public Image healthBarFill;
+    [Header("Actions")]
+    public Transform actionsParent;
+    public CombatActionButton actionButtonPrefab;
+
+    [Header("Combat Log")]
+    public TextMeshProUGUI combatLogText;
+    public int maxLogLines = 8;
 
     void Awake()
     {
-        if (_statsTarget == null)
-        {
-            StatsBase localStats = GetComponentInParent<StatsBase>();
-            _statsTarget = localStats != null ? localStats : PlayerStats.Instance;
-        }
+        Instance = this;
+    }
 
-        if (flashImage != null)
-            flashImage.color = Color.white;
-
-        if (shakeTarget == null && flashImage != null)
-            shakeTarget = flashImage.rectTransform;
-
-        if (shakeTarget != null)
-            originalPosition = shakeTarget.anchoredPosition;
+    void Start()
+    {
+        if (combatPanel != null)
+            combatPanel.SetActive(false);
     }
 
     void OnEnable()
     {
-        TrySubscribe();
+        StartCoroutine(SubscribeWhenReady());
     }
 
     void OnDisable()
     {
-        if (isSubscribed && subscribedTarget != null)
+        if (CombatManager.Instance != null)
         {
-            subscribedTarget.OnStatChanged -= HandleStatChanged;
-            isSubscribed = false;
-            subscribedTarget = null;
+            CombatManager.Instance.OnCombatStateChanged -= UpdateUI;
+            CombatManager.Instance.OnCombatLog -= AddLogMessage;
+            CombatManager.Instance.OnCombatStarted -= OnCombatStarted;
+            CombatManager.Instance.OnCombatEnded -= OnCombatEnded;
+            CombatManager.Instance.OnTurnChanged -= OnTurnChanged;
         }
 
-        if (flashRoutine != null)
+        if (PlayerStats.Instance != null)
         {
-            StopCoroutine(flashRoutine);
-            flashRoutine = null;
-        }
-
-        if (flashImage != null)
-            flashImage.color = Color.white;
-    }
-
-    void TrySubscribe()
-    {
-        if (subscribedTarget != null && subscribedTarget != _statsTarget)
-        {
-            subscribedTarget.OnStatChanged -= HandleStatChanged;
-            isSubscribed = false;
-            subscribedTarget = null;
-        }
-
-        if (_statsTarget != null && !isSubscribed)
-        {
-            _statsTarget.OnStatChanged += HandleStatChanged;
-            isSubscribed = true;
-            subscribedTarget = _statsTarget;
-
-            if (healthBarFill != null)
-            {
-                int health = _statsTarget.Get(StatType.Health);
-                int maxHealth = _statsTarget.Get(StatType.MaxHealth);
-                healthBarFill.fillAmount = Mathf.Clamp01((float)health / maxHealth);
-            }
+            PlayerStats.Instance.OnHealthChanged -= UpdatePlayerHealth;
+            PlayerStats.Instance.OnEnergyChanged -= UpdatePlayerEnergy;
         }
     }
 
-    private void HandleStatChanged(StatType type, int oldValue, int newValue)
+    IEnumerator SubscribeWhenReady()
     {
-        if (type != StatType.Health)
-            return;
-
-        int delta = newValue - oldValue;
-
-        if (delta == 0)
-            return;
-
-        Color color = delta < 0 ? damageColor : healColor;
-
-        if (flashRoutine != null)
-            StopCoroutine(flashRoutine);
-
-        flashRoutine = StartCoroutine(Flash(color));
-
-        if (enableShake && delta < 0)
-            StartCoroutine(Shake());
-
-        if (healthBarFill != null)
-        {
-            int maxHealth = _statsTarget.Get(StatType.MaxHealth);
-            healthBarFill.fillAmount = Mathf.Clamp01((float)newValue / maxHealth);
-        }
-    }
-
-    IEnumerator Flash(Color color)
-    {
-        if (flashImage == null)
-            yield break;
-
-        flashImage.color = Color.white;
-        yield return _waitForSeconds0_05;
-
-        float t = 0f;
-
-        while (t < flashDuration)
-        {
-            t += Time.deltaTime;
-            Color c = Color.Lerp(Color.white, color, t / flashDuration);
-            c.a = 1f;
-            flashImage.color = c;
-            yield return null;
-        }
-
-        flashImage.color = Color.white;
-    }
-
-    IEnumerator Shake()
-    {
-        if (shakeTarget == null)
-            yield break;
-
+        float timeout = 10f;
         float elapsed = 0f;
-        Vector2 startPos = originalPosition;
 
-        while (elapsed < shakeDuration)
+        while ((CombatManager.Instance == null || PlayerStats.Instance == null) && elapsed < timeout)
         {
             elapsed += Time.deltaTime;
-            float progress = elapsed / shakeDuration;
-            float damper = 1f - progress;
-            float x = Mathf.Sin(elapsed * 40f) * shakeMagnitude * damper * Random.Range(0.8f, 1.2f);
-            float y = Mathf.Sin(elapsed * 50f) * shakeMagnitude * damper * Random.Range(0.8f, 1.2f);
-            shakeTarget.anchoredPosition = startPos + new Vector2(x, y);
             yield return null;
         }
 
-        shakeTarget.anchoredPosition = startPos;
+        if (CombatManager.Instance == null || PlayerStats.Instance == null)
+        {
+            Debug.LogWarning("[CombatUI] CombatManager or PlayerStats not ready after 10s — giving up.");
+            yield break;
+        }
+
+        CombatManager.Instance.OnCombatStateChanged += UpdateUI;
+        CombatManager.Instance.OnCombatLog += AddLogMessage;
+        CombatManager.Instance.OnCombatStarted += OnCombatStarted;
+        CombatManager.Instance.OnCombatEnded += OnCombatEnded;
+        CombatManager.Instance.OnTurnChanged += OnTurnChanged;
+        PlayerStats.Instance.OnHealthChanged += UpdatePlayerHealth;
+        PlayerStats.Instance.OnEnergyChanged += UpdatePlayerEnergy;
     }
 
-    public void TriggerFlash(Color color)
+    void OnCombatStarted()
     {
-        if (flashRoutine != null)
-            StopCoroutine(flashRoutine);
+        if (combatPanel != null)
+            combatPanel.SetActive(true);
 
-        flashRoutine = StartCoroutine(Flash(color));
+        logLines.Clear();
+        UpdateUI();
+        SetupActionButtons();
+    }
+
+    void OnCombatEnded()
+    {
+        StartCoroutine(DelayedCombatClose());
+    }
+
+    IEnumerator DelayedCombatClose()
+    {
+        yield return _waitForSeconds2;
+
+        if (combatPanel != null)
+            combatPanel.SetActive(false);
+
+        logLines.Clear();
+        UpdateLogDisplay();
+    }
+
+    void OnTurnChanged(bool isPlayerTurn)
+    {
+        if (isPlayerTurn)
+            actionLocked = false;
+
+        if (playerTurnIndicator != null)
+            playerTurnIndicator.SetActive(isPlayerTurn);
+
+        if (enemyTurnIndicator != null)
+            enemyTurnIndicator.SetActive(!isPlayerTurn);
+
+        if (turnText != null)
+            turnText.text = isPlayerTurn ? "YOUR TURN" : "ENEMY TURN";
+
+        UpdateActionButtons(isPlayerTurn);
+    }
+
+    void UpdateUI()
+    {
+        if (CombatManager.Instance == null || !CombatManager.Instance.inCombat)
+        {
+            if (combatPanel != null)
+                combatPanel.SetActive(false);
+
+            return;
+        }
+
+        UpdateEnemyDisplay();
+        UpdatePlayerHealth();
+        UpdatePlayerEnergy();
+    }
+
+    void UpdateEnemyDisplay()
+    {
+        var enemyStats = CombatManager.Instance.enemyStats;
+        var enemyData = CombatManager.Instance.currentEnemy;
+
+        if (enemyStats == null || enemyData == null)
+            return;
+
+        if (enemySprite != null)
+            enemySprite.sprite = enemyData.sprite;
+
+        if (enemyNameText != null)
+            enemyNameText.text = enemyData.enemyName;
+
+        if (enemyHealthBar != null)
+        {
+            enemyHealthBar.maxValue = enemyStats.Get(StatType.MaxHealth);
+            enemyHealthBar.value = enemyStats.Get(StatType.Health);
+        }
+
+        if (enemyHealthText != null)
+            enemyHealthText.text = $"HP: {enemyStats.Get(StatType.Health)} / {enemyStats.Get(StatType.MaxHealth)}";
+    }
+
+    void UpdatePlayerHealth()
+    {
+        if (PlayerStats.Instance == null)
+            return;
+
+        int current = PlayerStats.Instance.Get(StatType.Health);
+        int max = PlayerStats.Instance.Get(StatType.MaxHealth);
+
+        if (playerHealthBar != null)
+        {
+            playerHealthBar.maxValue = max;
+            playerHealthBar.value = current;
+        }
+
+        if (playerHealthText != null)
+            playerHealthText.text = $"HP: {current} / {max}";
+    }
+
+    void UpdatePlayerEnergy()
+    {
+        if (PlayerStats.Instance == null)
+            return;
+
+        int current = PlayerStats.Instance.Get(StatType.Energy);
+        int max = PlayerStats.Instance.Get(StatType.MaxEnergy);
+
+        if (playerEnergyBar != null)
+        {
+            playerEnergyBar.maxValue = max;
+            playerEnergyBar.value = current;
+        }
+
+        if (playerEnergyText != null)
+            playerEnergyText.text = $"Energy: {current} / {max}";
+
+        if (IsInCombat)
+            RefreshActionButtonsByEnergy();
+    }
+
+    void RefreshActionButtonsByEnergy()
+    {
+        if (CombatManager.Instance == null || !CombatManager.Instance.IsPlayerTurn() || actionLocked)
+            return;
+
+        int currentEnergy = PlayerStats.Instance.Get(StatType.Energy);
+
+        foreach (var btn in actionButtons)
+        {
+            if (btn == null)
+                continue;
+
+            if (btn.action.isFlee)
+                btn.UpdateInteractable(true);
+            else
+                btn.UpdateInteractable(currentEnergy >= btn.action.energyCost);
+        }
+    }
+
+    void SetupActionButtons()
+    {
+        var actions = CombatManager.Instance != null ? CombatManager.Instance.GetAvailableActions() : null;
+
+        if (actions == null)
+            return;
+
+        for (int i = actionButtons.Count - 1; i >= actions.Count; i--)
+        {
+            if (actionButtons[i] != null)
+                Destroy(actionButtons[i].gameObject);
+
+            actionButtons.RemoveAt(i);
+        }
+
+        for (int i = 0; i < actions.Count; i++)
+        {
+            var action = actions[i];
+
+            if (action.isFlee)
+            {
+                int chance = Mathf.RoundToInt(CombatManager.Instance.GetFleeChance() * 100);
+                action.actionName = $"Kaç ({chance}%)";
+            }
+
+            if (i < actionButtons.Count)
+            {
+                actionButtons[i].Setup(action);
+            }
+            else
+            {
+                var btn = Instantiate(actionButtonPrefab, actionsParent);
+                btn.Setup(action);
+                actionButtons.Add(btn);
+            }
+        }
+
+        UpdateActionButtons(CombatManager.Instance.IsPlayerTurn());
+    }
+
+    public void DisableAllActionButtons()
+    {
+        actionLocked = true;
+
+        foreach (var btn in actionButtons)
+            if (btn != null)
+                btn.UpdateInteractable(false);
+    }
+
+    void UpdateActionButtons(bool isPlayerTurn)
+    {
+        if (!isPlayerTurn)
+        {
+            foreach (var btn in actionButtons)
+                if (btn != null)
+                    btn.UpdateInteractable(false);
+        }
+        else
+        {
+            RefreshActionButtonsByEnergy();
+        }
+    }
+
+    public void AddLogMessage(string message)
+    {
+        logLines.Add(message);
+
+        while (logLines.Count > maxLogLines)
+            logLines.RemoveAt(0);
+
+        UpdateLogDisplay();
+    }
+
+    void UpdateLogDisplay()
+    {
+        if (combatLogText != null)
+            combatLogText.text = string.Join("\n", logLines);
+    }
+
+    public void CloseButton()
+    {
+        if (combatMapPanel != null)
+            combatMapPanel.SetActive(false);
     }
 }

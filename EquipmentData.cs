@@ -1,57 +1,74 @@
 using UnityEngine;
+using UnityEngine.Events;
 
-[CreateAssetMenu(fileName = "EquipmentData", menuName = "Equipment/EquipmentData")]
-public class EquipmentData : ItemData
+[CreateAssetMenu(menuName = "Dialogue/Dialogue Node")]
+public class DialogueNode : ScriptableObject
 {
-    [Header("Equipment Properties")]
-    public EquipmentSlot slot;
+    [Header("Speaker")]
+    public string speakerName = "NPC";
+    public Sprite speakerPortrait;
+    public Color speakerNameColor = Color.gold;
 
-    [Header("Combat Bonuses")]
-    public int damageBonus = 0;
-    public int defenseBonus = 0;
+    [Header("Dialogue Lines")]
+    [TextArea(2, 5)]
+    public string[] lines;
 
-    [Header("Stat Bonuses")]
-    public StatType primaryStat;
-    public int primaryStatBonus = 0;
-    public StatType secondaryStat;
-    public int secondaryStatBonus = 0;
+    [Header("Choices")]
+    public DialogueChoice[] choices;
 
-    [Header("Requirements")]
-    public int requiredLevel = 1;
+    [Header("Auto Continue")]
+    public bool autoAdvance = false;
+    public float autoAdvanceDelay = 3f;
+
+    [Header("Events")]
+    public UnityEvent onEnter;
+    public UnityEvent onExit;
+
+    [Header("Camera")]
+    public bool changeCameraOnEnter = false;
+    public string cameraTargetTag = "MainCamera";
+
+    [Header("Background")]
+    public Sprite backgroundImage;
+    public bool fadeToBlack = false;
+
+    [Header("Scene")]
+    public SceneProgress sceneContext = SceneProgress.Scene1;
+
+    public bool isFinalNode;
+}
+
+[System.Serializable]
+public class DialogueChoice
+{
+    [Header("Choice Text")]
+    public string choiceText;
+    public DialogueNode nextNode;
+
+    [Header("Conditions")]
+    public bool requiresItem;
+    public ItemData requiredItem;
+    public bool requiresStat;
     public StatType requiredStat;
-    public int requiredStatValue = 0;
+    public int requiredStatValue;
+    public bool requiresCurrency;
+    public CurrencyType requiredCurrency;
+    public int requiredCurrencyAmount;
+    public bool requiresFlag;
+    public string requiredFlag;
 
-    [Header("Set Data")]
-    public EquipmentSetData setData;
+    [Header("Effects")]
+    public bool consumeItem;
+    public bool setFlag;
+    public string flagToSet;
 
-    [Header("Upgrade")]
-    public int maxUpgradeLevel = 5;
+    [Header("Rewards")]
+    public bool giveReward;
+    public CurrencyReward[] currencyRewards;
+    public ItemData[] itemRewards;
+    public int experienceReward;
 
-    void OnEnable()
-    {
-        itemType = ItemType.Equipment;
-        stackable = false;
-        maxStack = 1;
-    }
-
-    public override bool IsEquipment() => true;
-
-    public string GetStatsDescription()
-    {
-        string desc = "";
-
-        if (damageBonus > 0)
-            desc += $"Damage: +{damageBonus}\n";
-
-        if (defenseBonus > 0)
-            desc += $"Defense: +{defenseBonus}\n";
-
-        if (primaryStatBonus > 0)
-            desc += $"{primaryStat}: +{primaryStatBonus}\n";
-
-        if (secondaryStatBonus > 0)
-            desc += $"{secondaryStat}: +{secondaryStatBonus}\n";
-
-        return desc;
-    }
+    [Header("Visual")]
+    public Color choiceColor = Color.black;
+    public bool isDisabledChoice = false;
 }
