@@ -167,6 +167,7 @@ public class InventoryManager : MonoBehaviour
 
             result.Add((item, kv.Value));
         }
+
         return result;
     }
 
