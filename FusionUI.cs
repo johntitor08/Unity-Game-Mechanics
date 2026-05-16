@@ -128,7 +128,7 @@ public class FusionUI : MonoBehaviour
         if (result != null)
             statusText.text = $"Created: {result.itemName}!";
         else
-            statusText.text = "Fusion failed — items were not consumed.";
+            statusText.text = "Fusion failed — items were lost.";
     }
 
     void ClearAll()

@@ -10,7 +10,7 @@ public class ActiveStatusEffect
     public int currentStacks;
     public GameObject particleInstance;
     public int remainingRounds;
-    public readonly Dictionary<int, int> appliedModifierAmounts = new();
+    [System.NonSerialized] public Dictionary<int, int> appliedModifierAmounts = new();
 
     public ActiveStatusEffect(StatusEffectData effectData)
     {

@@ -57,13 +57,12 @@ public class FusionManager : MonoBehaviour
             return null;
 
         var recipe = FindRecipe(a, b);
-        bool success = Random.value <= recipe.successChance;
-
-        if (!success)
-            return null;
-
         InventoryManager.Instance.RemoveItem(a, 1);
         InventoryManager.Instance.RemoveItem(b, 1);
+
+        if (Random.value > recipe.successChance)
+            return null;
+
         InventoryManager.Instance.AddItem(recipe.result, 1);
         return recipe.result;
     }
