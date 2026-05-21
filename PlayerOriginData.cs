@@ -16,6 +16,7 @@ public class PlayerOriginData : ScriptableObject
     public int baseDEF = 40;
     public int baseMANA = 60;
     public int baseSPD = 50;
+    public int baseRP = 50;
 
     [Header("Flags set on origin select")]
     public string[] flagsOnSelect;

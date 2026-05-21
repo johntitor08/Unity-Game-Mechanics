@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using UnityEngine.SceneManagement;
 
 public class StorySelectionUI : MonoBehaviour
 {
@@ -33,13 +32,13 @@ public class StorySelectionUI : MonoBehaviour
         SetPanels(true, false, false, false);
 
         if (originAButton != null)
-            originAButton.onClick.AddListener(() => OpenPanel("bound_archivist"));
+            originAButton.onClick.AddListener(() => OpenPanel("archivist"));
 
         if (originBButton != null)
-            originBButton.onClick.AddListener(() => OpenPanel("foreign_echo"));
+            originBButton.onClick.AddListener(() => OpenPanel("echo"));
 
         if (originCButton != null)
-            originCButton.onClick.AddListener(() => OpenPanel("sinned_guardian"));
+            originCButton.onClick.AddListener(() => OpenPanel("guardian"));
 
         if (continueAButton != null)
             continueAButton.onClick.AddListener(OnContinue);
@@ -56,9 +55,9 @@ public class StorySelectionUI : MonoBehaviour
     void OpenPanel(string originID)
     {
         _pendingOriginID = originID;
-        bool a = originID == "bound_archivist";
-        bool b = originID == "foreign_echo";
-        bool c = originID == "sinned_guardian";
+        bool a = originID == "archivist";
+        bool b = originID == "echo";
+        bool c = originID == "guardian";
         SetPanels(!a && !b && !c, a, b, c);
     }
 
@@ -100,9 +99,9 @@ public class StorySelectionUI : MonoBehaviour
         if (OriginManager.Instance == null)
             return;
 
-        TryFillText(storyAText, "bound_archivist");
-        TryFillText(storyBText, "foreign_echo");
-        TryFillText(storyCText, "sinned_guardian");
+        TryFillText(storyAText, "archivist");
+        TryFillText(storyBText, "echo");
+        TryFillText(storyCText, "guardian");
     }
 
     void TryFillText(TextMeshProUGUI label, string originID)

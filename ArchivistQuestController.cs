@@ -94,7 +94,7 @@ public class ArchivistQuestController : MonoBehaviour
             return;
 
         if (branchC_eowInvited)
-            StoryFlags.Add("archivist_q1_eow_invited");
+            StoryFlags.Add(QuestFlags.ArchivistQ1EowInvited);
 
         var quest = QuestManager.Instance != null ? QuestManager.Instance.GetActiveQuest("quest_archivist_01") : null;
 

@@ -2,7 +2,7 @@ public static class QuestFlags
 {
     public const string OriginPrefix = "origin:";
     public const string AshenveilEntered = "ashenveil_entered";
-    public const string ArchivistStart  = "archivist_start";
+    public const string ArchivistStart = "archivist_start";
     public const string BrahmaLeft = "brahma_left";
     public const string SealedFileTaken = "sealed_file_taken";
     public const string MarenMetArchivist = "maren_met_archivist";
@@ -20,6 +20,7 @@ public static class QuestFlags
     public const string RecordLocationNarrowed = "record_location_narrowed";
     public const string WitnessRequiredKnown = "witness_required_known";
     public const string ArchivistQuest1Done = "archivist_quest1_done";
+    public const string ArchivistQ1EowInvited = "archivist_q1_eow_invited";
     public const string EchoStart = "echo_start";
     public const string ShadowAnomalySeen = "shadow_anomaly_seen";
     public const string MarenMetEcho = "maren_met_echo";
@@ -42,6 +43,24 @@ public static class QuestFlags
     public const string EchoQuest1Done = "echo_quest1_done";
     public const string ChamberInteriorSeen = "chamber_interior_seen";
     public const string AxiosAnomalyIdentified = "axios_anomaly_identified";
+    public const string OriginGuardian = "origin_guardian";
+    public const string SinnedGuardianStart = "sinned_guardian_start";
+    public const string MarenFirstMeeting = "maren_first_meeting";
+    public const string MarenToldGuardianMission = "maren_told_guardian_mission";
+    public const string VossCollectsNotDestroysKnown = "voss_collects_not_destroys_known";
+    public const string ShadowGardenQuestAssigned = "shadow_garden_quest_assigned";
+    public const string AsludeMet = "aslude_met";
+    public const string VossReturnsDay3Known = "voss_returns_day3_known";
+    public const string CorvinOptionalSpoken = "corvin_optional_spoken";
+    public const string DragsimEastClue = "dragsimo_east_clue";
+    public const string VossDay3Guardian = "voss_day3_guardian";
+    public const string DragsimSecondWallKnown = "dragsimo_second_wall_known";
+    public const string VossReversalClauseHinted = "voss_reversal_clause_hinted";
+    public const string ThreeFamiliesLocated = "three_families_located";
+    public const string FourthCrystalSlotSeen = "fourth_crystal_slot_seen";
+    public const string VossPreparedGuardianContract = "voss_prepared_guardian_contract";
+    public const string SinnedGuardianQuest1Done = "sinned_guardian_quest1_done";
+    public const string ShadowGardenRank1 = "shadow_garden_rank1";
     public const string VossWeakPointKnown = "voss_weak_point_known";
     public const string VossWeakPointApplied = "voss_weak_point_applied";
 }
