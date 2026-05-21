@@ -73,7 +73,7 @@ public class DialogueManager : MonoBehaviour
         if (State != DialogueState.Typing && State != DialogueState.WaitingInput)
             return;
 
-        bool advance = Input.GetKeyDown(KeyCode.Space) || (Input.GetMouseButtonDown(0) && !UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject());
+        bool advance = Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0);
 
         if (!advance)
             return;

@@ -91,6 +91,9 @@ public static class SaveSystem
         data.currentScene = SceneManager.GetActiveScene().name;
         data.storyFlags.AddRange(StoryFlags.GetAll());
 
+        if (OriginManager.Instance != null)
+            data.originID = OriginManager.Instance.GetSaveID();
+
         if (SceneEvent.Instance != null)
             data.sceneProgress = (int)SceneEvent.Instance.Progress;
 
@@ -203,14 +206,6 @@ public static class SaveSystem
         SceneManager.LoadScene(CachedData.currentScene);
     }
 
-    static System.Collections.IEnumerator UpdateUIAfterLoad()
-    {
-        yield return null;
-
-        if (ProfileUI.Instance != null)
-            ProfileUI.Instance.RefreshAll();
-    }
-
     static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
@@ -246,6 +241,9 @@ public static class SaveSystem
 
         StoryFlags.Reset();
         StoryFlags.Load(data.storyFlags);
+
+        if (OriginManager.Instance != null && !string.IsNullOrEmpty(data.originID))
+            OriginManager.Instance.LoadFromSaveID(data.originID);
 
         if (SceneEvent.Instance != null)
         {

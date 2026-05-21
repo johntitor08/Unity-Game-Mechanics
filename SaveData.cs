@@ -4,14 +4,13 @@ using System.Collections.Generic;
 [Serializable]
 public class SaveData
 {
-    public int version = 1;
-    public string savedAt = "";
     public string playerName = "Player";
     public int playerLevel = 1;
     public int playerExperience = 0;
     public int playerExperienceToNext = 100;
     public string currentScene;
-    public int sceneProgress;
+    public int sceneProgress = 0;
+    public string originID = "";
     public List<string> storyFlags = new();
     public TimePhase currentTimePhase = TimePhase.Morning;
     public int currentDay = 1;
@@ -32,6 +31,7 @@ public class SaveData
     public string activeScenarioID = "";
     public int activeScenarioStep = 0;
     public List<string> completedScenarios = new();
+    public string savedAt = "";
 }
 
 [Serializable]

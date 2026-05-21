@@ -11,26 +11,38 @@ public class QuestUI : MonoBehaviour
     private bool isSubscribed = false;
 
     [Header("Panels")]
+    public GameObject questPanel;
     public GameObject questLogPanel;
     public GameObject questDetailsPanel;
 
     [Header("Quest Log")]
-    public Transform activeQuestsParent;
-    public Transform availableQuestsParent;
-    public Transform completedQuestsParent;
+    public Transform activeQuestsContainer;
+    public Transform availableQuestsContainer;
+    public Transform completedQuestsContainer;
     public QuestSlotUI questSlotPrefab;
+
+    [Header("Quest Log ScrollRects")]
+    public ScrollRect activeQuestsScrollRect;
+    public ScrollRect availableQuestsScrollRect;
+    public ScrollRect completedQuestsScrollRect;
+    public float maxLogPanelWidth = 750f;
 
     [Header("Quest Details")]
     public TextMeshProUGUI questTitleText;
     public TextMeshProUGUI questDescriptionText;
     public TextMeshProUGUI questTypeText;
     public Image questIcon;
-    public Transform objectivesParent;
+    public Transform objectivesContainer;
     public QuestObjectiveUI objectivePrefab;
-    public Transform rewardsParent;
+    public Transform rewardsContainer;
     public Button acceptButton;
     public Button abandonButton;
     public Button trackButton;
+
+    [Header("Quest Details ScrollRects")]
+    public ScrollRect objectivesScrollRect;
+    public ScrollRect rewardsScrollRect;
+    public float maxDetailsHeight = 300f;
 
     [Header("Settings")]
     public KeyCode toggleKey = KeyCode.Q;
@@ -48,6 +60,9 @@ public class QuestUI : MonoBehaviour
 
     void Start()
     {
+        if (questPanel != null)
+            questPanel.SetActive(false);
+
         if (questLogPanel != null)
             questLogPanel.SetActive(false);
 
@@ -116,38 +131,31 @@ public class QuestUI : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(toggleKey))
+        if (Input.GetKeyDown(toggleKey) && questPanel != null)
         {
-            if (questLogPanel != null)
-            {
-                bool nowActive = !questLogPanel.activeSelf;
-                questLogPanel.SetActive(nowActive);
+            bool nowActive = !questPanel.activeSelf;
+            questPanel.SetActive(nowActive);
+            questLogPanel.SetActive(nowActive);
 
-                if (nowActive)
-                    RefreshQuestLog();
-            }
+            if (nowActive)
+                RefreshQuestLog();
         }
     }
 
     void RefreshQuestLog()
     {
-        if (QuestManager.Instance == null)
+        if (QuestManager.Instance == null || questSlotPrefab == null)
             return;
-
-        if (questSlotPrefab == null)
-        {
-            Debug.LogError("QuestUI: questSlotPrefab atanmamış.");
-            return;
-        }
 
         foreach (var slot in questSlots)
             if (slot != null)
                 slot.gameObject.SetActive(false);
 
         int index = 0;
-        index = RefreshSlots(QuestManager.Instance.GetActiveQuests(), activeQuestsParent, false, index);
-        index = RefreshSlots(QuestManager.Instance.GetAvailableQuests(), availableQuestsParent, false, index);
-        RefreshSlots(QuestManager.Instance.GetCompletedQuests(), completedQuestsParent, true, index);
+        index = RefreshSlots(QuestManager.Instance.GetActiveQuests(), activeQuestsContainer, false, index);
+        index = RefreshSlots(QuestManager.Instance.GetAvailableQuests(), availableQuestsContainer, false, index);
+        RefreshSlots(QuestManager.Instance.GetCompletedQuests(), completedQuestsContainer, true, index);
+        StartCoroutine(UpdateLogScrollsNextFrame());
 
         if (selectedQuest != null && questDetailsPanel != null && questDetailsPanel.activeSelf)
             ShowQuestDetails(selectedQuest);
@@ -183,6 +191,14 @@ public class QuestUI : MonoBehaviour
         return index;
     }
 
+    System.Collections.IEnumerator UpdateLogScrollsNextFrame()
+    {
+        yield return null;
+        UpdateHorizontalScrollRect(activeQuestsContainer, activeQuestsScrollRect, maxLogPanelWidth);
+        UpdateHorizontalScrollRect(availableQuestsContainer, availableQuestsScrollRect, maxLogPanelWidth);
+        UpdateHorizontalScrollRect(completedQuestsContainer, completedQuestsScrollRect, maxLogPanelWidth);
+    }
+
     public void ShowQuestDetails(QuestData quest)
     {
         var qm = QuestManager.Instance;
@@ -207,14 +223,14 @@ public class QuestUI : MonoBehaviour
         if (questIcon != null)
             questIcon.sprite = quest.icon;
 
-        if (objectivesParent != null && objectivePrefab != null)
+        if (objectivesContainer != null && objectivePrefab != null)
         {
-            foreach (Transform child in objectivesParent)
+            foreach (Transform child in objectivesContainer)
                 Destroy(child.gameObject);
 
             foreach (var objective in quest.objectives)
             {
-                var objUI = Instantiate(objectivePrefab, objectivesParent);
+                var objUI = Instantiate(objectivePrefab, objectivesContainer);
                 var state = qm.GetObjectiveState(quest.questID, objective.objectiveID);
                 objUI.Setup(objective, state);
             }
@@ -238,6 +254,41 @@ public class QuestUI : MonoBehaviour
             if (label != null)
                 label.text = isTracked ? "Untrack" : "Track";
         }
+
+        StartCoroutine(UpdateDetailsScrollsNextFrame());
+    }
+
+    System.Collections.IEnumerator UpdateDetailsScrollsNextFrame()
+    {
+        yield return null;
+        UpdateVerticalScrollRect(objectivesContainer, objectivesScrollRect, maxDetailsHeight);
+        UpdateVerticalScrollRect(rewardsContainer, rewardsScrollRect, maxDetailsHeight);
+    }
+
+    void UpdateHorizontalScrollRect(Transform contentParent, ScrollRect sr, float threshold)
+    {
+        if (sr == null || contentParent == null)
+            return;
+
+        float contentWidth = contentParent is RectTransform rt ? rt.rect.width : 0f;
+        bool needsScroll = contentWidth > threshold;
+        sr.vertical = false;
+        sr.horizontal = needsScroll;
+        sr.horizontalScrollbar = needsScroll ? sr.horizontalScrollbar : null;
+        sr.horizontalNormalizedPosition = 0f;
+    }
+
+    void UpdateVerticalScrollRect(Transform contentParent, ScrollRect sr, float threshold)
+    {
+        if (sr == null || contentParent == null)
+            return;
+
+        float contentHeight = contentParent is RectTransform rt ? rt.rect.height : 0f;
+        bool needsScroll = contentHeight > threshold;
+        sr.horizontal = false;
+        sr.vertical = needsScroll;
+        sr.verticalScrollbar = needsScroll ? sr.verticalScrollbar : null;
+        sr.verticalNormalizedPosition = 1f;
     }
 
     void OnAcceptClicked()
@@ -289,5 +340,14 @@ public class QuestUI : MonoBehaviour
     {
         if (selectedQuest != null && selectedQuest.questID == quest.questID)
             ShowQuestDetails(selectedQuest);
+    }
+
+    public void CloseQuestPanel()
+    {
+        if (questPanel != null)
+            questPanel.SetActive(false);
+
+        if (questDetailsPanel != null)
+            questDetailsPanel.SetActive(false);
     }
 }

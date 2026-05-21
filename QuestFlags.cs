@@ -1,0 +1,47 @@
+public static class QuestFlags
+{
+    public const string OriginPrefix = "origin:";
+    public const string AshenveilEntered = "ashenveil_entered";
+    public const string ArchivistStart  = "archivist_start";
+    public const string BrahmaLeft = "brahma_left";
+    public const string SealedFileTaken = "sealed_file_taken";
+    public const string MarenMetArchivist = "maren_met_archivist";
+    public const string MarenDialogueDone = "maren_dialogue_done";
+    public const string ReversalClauseKnown = "reversal_clause_known";
+    public const string ChurchRuinsClue = "church_ruins_clue";
+    public const string ElisMet = "elis_met";
+    public const string ThreeLocationsKnown = "three_locations_known";
+    public const string EowOperativeMet = "eow_operative_met";
+    public const string EowWatching = "eow_watching";
+    public const string ArchivistEowToken = "archivist_eow_token";
+    public const string VossDay3Archivist = "voss_day3_archivist";
+    public const string RecordNotChurchConfirmed = "record_not_church_confirmed";
+    public const string VossMovedRecord = "voss_moved_record";
+    public const string RecordLocationNarrowed = "record_location_narrowed";
+    public const string WitnessRequiredKnown = "witness_required_known";
+    public const string ArchivistQuest1Done = "archivist_quest1_done";
+    public const string EchoStart = "echo_start";
+    public const string ShadowAnomalySeen = "shadow_anomaly_seen";
+    public const string MarenMetEcho = "maren_met_echo";
+    public const string VossCantIdentifyEcho = "voss_cant_identify_echo";
+    public const string AxiosResonanceExplained = "axios_resonance_explained";
+    public const string MarenMissionGiven = "maren_mission_given";
+    public const string EchoInvisibleToTracking = "echo_invisible_to_tracking";
+    public const string ChamberTargetKnown = "chamber_target_known";
+    public const string MireyaMetEcho = "mireya_met_echo";
+    public const string LurkerPatrolData = "lurker_patrol_data";
+    public const string ChicoMet = "chico_met";
+    public const string AwamorIncomingKnown = "awamori_incoming_known";
+    public const string AxiosFrequencyShared = "axios_frequency_shared";
+    public const string VossDay3Echo = "voss_day3_echo";
+    public const string ChamberFrequencyWarning = "chamber_frequency_warning";
+    public const string VossCannotTrackEcho = "voss_cannot_track_echo";
+    public const string ThreeCrystalsSeen = "three_crystals_seen";
+    public const string FourthSlotResonatesEcho = "fourth_slot_resonates_echo";
+    public const string OriginatingRecordBelow = "originating_record_below";
+    public const string EchoQuest1Done = "echo_quest1_done";
+    public const string ChamberInteriorSeen = "chamber_interior_seen";
+    public const string AxiosAnomalyIdentified = "axios_anomaly_identified";
+    public const string VossWeakPointKnown = "voss_weak_point_known";
+    public const string VossWeakPointApplied = "voss_weak_point_applied";
+}

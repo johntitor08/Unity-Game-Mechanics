@@ -20,6 +20,11 @@ public class QuestRewardUI : MonoBehaviour
     public Transform optionalRewardsContainer;
     public TextMeshProUGUI optionalRewardsLabel;
 
+    [Header("ScrollRects")]
+    public ScrollRect rewardsScrollRect;
+    public ScrollRect optionalRewardsScrollRect;
+    public float maxRewardsHeight = 300f;
+
     [Header("Animation")]
     public float displayDuration = 5f;
 
@@ -52,17 +57,8 @@ public class QuestRewardUI : MonoBehaviour
 
     public void ShowRewards(QuestData quest)
     {
-        if (quest == null)
-        {
-            Debug.LogWarning("QuestRewardUI.ShowRewards called with null quest.");
+        if (quest == null || rewardItemPrefab == null)
             return;
-        }
-
-        if (rewardItemPrefab == null)
-        {
-            Debug.LogError("QuestRewardUI: rewardItemPrefab is not assigned.");
-            return;
-        }
 
         if (autoCloseCoroutine != null)
             StopCoroutine(autoCloseCoroutine);
@@ -106,12 +102,31 @@ public class QuestRewardUI : MonoBehaviour
         ClearContainer(optionalRewardsContainer);
 
         if (hasOptional && optionalRewardsContainer != null)
-        {
             foreach (var item in quest.optionalRewards)
                 SpawnRewardItem(optionalRewardsContainer, item.itemName, "x1", item.icon);
-        }
 
         autoCloseCoroutine = StartCoroutine(AutoClose());
+        StartCoroutine(UpdateScrollsNextFrame());
+    }
+
+    IEnumerator UpdateScrollsNextFrame()
+    {
+        yield return null;
+        UpdateVerticalScrollRect(rewardsContainer, rewardsScrollRect, maxRewardsHeight);
+        UpdateVerticalScrollRect(optionalRewardsContainer, optionalRewardsScrollRect, maxRewardsHeight);
+    }
+
+    void UpdateVerticalScrollRect(Transform contentParent, ScrollRect sr, float threshold)
+    {
+        if (sr == null || contentParent == null)
+            return;
+
+        float contentHeight = contentParent is RectTransform rt ? rt.rect.height : 0f;
+        bool needsScroll = contentHeight > threshold;
+        sr.horizontal = false;
+        sr.vertical = needsScroll;
+        sr.verticalScrollbar = needsScroll ? sr.verticalScrollbar : null;
+        sr.verticalNormalizedPosition = 1f;
     }
 
     private void ClearContainer(Transform container)

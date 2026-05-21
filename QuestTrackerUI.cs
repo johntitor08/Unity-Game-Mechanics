@@ -12,7 +12,7 @@ public class QuestTrackerUI : MonoBehaviour
 
     [Header("Tracker")]
     public GameObject trackerPanel;
-    public Transform trackedQuestsParent;
+    public Transform trackedQuestsContainer;
     public QuestTrackerEntry trackerEntryPrefab;
     public int maxTrackedQuests = 3;
     public Button closeButton;
@@ -23,6 +23,10 @@ public class QuestTrackerUI : MonoBehaviour
 
     [Header("Visibility")]
     [SerializeField] private bool isPanelHiddenByUser = false;
+
+    [Header("Parent Scroll")]
+    public ScrollRect parentScrollRect;
+    public float maxParentHeight = 700f;
 
     void Awake()
     {
@@ -159,10 +163,7 @@ public class QuestTrackerUI : MonoBehaviour
         UpdateTracker();
     }
 
-    public void SetTrackedQuests(List<string> questIDs)
-    {
-        OnTrackedQuestsLoaded(questIDs);
-    }
+    public void SetTrackedQuests(List<string> questIDs) => OnTrackedQuestsLoaded(questIDs);
 
     public List<string> GetTrackedQuests() => new(trackedQuestIDs);
 
@@ -208,7 +209,7 @@ public class QuestTrackerUI : MonoBehaviour
                     continue;
                 }
 
-                var entry = Instantiate(trackerEntryPrefab, trackedQuestsParent);
+                var entry = Instantiate(trackerEntryPrefab, trackedQuestsContainer);
                 trackerEntries[questID] = entry;
             }
 
@@ -217,6 +218,17 @@ public class QuestTrackerUI : MonoBehaviour
 
         if (trackerPanel != null)
             trackerPanel.SetActive(!isPanelHiddenByUser && trackedQuestIDs.Count > 0);
+
+        if (QuestUI.Instance != null)
+        {
+            if (QuestUI.Instance.questPanel != null)
+                QuestUI.Instance.questPanel.SetActive(!isPanelHiddenByUser && trackedQuestIDs.Count > 0);
+
+            if (QuestUI.Instance.questLogPanel != null)
+                QuestUI.Instance.questLogPanel.SetActive(!isPanelHiddenByUser && trackedQuestIDs.Count > 0);
+        }
+
+        StartCoroutine(UpdateParentScrollNextFrame());
     }
 
     void RefreshEntries()
@@ -247,5 +259,24 @@ public class QuestTrackerUI : MonoBehaviour
 
             UpdateTracker();
         }
+    }
+
+    System.Collections.IEnumerator UpdateParentScrollNextFrame()
+    {
+        yield return null;
+        UpdateParentScroll();
+    }
+
+    void UpdateParentScroll()
+    {
+        if (parentScrollRect == null)
+            return;
+
+        float contentHeight = trackedQuestsContainer is RectTransform rt ? rt.rect.height : 0f;
+        bool needsScroll = contentHeight > maxParentHeight;
+        parentScrollRect.horizontal = false;
+        parentScrollRect.vertical = needsScroll;
+        parentScrollRect.verticalScrollbar = needsScroll ? parentScrollRect.verticalScrollbar : null;
+        parentScrollRect.verticalNormalizedPosition = 1f;
     }
 }
