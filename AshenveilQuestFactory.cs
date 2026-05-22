@@ -66,7 +66,7 @@ public class AshenveilQuestFactory : MonoBehaviour
         }
 
         QuestManager.Instance.allQuests = existing.ToArray();
-        Debug.Log($"[AshenveilQuestFactory]{_builtQuests.Count} quests registered.");
+        Debug.Log($"[AshenveilQuestFactory] {_builtQuests.Count} quests registered.");
     }
 
     void TryAutoStartAvailableQuests()
