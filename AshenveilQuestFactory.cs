@@ -66,7 +66,7 @@ public class AshenveilQuestFactory : MonoBehaviour
         }
 
         QuestManager.Instance.allQuests = existing.ToArray();
-        Debug.Log($"[AshenveilQuestFactory] {_builtQuests.Count} quests registered.");
+        Debug.Log($"[AshenveilQuestFactory]{_builtQuests.Count} quests registered.");
     }
 
     void TryAutoStartAvailableQuests()
@@ -140,7 +140,7 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest1()
     {
-        var q = Make("q01_bir_fincan_huzur", "Bir Fincan Huzur", "Maren seni sabah erkenden çağırdı.", QuestType.Side, flagsOnComplete: new[] { "maren_cay_icildi" });
+        var q = Make("q01_bir_fincan_huzur", "Bir Fincan Huzur", "Maren seni sabah erkenden çağırdı.", QuestType.Side, flagsOnComplete: new[] { QuestFlags.MarenTeaServed });
 
         q.objectives = new[]
         {
@@ -158,7 +158,7 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest2()
     {
-        var q = Make("q02_hala_duman", "Hâlâ Duman", "Üç evin boşaldığını Maren anlattı.", QuestType.Side, flagsOnComplete: new[] { "still_smoke_done" });
+        var q = Make("q02_hala_duman", "Hâlâ Duman", "Üç evin boşaldığını Maren anlattı.", QuestType.Side, flagsOnComplete: new[] { QuestFlags.StillSmokeDone });
 
         q.objectives = new[]
         {
@@ -177,7 +177,7 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest3()
     {
-        var q = Make("q03_kirik_muhur", "Kırık Mühür", "Şifacının evindeki sözleşme eksik.", QuestType.Side, flagsOnComplete: new[] { "eksik_sozlesme_bulundu" });
+        var q = Make("q03_kirik_muhur", "Kırık Mühür", "Şifacının evindeki sözleşme eksik.", QuestType.Side, flagsOnComplete: new[] { QuestFlags.MissingContractFound });
 
         q.objectives = new[]
         {
@@ -194,7 +194,7 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest4()
     {
-        var q = Make("q04_yasli_adamin_itirafi", "Yaşlı Adam'ın İtirafı", "Corvin, akşam seni bekliyor.", QuestType.Main, requiredFlags: new[] { "still_smoke_done" }, flagsOnComplete: new[] { "elder_truth_known", "voss_contract_player_aware" });
+        var q = Make("q04_yasli_adamin_itirafi", "Yaşlı Adam'ın İtirafı", "Corvin, akşam seni bekliyor.", QuestType.Main, requiredFlags: new[] { QuestFlags.StillSmokeDone }, flagsOnComplete: new[] { QuestFlags.ElderTruthKnown, QuestFlags.VossContractPlayerAware });
 
         q.objectives = new[]
         {
@@ -211,7 +211,7 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest5()
     {
-        var q = Make("q05_acik_el", "Açık El", "Defterdeki ilk isim değirmende. Esiri bul ve kurtar.", QuestType.Main, requiredFlags: new[] { "elder_truth_known" }, flagsOnComplete: new[] { "ilk_esir_kurtarildi" }, hasTimeLimit: true, timeLimitSeconds: TwoDaySeconds(), canFail: true);
+        var q = Make("q05_acik_el", "Açık El", "Defterdeki ilk isim değirmende. Esiri bul ve kurtar.", QuestType.Main, requiredFlags: new[] { QuestFlags.ElderTruthKnown }, flagsOnComplete: new[] { QuestFlags.FirstPrisonerRescued }, hasTimeLimit: true, timeLimitSeconds: TwoDaySeconds(), canFail: true);
 
         q.objectives = new[]
         {
@@ -228,8 +228,8 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest6()
     {
-        var q = Make("q06_tarif_defteri", "Tarif Defteri", "Kurtarılan esir, Maren'e eski bir tarif vermek istiyor.", QuestType.Side, requiredFlags: new[] { "ilk_esir_kurtarildi" }, flagsOnComplete: new[] { "maren_tarif_verildi" });
-
+        var q = Make("q06_tarif_defteri", "Tarif Defteri", "Kurtarılan esir, Maren'e eski bir tarif vermek istiyor.", QuestType.Side, requiredFlags: new[] { QuestFlags.FirstPrisonerRescued }, flagsOnComplete: new[] { QuestFlags.MarenRecipeGiven });
+       
         q.objectives = new[]
         {
             Collect("q06_obj1", "Tarlada Tarif Sayfası'nı bul", assets != null ? assets.recipePage : null, 1),
@@ -244,14 +244,14 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest7()
     {
-        var q = Make("q07_corvinin_borcu", "Corvin'in Borcu", "Eksik sözleşmeyi bulduktan sonra Corvin seni çağırdı.", QuestType.Side, requiredFlags: new[] { "eksik_sozlesme_bulundu" }, flagsOnComplete: new[] { "corvin_borcu_odendi" });
+        var q = Make("q07_corvinin_borcu", "Corvin'in Borcu", "Eksik sözleşmeyi bulduktan sonra Corvin seni çağırdı.", QuestType.Side, requiredFlags: new[] { QuestFlags.MissingContractFound }, flagsOnComplete: new[] { QuestFlags.CorvinDebtSettled });
 
         q.objectives = new[]
         {
             Interact("q07_obj1", "Eski kilise harabesine git"),
             Kill("q07_obj2", "Harabedeki 4 Lanetli Bekçi'yi öldür", assets != null ? assets.cursedGuard : null, 4),
             Interact("q07_obj3", "Kasayı aç (Eskimiş Anahtar gerekli)"),
-            Collect( "q07_obj4", "Kasadaki belgeyi Corvin'e getir", assets != null ? assets.corvinsDocument : null, 1)
+            Collect("q07_obj4", "Kasadaki belgeyi Corvin'e getir", assets != null ? assets.corvinsDocument : null, 1)
         };
 
         q.itemRewards = assets != null ? new[] { assets.corvinSeal } : new ItemData[0];
@@ -262,8 +262,8 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest8()
     {
-        var q = Make("q08_defterdeki_sesler", "Defterdeki Sesler", "Voss'un defterini taşıyan birine akşam yabancı biri yaklaştı.", QuestType.Side, requiredFlags: new[] { "voss_contract_player_aware" }, flagsOnComplete: new[] { "voss_zayif_noktasi_biliniyor" });
-
+        var q = Make("q08_defterdeki_sesler", "Defterdeki Sesler", "Voss'un defterini taşıyan birine akşam yabancı biri yaklaştı.", QuestType.Side, requiredFlags: new[] { QuestFlags.VossContractPlayerAware }, flagsOnComplete: new[] { QuestFlags.VossWeakPointKnown });
+        
         q.objectives = new[]
         {
             Talk("q08_obj1", "Gizemli NPC ile konuş"),
@@ -277,8 +277,8 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest9()
     {
-        var q = Make("q09_bekleyis", "Bekleyiş", "Gece köy girişinde Voss'u bekle.", QuestType.Main, requiredFlags: new[] { "elder_truth_known" }, flagsOnComplete: new[] { "q09_voss_depo_bulundu" });
-
+        var q = Make("q09_bekleyis", "Bekleyiş", "Gece köy girişinde Voss'u bekle.", QuestType.Main, requiredFlags: new[] { QuestFlags.ElderTruthKnown }, flagsOnComplete: new[] { QuestFlags.Q09VossWarehouseFound });
+        
         q.objectives = new[]
         {
             Interact("q09_obj1", "Köy girişinde Voss'u bekle"),
@@ -293,14 +293,14 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest10()
     {
-        var q = Make("q10_acik_hesap", "Açık Hesap", "Voss'un deposuna girdin. Muhafızları bertaraf et, esirleri kurtar, Voss ile yüzleş.", QuestType.Main, requiredFlags: new[] { "elder_truth_known", "q09_voss_depo_bulundu" });
-
+        var q = Make("q10_acik_hesap", "Açık Hesap", "Voss'un deposuna girdin. Muhafızları bertaraf et, esirleri kurtar, Voss ile yüzleş.", QuestType.Main, requiredFlags: new[] { QuestFlags.ElderTruthKnown, QuestFlags.Q09VossWarehouseFound });
+        
         q.objectives = new[]
         {
             Kill("q10_obj1", "Depodaki 3 Gölge Muhafızı'nı öldür", assets != null ? assets.shadowGuard : null, 3),
             Interact("q10_obj2", "Kafeslerdeki esirleri serbest bırak"),
             Talk("q10_obj3", "Voss ile yüzleş"),
-            Kill("q10_obj4", "Voss'u öldür (boss)", assets != null ? assets.vossBoss : null,    1)
+            Kill("q10_obj4", "Voss'u öldür (boss)", assets != null ? assets.vossBoss : null, 1)
         };
 
         q.experienceReward = 500;
@@ -309,8 +309,8 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest11()
     {
-        var q = Make("q11_fincan_basinda", "Fincan Başında", "Sabah Maren kapında bekliyor.", QuestType.Side, requiredFlags: new[] { "voss_defeated_clean" }, flagsOnComplete: new[] { "senaryo_tamamlandi" });
-
+        var q = Make("q11_fincan_basinda", "Fincan Başında", "Sabah Maren kapında bekliyor.", QuestType.Side, requiredFlags: new[] { QuestFlags.VossDefeatedClean }, flagsOnComplete: new[] { QuestFlags.ScenarioCompleted });
+        
         q.objectives = new[]
         {
             Talk("q11_obj1", "Maren ile konuş"),
@@ -326,8 +326,8 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildSinnedGuardianQuest1()
     {
-        var q = Make("q_sg01_the_debt_that_breathes", "The Debt That Breathes", "Three families. Three names on a list. Your hand, your choice. Shadow Garden believes they are still reachable — held somewhere east of Dragsimo.", QuestType.Main, requiredFlags: new[] { "origin_guardian" }, flagsOnComplete: new[] { "three_families_located", "shadow_garden_rank1" });
-
+        var q = Make("q_sg01_the_debt_that_breathes", "The Debt That Breathes", "Three families. Three names on a list. Your hand, your choice. Shadow Garden believes they are still reachable — held somewhere east of Dragsimo.", QuestType.Main, requiredFlags: new[] { QuestFlags.SinnedGuardianStart }, flagsOnComplete: new[] { QuestFlags.ThreeFamiliesLocated, QuestFlags.ShadowGardenRank1 });
+        
         q.objectives = new[]
         {
             Talk("q_sg01_obj1", "Speak with Maren at night"),
@@ -340,8 +340,8 @@ public class AshenveilQuestFactory : MonoBehaviour
             Interact("q_sg01_obj8", "Examine what is behind the second wall"),
             Talk("q_sg01_obj9", "Return to Aslude with the discovery")
         };
-        
-        q.itemRewards = assets != null && assets.corvinSeal != null ? new[] { assets.corvinSeal } : new ItemData[0];
+
+        q.itemRewards = assets?.corvinSeal != null ? new[] { assets.corvinSeal } : new ItemData[0];
         q.itemRewardQuantities = new[] { 1 };
         q.experienceReward = 420;
         return q;

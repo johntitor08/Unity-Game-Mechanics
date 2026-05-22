@@ -43,7 +43,6 @@ public static class QuestFlags
     public const string EchoQuest1Done = "echo_quest1_done";
     public const string ChamberInteriorSeen = "chamber_interior_seen";
     public const string AxiosAnomalyIdentified = "axios_anomaly_identified";
-    public const string OriginGuardian = "origin_guardian";
     public const string SinnedGuardianStart = "sinned_guardian_start";
     public const string MarenFirstMeeting = "maren_first_meeting";
     public const string MarenToldGuardianMission = "maren_told_guardian_mission";
@@ -63,4 +62,15 @@ public static class QuestFlags
     public const string ShadowGardenRank1 = "shadow_garden_rank1";
     public const string VossWeakPointKnown = "voss_weak_point_known";
     public const string VossWeakPointApplied = "voss_weak_point_applied";
+    public const string MarenTeaServed = "maren_tea_served";
+    public const string StillSmokeDone = "still_smoke_done";
+    public const string MissingContractFound = "missing_contract_found";
+    public const string ElderTruthKnown = "elder_truth_known";
+    public const string VossContractPlayerAware = "voss_contract_player_aware";
+    public const string FirstPrisonerRescued = "first_prisoner_rescued";
+    public const string MarenRecipeGiven = "maren_recipe_given";
+    public const string CorvinDebtSettled = "corvin_debt_settled";
+    public const string Q09VossWarehouseFound = "q09_voss_warehouse_found";
+    public const string VossDefeatedClean = "voss_defeated_clean";
+    public const string ScenarioCompleted = "scenario_completed";
 }

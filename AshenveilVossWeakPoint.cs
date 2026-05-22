@@ -19,7 +19,7 @@ public class AshenveilVossWeakPoint : MonoBehaviour
 
     void OnCombatStarted()
     {
-        if (CombatManager.Instance == null || CombatManager.Instance.currentEnemy != vossData || !StoryFlags.Has("voss_weak_point_known") || StoryFlags.Has("voss_weak_point_applied"))
+        if (CombatManager.Instance == null || CombatManager.Instance.currentEnemy != vossData || !StoryFlags.Has(QuestFlags.VossWeakPointKnown) || StoryFlags.Has(QuestFlags.VossWeakPointApplied))
             return;
 
         var enemyStats = CombatManager.Instance.enemyStats;
@@ -33,7 +33,7 @@ public class AshenveilVossWeakPoint : MonoBehaviour
         int currentDef = enemyStats.Get(StatType.Defense);
         int reducedDef = Mathf.RoundToInt(currentDef * 0.5f);
         enemyStats.Set(StatType.Defense, reducedDef, save: false);
-        StoryFlags.Add("voss_weak_point_applied");
+        StoryFlags.Add(QuestFlags.VossWeakPointApplied);
 
         if (CombatUI.Instance != null)
             CombatUI.Instance.AddLogMessage("Voss'un savunması zayıf başlıyor...");
