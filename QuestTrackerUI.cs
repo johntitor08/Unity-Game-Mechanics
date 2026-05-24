@@ -219,15 +219,6 @@ public class QuestTrackerUI : MonoBehaviour
         if (trackerPanel != null)
             trackerPanel.SetActive(!isPanelHiddenByUser && trackedQuestIDs.Count > 0);
 
-        if (QuestUI.Instance != null)
-        {
-            if (QuestUI.Instance.questPanel != null)
-                QuestUI.Instance.questPanel.SetActive(!isPanelHiddenByUser && trackedQuestIDs.Count > 0);
-
-            if (QuestUI.Instance.questLogPanel != null)
-                QuestUI.Instance.questLogPanel.SetActive(!isPanelHiddenByUser && trackedQuestIDs.Count > 0);
-        }
-
         StartCoroutine(UpdateParentScrollNextFrame());
     }
 

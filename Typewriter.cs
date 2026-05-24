@@ -5,6 +5,15 @@ using UnityEngine;
 
 public class Typewriter : MonoBehaviour
 {
+    public static Typewriter Instance { get; private set; }
+    private Coroutine routine;
+    private bool isTyping;
+    private string cachedText;
+    private TextMeshProUGUI cachedTextUI;
+    public event Action OnTypingComplete;
+    public bool IsTyping => isTyping;
+    private AudioSource _audioSource;
+
     [Header("Settings")]
     public float speed = 0.03f;
     public bool skipPunctuation = true;
@@ -15,12 +24,18 @@ public class Typewriter : MonoBehaviour
     public float typeSoundVolume = 0.3f;
     public bool playSoundPerCharacter = true;
 
-    private Coroutine routine;
-    private bool isTyping;
-    private string cachedText;
-    private TextMeshProUGUI cachedTextUI;
-    public event Action OnTypingComplete;
-    public bool IsTyping => isTyping;
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+        _audioSource = gameObject.AddComponent<AudioSource>();
+        _audioSource.playOnAwake = false;
+    }
 
     public void StartTyping(TextMeshProUGUI textUI, string text)
     {
@@ -72,14 +87,6 @@ public class Typewriter : MonoBehaviour
     bool IsPunctuation(char c)
     {
         return c == '.' || c == ',' || c == '!' || c == '?' || c == ';' || c == ':';
-    }
-
-    private AudioSource _audioSource;
-
-    void Awake()
-    {
-        _audioSource = gameObject.AddComponent<AudioSource>();
-        _audioSource.playOnAwake = false;
     }
 
     void PlayTypeSound()

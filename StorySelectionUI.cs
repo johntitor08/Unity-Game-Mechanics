@@ -1,11 +1,17 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
 public class StorySelectionUI : MonoBehaviour
 {
+    private static readonly WaitForSeconds _waitForSeconds0_15 = new(0.15f);
     public static StorySelectionUI Instance { get; private set; }
     private string _pendingOriginID = "";
+    private Coroutine _typingCoroutine;
+    private string _summaryA;
+    private string _summaryB;
+    private string _summaryC;
 
     [Header("Origin Select Buttons")]
     public Button originAButton;
@@ -19,6 +25,7 @@ public class StorySelectionUI : MonoBehaviour
     public GameObject storyCPanel;
 
     [Header("Story Texts")]
+    public TextMeshProUGUI mainStoryText;
     public TextMeshProUGUI storyAText;
     public TextMeshProUGUI storyBText;
     public TextMeshProUGUI storyCText;
@@ -41,16 +48,16 @@ public class StorySelectionUI : MonoBehaviour
 
     void Start()
     {
-        SetPanels(true, false, false, false);
+        SetPanels(false, false, false, false);
 
         if (originAButton != null)
-            originAButton.onClick.AddListener(() => OpenPanel("archivist"));
+            originAButton.onClick.AddListener(() => OpenPanel("bound_archivist"));
 
         if (originBButton != null)
-            originBButton.onClick.AddListener(() => OpenPanel("echo"));
+            originBButton.onClick.AddListener(() => OpenPanel("foreign_echo"));
 
         if (originCButton != null)
-            originCButton.onClick.AddListener(() => OpenPanel("guardian"));
+            originCButton.onClick.AddListener(() => OpenPanel("sinned_guardian"));
 
         if (continueAButton != null)
             continueAButton.onClick.AddListener(OnContinue);
@@ -61,44 +68,119 @@ public class StorySelectionUI : MonoBehaviour
         if (continueCButton != null)
             continueCButton.onClick.AddListener(OnContinue);
 
-        FillTextsFromOriginData();
+        if (storyAText != null)
+            storyAText.text = "";
+
+        if (storyBText != null)
+            storyBText.text = "";
+
+        if (storyCText != null)
+            storyCText.text = "";
+
+        StartCoroutine(CacheAfterFrame());
+    }
+
+    IEnumerator CacheAfterFrame()
+    {
+        yield return null;
+        CacheOriginSummaries();
+    }
+
+    public void ShowMainPanel()
+    {
+        mainStoryPanel.transform.parent.gameObject.SetActive(true);
+        SetPanels(true, false, false, false);
+
+        if (mainStoryText != null)
+        {
+            string content = mainStoryText.text;
+            StartTypewriter(mainStoryText, content);
+        }
     }
 
     void OpenPanel(string originID)
     {
+        if (string.IsNullOrEmpty(_summaryA) && string.IsNullOrEmpty(_summaryB) && string.IsNullOrEmpty(_summaryC))
+            CacheOriginSummaries();
+
         _pendingOriginID = originID;
-        bool a = originID == "archivist";
-        bool b = originID == "echo";
-        bool c = originID == "guardian";
-        SetPanels(!a && !b && !c, a, b, c);
+        bool a = originID == "bound_archivist";
+        bool b = originID == "foreign_echo";
+        bool c = originID == "sinned_guardian";
+        SetPanels(false, a, b, c);
+        TextMeshProUGUI targetLabel = a ? storyAText : b ? storyBText : storyCText;
+        string summary = a ? _summaryA : b ? _summaryB : _summaryC;
+
+        if (string.IsNullOrEmpty(summary))
+        {
+            Debug.LogWarning($"[StorySelectionUI] '{originID}' summary boþ.");
+            return;
+        }
+
+        StartTypewriter(targetLabel, summary);
     }
 
-    void SetPanels(bool a, bool b, bool c, bool d)
+    void SetPanels(bool main, bool a, bool b, bool c)
     {
         if (mainStoryPanel != null)
-            mainStoryPanel.SetActive(a);
+            mainStoryPanel.SetActive(main);
 
         if (storyAPanel != null)
-            storyAPanel.SetActive(b);
+            storyAPanel.SetActive(a);
 
         if (storyBPanel != null)
-            storyBPanel.SetActive(c);
+            storyBPanel.SetActive(b);
 
         if (storyCPanel != null)
-            storyCPanel.SetActive(d);
+            storyCPanel.SetActive(c);
+    }
+
+    void StartTypewriter(TextMeshProUGUI label, string text)
+    {
+        if (label == null || string.IsNullOrEmpty(text))
+            return;
+
+        if (_typingCoroutine != null)
+        {
+            StopCoroutine(_typingCoroutine);
+            _typingCoroutine = null;
+        }
+
+        if (Typewriter.Instance != null && Typewriter.Instance.IsTyping)
+            Typewriter.Instance.Complete(label);
+
+        label.text = "";
+        _typingCoroutine = StartCoroutine(TypeAfterDelay(label, text));
+    }
+
+    IEnumerator TypeAfterDelay(TextMeshProUGUI label, string text)
+    {
+        yield return _waitForSeconds0_15;
+
+        if (Typewriter.Instance != null)
+            Typewriter.Instance.StartTyping(label, text);
+        else
+            label.text = text;
+
+        _typingCoroutine = null;
     }
 
     void OnContinue()
     {
+        if (Typewriter.Instance != null && Typewriter.Instance.IsTyping)
+        {
+            Typewriter.Instance.Complete(GetActivePanelText());
+        }
+
         if (string.IsNullOrEmpty(_pendingOriginID))
         {
-            Debug.LogWarning("[StorySelectionUI] OnContinue: no origin selected.");
+            Debug.LogWarning("[StorySelectionUI] OnContinue: origin seçilmedi.");
             return;
         }
 
         if (OriginManager.Instance == null)
         {
-            Debug.LogError("[StorySelectionUI] OriginManager.Instance is null.");
+            Debug.LogError("[StorySelectionUI] OriginManager.Instance null.");
             return;
         }
 
@@ -107,26 +189,37 @@ public class StorySelectionUI : MonoBehaviour
 
         if (SceneEvent.Instance != null)
             SceneEvent.Instance.InitializeGame();
+        else
+            Debug.LogWarning("[StorySelectionUI] SceneEvent.Instance null.");
     }
 
-    void FillTextsFromOriginData()
+    void CacheOriginSummaries()
     {
         if (OriginManager.Instance == null)
+        {
+            Debug.LogWarning("[StorySelectionUI] OriginManager null.");
             return;
+        }
 
-        TryFillText(storyAText, "archivist");
-        TryFillText(storyBText, "echo");
-        TryFillText(storyCText, "guardian");
+        _summaryA = GetSummary("bound_archivist");
+        _summaryB = GetSummary("foreign_echo");
+        _summaryC = GetSummary("sinned_guardian");
     }
 
-    void TryFillText(TextMeshProUGUI label, string originID)
+    string GetSummary(string originID)
     {
-        if (label == null)
-            return;
-
         var data = OriginManager.Instance.GetOrigin(originID);
+        return (data != null && !string.IsNullOrEmpty(data.summary)) ? data.summary : "";
+    }
 
-        if (data != null && !string.IsNullOrEmpty(data.summary))
-            label.text = data.summary;
+    TextMeshProUGUI GetActivePanelText()
+    {
+        return _pendingOriginID switch
+        {
+            "bound_archivist" => storyAText,
+            "foreign_echo" => storyBText,
+            "sinned_guardian" => storyCText,
+            _ => mainStoryText
+        };
     }
 }

@@ -438,7 +438,7 @@ public class GameStartNameInput : MonoBehaviour
             nameInputPanel.SetActive(false);
 
         if (StorySelectionUI.Instance != null)
-            StorySelectionUI.Instance.mainStoryPanel.transform.parent.gameObject.SetActive(true);
+            StorySelectionUI.Instance.ShowMainPanel();
         else
             Debug.LogWarning("[GameStartNameInput] StorySelectionUI bulunamadý.");
     }
