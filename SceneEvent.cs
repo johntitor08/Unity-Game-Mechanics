@@ -83,9 +83,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public GameObject equipmentPanel;
     public GameObject coinPanel;
     public GameObject questPanel;
-    public GameObject storyPanel;
-    public GameObject settingsPanel;
     public GameObject savePanel;
+    public GameObject settingsPanel;
     public GameObject houseIconsPanel;
     public GameObject sleepingPanel;
 
@@ -348,9 +347,28 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             ProfileUI.Instance.RefreshAll();
     }
 
+    public void OpenQuest()
+    {
+        OpenPanel(questPanel, "Quest");
+
+        if (QuestUI.Instance != null)
+            QuestUI.Instance.questLogPanel.SetActive(true);
+
+        if (ProfileUI.Instance != null)
+            ProfileUI.Instance.RefreshAll();
+    }
+
     public void OpenSave()
     {
-        OpenPanel(combatMapPanel, "Save");
+        OpenPanel(savePanel, "Save");
+
+        if (ProfileUI.Instance != null)
+            ProfileUI.Instance.RefreshAll();
+    }
+
+    public void OpenSettings()
+    {
+        OpenPanel(settingsPanel, "Settings");
 
         if (ProfileUI.Instance != null)
             ProfileUI.Instance.RefreshAll();
@@ -371,7 +389,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetActive(mapPanel, false);
         SetActive(equipmentPanel, false);
         SetActive(coinPanel, false);
+        SetActive(questPanel, false);
         SetActive(savePanel, false);
+        SetActive(settingsPanel, false);
         SetActive(combatMapPanel, false);
 
         if (MarketUI.Instance != null)
@@ -398,8 +418,14 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         panel.SetActive(!isActive);
 
-        if (!isActive && panelName == "Map")
+        if (!isActive && panel == mapPanel)
             SetMap(currentMapIndex);
+
+        if (QuestUI.Instance != null && !isActive && panel == questPanel)
+        {
+            QuestUI.Instance.questLogPanel.SetActive(true);
+            QuestUI.Instance.RefreshQuestLog();
+        }
     }
 
     public void ToggleInventoryInCombat()

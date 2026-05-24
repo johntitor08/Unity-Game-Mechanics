@@ -49,6 +49,7 @@ public class QuestUI : MonoBehaviour
 
     void Awake()
     {
+
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
@@ -62,9 +63,6 @@ public class QuestUI : MonoBehaviour
     {
         if (questPanel != null)
             questPanel.SetActive(false);
-
-        if (questLogPanel != null)
-            questLogPanel.SetActive(false);
 
         if (questDetailsPanel != null)
             questDetailsPanel.SetActive(false);
@@ -142,7 +140,7 @@ public class QuestUI : MonoBehaviour
         }
     }
 
-    void RefreshQuestLog()
+    public void RefreshQuestLog()
     {
         if (QuestManager.Instance == null || questSlotPrefab == null)
             return;
