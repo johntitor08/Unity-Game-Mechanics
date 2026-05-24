@@ -66,6 +66,11 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     [Header("Enemies")]
     public EnemyData[] enemies;
 
+    [Header("UI Maps")]
+    public Image mapImage;
+    public Image combatMapImage;
+    public Sprite[] maps;
+
     [Header("UI Panels")]
     public GameObject timePanel;
     public GameObject iconPanel;
@@ -76,13 +81,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public GameObject combatMapPanel;
     public GameObject equipmentPanel;
     public GameObject coinPanel;
+    public GameObject questPanel;
+    public GameObject storyPanel;
+    public GameObject settingsPanel;
+    public GameObject savePanel;
     public GameObject houseIconsPanel;
     public GameObject sleepingPanel;
-
-    [Header("UI Maps")]
-    public Image mapImage;
-    public Image combatMapImage;
-    public Sprite[] maps;
 
     [Header("UI Icons")]
     public GameObject saveIcon;
@@ -103,6 +107,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public GameObject dungeonIcon;
     public GameObject castleIcon;
     public GameObject arenaIcon;
+    public GameObject questIcon;
 
     [Header("House Icons")]
     public GameObject livingRoomIcon;
@@ -211,6 +216,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (coinIcon != null)
             coinIcon.GetComponent<Button>().onClick.AddListener(() => TogglePanel(coinPanel, "Coin"));
 
+        if (questIcon != null)
+            questIcon.GetComponent<Button>().onClick.AddListener(() => TogglePanel(questPanel, "Quest"));
+
         if (combatIcon != null)
             combatIcon.GetComponentInChildren<Button>().onClick.AddListener(() => TogglePanel(combatMapPanel, "Combat Map"));
 
@@ -312,6 +320,14 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             ProfileUI.Instance.RefreshAll();
     }
 
+    public void OpenSave()
+    {
+        OpenPanel(combatMapPanel, "Save");
+
+        if (ProfileUI.Instance != null)
+            ProfileUI.Instance.RefreshAll();
+    }
+
     public void OpenCombatMap()
     {
         OpenPanel(combatMapPanel, "Combat Map");
@@ -327,6 +343,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetActive(mapPanel, false);
         SetActive(equipmentPanel, false);
         SetActive(coinPanel, false);
+        SetActive(savePanel, false);
         SetActive(combatMapPanel, false);
 
         if (MarketUI.Instance != null)

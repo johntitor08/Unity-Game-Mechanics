@@ -86,12 +86,15 @@ public class StorySelectionUI : MonoBehaviour
 
         if (OriginManager.Instance == null)
         {
-            Debug.LogError("[StorySelectionUI] OriginManager.Instance is null — make sure it exists in the scene.");
+            Debug.LogError("[StorySelectionUI] OriginManager.Instance is null.");
             return;
         }
 
         OriginManager.Instance.SelectOrigin(_pendingOriginID);
-        mainStoryPanel.transform.parent.gameObject.SetActive(false);
+        gameObject.SetActive(false);
+
+        if (GameStartNameInput.Instance != null)
+            GameStartNameInput.Instance.InitializeGame();
     }
 
     void FillTextsFromOriginData()

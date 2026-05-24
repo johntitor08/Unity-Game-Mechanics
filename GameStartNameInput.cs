@@ -14,6 +14,7 @@ public class GameStartNameInput : MonoBehaviour
 
     [Header("Panels")]
     public GameObject nameInputPanel;
+    public StorySelectionUI storySelectionPanel;
 
     [Header("Input Fields")]
     public TMP_InputField nameInputField;
@@ -194,27 +195,7 @@ public class GameStartNameInput : MonoBehaviour
         }
     }
 
-    void CheckExistingProfile()
-    {
-        if (SaveSystem.HasSaveFile())
-        {
-            if (nameInputPanel != null)
-                nameInputPanel.SetActive(false);
-
-            InitializeGameContinue();
-            return;
-        }
-
-        if (nameInputPanel != null)
-        {
-            nameInputPanel.SetActive(true);
-
-            if (nameInputField != null)
-                StartCoroutine(FocusInputField());
-        }
-    }
-
-    void InitializeGame()
+    public void InitializeGame()
     {
         if (PlayerStats.Instance != null)
             PlayerStats.Instance.FullRestore();
@@ -488,8 +469,36 @@ public class GameStartNameInput : MonoBehaviour
         if (nameInputPanel != null)
             nameInputPanel.SetActive(false);
 
-        InitializeGame();
+        if (storySelectionPanel != null)
+        {
+            storySelectionPanel.gameObject.SetActive(true);
+        }
+        else
+        {
+            InitializeGame();
+        }
     }
+
+    void CheckExistingProfile()
+    {
+        if (SaveSystem.HasSaveFile())
+        {
+            if (nameInputPanel != null)
+                nameInputPanel.SetActive(false);
+
+            InitializeGameContinue();
+            return;
+        }
+
+        if (nameInputPanel != null)
+        {
+            nameInputPanel.SetActive(true);
+
+            if (nameInputField != null)
+                StartCoroutine(FocusInputField());
+        }
+    }
+
 
     void ShowError(string message)
     {
