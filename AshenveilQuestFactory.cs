@@ -44,6 +44,8 @@ public class AshenveilQuestFactory : MonoBehaviour
         _builtQuests.Add(BuildQuest10());
         _builtQuests.Add(BuildQuest11());
         _builtQuests.Add(BuildSinnedGuardianQuest1());
+        _builtQuests.Add(BuildBoundArchivistQuest1());
+        _builtQuests.Add(BuildForeignEchoQuest1());
     }
 
     void InjectIntoQuestManager()
@@ -229,7 +231,7 @@ public class AshenveilQuestFactory : MonoBehaviour
     QuestData BuildQuest6()
     {
         var q = Make("q06_tarif_defteri", "Tarif Defteri", "Kurtarılan esir, Maren'e eski bir tarif vermek istiyor.", QuestType.Side, requiredFlags: new[] { QuestFlags.FirstPrisonerRescued }, flagsOnComplete: new[] { QuestFlags.MarenRecipeGiven });
-       
+
         q.objectives = new[]
         {
             Collect("q06_obj1", "Tarlada Tarif Sayfası'nı bul", assets != null ? assets.recipePage : null, 1),
@@ -263,7 +265,7 @@ public class AshenveilQuestFactory : MonoBehaviour
     QuestData BuildQuest8()
     {
         var q = Make("q08_defterdeki_sesler", "Defterdeki Sesler", "Voss'un defterini taşıyan birine akşam yabancı biri yaklaştı.", QuestType.Side, requiredFlags: new[] { QuestFlags.VossContractPlayerAware }, flagsOnComplete: new[] { QuestFlags.VossWeakPointKnown });
-        
+
         q.objectives = new[]
         {
             Talk("q08_obj1", "Gizemli NPC ile konuş"),
@@ -278,7 +280,7 @@ public class AshenveilQuestFactory : MonoBehaviour
     QuestData BuildQuest9()
     {
         var q = Make("q09_bekleyis", "Bekleyiş", "Gece köy girişinde Voss'u bekle.", QuestType.Main, requiredFlags: new[] { QuestFlags.ElderTruthKnown }, flagsOnComplete: new[] { QuestFlags.Q09VossWarehouseFound });
-        
+
         q.objectives = new[]
         {
             Interact("q09_obj1", "Köy girişinde Voss'u bekle"),
@@ -294,7 +296,7 @@ public class AshenveilQuestFactory : MonoBehaviour
     QuestData BuildQuest10()
     {
         var q = Make("q10_acik_hesap", "Açık Hesap", "Voss'un deposuna girdin. Muhafızları bertaraf et, esirleri kurtar, Voss ile yüzleş.", QuestType.Main, requiredFlags: new[] { QuestFlags.ElderTruthKnown, QuestFlags.Q09VossWarehouseFound });
-        
+
         q.objectives = new[]
         {
             Kill("q10_obj1", "Depodaki 3 Gölge Muhafızı'nı öldür", assets != null ? assets.shadowGuard : null, 3),
@@ -310,7 +312,7 @@ public class AshenveilQuestFactory : MonoBehaviour
     QuestData BuildQuest11()
     {
         var q = Make("q11_fincan_basinda", "Fincan Başında", "Sabah Maren kapında bekliyor.", QuestType.Side, requiredFlags: new[] { QuestFlags.VossDefeatedClean }, flagsOnComplete: new[] { QuestFlags.ScenarioCompleted });
-        
+
         q.objectives = new[]
         {
             Talk("q11_obj1", "Maren ile konuş"),
@@ -327,7 +329,7 @@ public class AshenveilQuestFactory : MonoBehaviour
     QuestData BuildSinnedGuardianQuest1()
     {
         var q = Make("q_sg01_the_debt_that_breathes", "The Debt That Breathes", "Three families. Three names on a list. Your hand, your choice. Shadow Garden believes they are still reachable — held somewhere east of Dragsimo.", QuestType.Main, requiredFlags: new[] { QuestFlags.SinnedGuardianStart }, flagsOnComplete: new[] { QuestFlags.ThreeFamiliesLocated, QuestFlags.ShadowGardenRank1 });
-        
+
         q.objectives = new[]
         {
             Talk("q_sg01_obj1", "Speak with Maren at night"),
@@ -344,6 +346,42 @@ public class AshenveilQuestFactory : MonoBehaviour
         q.itemRewards = assets?.corvinSeal != null ? new[] { assets.corvinSeal } : new ItemData[0];
         q.itemRewardQuantities = new[] { 1 };
         q.experienceReward = 420;
+        return q;
+    }
+
+    QuestData BuildBoundArchivistQuest1()
+    {
+        var q = Make("quest_bound_archivist_01", "Bound Archivist", "Brahma'nın bıraktığı dosya, kayıp bir kaydın izini taşıyor. Maren'den başla — Ashenveil'in geçmişi ona sorulur.", QuestType.Main, requiredFlags: new[] { QuestFlags.BoundArchivistStart }, flagsOnComplete: new[] { QuestFlags.BoundArchivistQuest1Done });
+
+        q.objectives = new[]
+        {
+            Talk("obj_speak_maren_gate", "Kapıda Maren ile konuş"),
+            Talk("obj_learn_maren_knowledge", "Maren'in mutfağında geçmişi öğren"),
+            Talk("obj_find_elis", "Elis'i bul ve üç konumu öğren", optional: true),
+            Talk("obj_handle_eow_operative", "EoW operatifiyle ilgilen"),
+            Talk("obj_speak_voss_day3", "3. gün Voss ile konuş"),
+            Interact("obj_cross_reference", "Kaydın yerini çapraz referansla daralt")
+        };
+
+        q.experienceReward = 380;
+        return q;
+    }
+
+    QuestData BuildForeignEchoQuest1()
+    {
+        var q = Make("quest_foreign_echo_01", "Foreign Echo", "Axios anomalisi seni Ashenveil'e çekti. Maren'in kapısındaki gölgeyi takip et — chamber'ın içinde ne olduğunu kimse bilmiyor.", QuestType.Main, requiredFlags: new[] { QuestFlags.ForeignEchoStart }, flagsOnComplete: new[] { QuestFlags.ForeignEchoQuest1Done, QuestFlags.ChamberInteriorSeen });
+
+        q.objectives = new[]
+        {
+            Interact("obj_follow_shadow_maren", "Maren'in kapısındaki gölgeyi takip et"),
+            Talk("obj_understand_maren_need", "Maren'in misyonunu anla"),
+            Talk("obj_speak_mireya", "Mireya ile konuş — devriye verisini al", optional: true),
+            Talk("obj_meet_chico", "Chico ile buluş", optional: true),
+            Talk("obj_speak_voss_day3", "3. gün Voss ile konuş"),
+            Interact("obj_identify_axios_anomaly", "Chamber zeminindeki kayıt kaynağını tespit et")
+        };
+
+        q.experienceReward = 360;
         return q;
     }
 }
