@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -245,6 +246,33 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetActive(dungeonIcon, false);
         SetActive(castleIcon, false);
         SetActive(arenaIcon, false);
+    }
+
+    public void InitializeGame()
+    {
+        if (PlayerStats.Instance != null)
+            PlayerStats.Instance.FullRestore();
+
+        TryStartDialogue(0);
+        InitializeGameContinue();
+    }
+
+    public void InitializeGameContinue()
+    {
+        if (ProfileUI.Instance != null)
+            ProfileUI.Instance.OnGameStarted();
+
+        if (InventoryUI.Instance != null)
+            InventoryUI.Instance.OnGameStarted();
+
+        if (EquipmentUI.Instance != null)
+            EquipmentUI.Instance.OnGameStarted();
+
+        if (MarketUI.Instance != null)
+            MarketUI.Instance.OnGameStarted();
+
+        if (CurrencyUI.Instance != null)
+            CurrencyUI.Instance.OnGameStarted();
     }
 
     void OpenPanel(GameObject panel, string panelName)
@@ -570,12 +598,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetMap(currentMapIndex);
     }
 
-    private void OnPhaseChanged(TimePhase _)
-    {
-        if (mapPanel != null && mapPanel.activeSelf)
-            SetMap(currentMapIndex);
-    }
-
     public void SubscribeDialogue()
     {
         if (isDialogueSubscribed || DialogueManager.Instance == null)
@@ -817,14 +839,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         }
     }
 
-    public void ResetSceneProgress()
-    {
-        Progress = SceneProgress.Scene1;
-        SetBackground(0);
-        SetCharacter(0);
-        TryStartDialogue(0);
-    }
-
     private void SubscribeHoverEffects()
     {
         if (hoverEffects == null || hoverEffects.Length == 0 || isHoverEffectsSubscribed)
@@ -910,6 +924,14 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         isHoverEffectsSubscribed = false;
     }
 
+    public void ResetSceneProgress()
+    {
+        Progress = SceneProgress.Scene1;
+        SetBackground(0);
+        SetCharacter(0);
+        TryStartDialogue(0);
+    }
+
     static void SetActive(GameObject go, bool active)
     {
         if (go != null)
@@ -925,6 +947,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (btn != null)
             btn.interactable = interactable;
+    }
+
+    private void OnPhaseChanged(TimePhase _)
+    {
+        if (mapPanel != null && mapPanel.activeSelf)
+            SetMap(currentMapIndex);
     }
 
     IEnumerator FadeOutCharacter(float duration, DialogueNode endedNode = null)

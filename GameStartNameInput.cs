@@ -5,6 +5,7 @@ using System.Collections;
 
 public class GameStartNameInput : MonoBehaviour
 {
+    private static readonly int FadeOutHash = Animator.StringToHash("FadeOut");
     private static readonly WaitForSeconds _waitForSeconds1 = new(1f);
     private static readonly WaitForSeconds _waitForSeconds1_5 = new(1.5f);
     private static readonly WaitForSeconds _waitForSeconds0_5 = new(0.5f);
@@ -14,7 +15,6 @@ public class GameStartNameInput : MonoBehaviour
 
     [Header("Panels")]
     public GameObject nameInputPanel;
-    public StorySelectionUI storySelectionPanel;
 
     [Header("Input Fields")]
     public TMP_InputField nameInputField;
@@ -36,9 +36,6 @@ public class GameStartNameInput : MonoBehaviour
     public bool allowSpaces = true;
     public bool allowNumbers = false;
     public bool allowSpecialCharacters = false;
-
-    [Header("Start Dialogue")]
-    public DialogueNode startDialogueNode;
 
     [Header("Random Names")]
     public string[] randomNames = new string[]
@@ -193,35 +190,6 @@ public class GameStartNameInput : MonoBehaviour
             welcomeText.text = "";
             StartCoroutine(TypewriterEffect(welcomeText, originalText, typewriterSpeed));
         }
-    }
-
-    public void InitializeGame()
-    {
-        if (PlayerStats.Instance != null)
-            PlayerStats.Instance.FullRestore();
-
-        if (DialogueManager.Instance != null && startDialogueNode != null)
-            DialogueManager.Instance.StartDialogue(startDialogueNode);
-
-        InitializeGameContinue();
-    }
-
-    void InitializeGameContinue()
-    {
-        if (ProfileUI.Instance != null)
-            ProfileUI.Instance.OnGameStarted();
-
-        if (InventoryUI.Instance != null)
-            InventoryUI.Instance.OnGameStarted();
-
-        if (EquipmentUI.Instance != null)
-            EquipmentUI.Instance.OnGameStarted();
-
-        if (MarketUI.Instance != null)
-            MarketUI.Instance.OnGameStarted();
-
-        if (CurrencyUI.Instance != null)
-            CurrencyUI.Instance.OnGameStarted();
     }
 
     IEnumerator FocusInputField()
@@ -449,7 +417,7 @@ public class GameStartNameInput : MonoBehaviour
     {
         if (panelAnimator != null)
         {
-            panelAnimator.SetTrigger("FadeOut");
+            panelAnimator.SetTrigger(FadeOutHash);
             StartCoroutine(WaitForAnimation());
         }
         else
@@ -469,14 +437,10 @@ public class GameStartNameInput : MonoBehaviour
         if (nameInputPanel != null)
             nameInputPanel.SetActive(false);
 
-        if (storySelectionPanel != null)
-        {
-            storySelectionPanel.gameObject.SetActive(true);
-        }
+        if (StorySelectionUI.Instance != null)
+            StorySelectionUI.Instance.mainStoryPanel.transform.parent.gameObject.SetActive(true);
         else
-        {
-            InitializeGame();
-        }
+            Debug.LogWarning("[GameStartNameInput] StorySelectionUI bulunamadý.");
     }
 
     void CheckExistingProfile()
@@ -486,7 +450,11 @@ public class GameStartNameInput : MonoBehaviour
             if (nameInputPanel != null)
                 nameInputPanel.SetActive(false);
 
-            InitializeGameContinue();
+            if (SceneEvent.Instance != null)
+                SceneEvent.Instance.InitializeGameContinue();
+            else
+                Debug.LogWarning("[GameStartNameInput] SceneEvent bulunamadý.");
+
             return;
         }
 
@@ -498,7 +466,6 @@ public class GameStartNameInput : MonoBehaviour
                 StartCoroutine(FocusInputField());
         }
     }
-
 
     void ShowError(string message)
     {

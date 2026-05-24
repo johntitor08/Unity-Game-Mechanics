@@ -4,6 +4,9 @@ using TMPro;
 
 public class StorySelectionUI : MonoBehaviour
 {
+    public static StorySelectionUI Instance { get; private set; }
+    private string _pendingOriginID = "";
+
     [Header("Origin Select Buttons")]
     public Button originAButton;
     public Button originBButton;
@@ -25,7 +28,16 @@ public class StorySelectionUI : MonoBehaviour
     public Button continueBButton;
     public Button continueCButton;
 
-    private string _pendingOriginID = "";
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+    }
 
     void Start()
     {
@@ -91,10 +103,10 @@ public class StorySelectionUI : MonoBehaviour
         }
 
         OriginManager.Instance.SelectOrigin(_pendingOriginID);
-        gameObject.SetActive(false);
+        mainStoryPanel.transform.parent.gameObject.SetActive(false);
 
-        if (GameStartNameInput.Instance != null)
-            GameStartNameInput.Instance.InitializeGame();
+        if (SceneEvent.Instance != null)
+            SceneEvent.Instance.InitializeGame();
     }
 
     void FillTextsFromOriginData()
