@@ -236,17 +236,19 @@ public class DialogueManager : MonoBehaviour
 
         foreach (var choice in currentNode.choices)
         {
+            var capturedChoice = choice;
             Button btn = Instantiate(choiceButtonPrefab, choicesContainer);
-            btn.GetComponentInChildren<TextMeshProUGUI>().text = choice.choiceText;
-            btn.onClick.AddListener(() => SelectChoice(choice));
+            btn.GetComponentInChildren<TextMeshProUGUI>().text = capturedChoice.choiceText;
+            btn.onClick.AddListener(() => SelectChoice(capturedChoice));
         }
 
-        if (containerRect != null)
+        if (panelRect != null)
         {
-            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(containerRect);
+            float panelHeight = currentNode.choices.Length * 100f;
+            panelRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, panelHeight);
 
-            if (panelRect != null)
-                panelRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, containerRect.rect.height + 20f);
+            if (containerRect != null)
+                containerRect.sizeDelta = new Vector2(containerRect.sizeDelta.x, panelHeight);
         }
 
         choicesPanel.SetActive(true);
