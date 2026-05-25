@@ -79,7 +79,7 @@ public class DialogueManager : MonoBehaviour
             return;
 
         if (State == DialogueState.Typing && typewriter != null && typewriter.IsTyping)
-            typewriter.Complete(dialogueText);
+            typewriter.Complete();
         else if (State == DialogueState.WaitingInput)
             NextLine();
     }
@@ -123,12 +123,31 @@ public class DialogueManager : MonoBehaviour
         onDialogueEnd = callback;
         State = DialogueState.Opening;
         dialoguePanel.SetActive(true);
-        PanelAnimator?.OpenDialoguePanel();
         PlaySound(dialogueOpenSound);
         currentNode.onEnter?.Invoke();
         OnDialogueStart?.Invoke(currentNode);
         SetupVisuals();
         ClearChoices();
+
+        if (PanelAnimator != null)
+        {
+            PanelAnimator.OpenDialoguePanel();
+            float openDuration = PanelAnimator.DialogueCloseAnimationDuration();
+
+            if (openDuration > 0f)
+                StartCoroutine(WaitThenShowLine(openDuration));
+            else
+                ShowLine();
+        }
+        else
+        {
+            ShowLine();
+        }
+    }
+
+    IEnumerator WaitThenShowLine(float delay)
+    {
+        yield return new WaitForSeconds(delay);
         ShowLine();
     }
 

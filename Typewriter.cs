@@ -70,7 +70,7 @@ public class Typewriter : MonoBehaviour
         OnTypingComplete?.Invoke();
     }
 
-    public void Complete(TextMeshProUGUI textUI)
+    public void Complete()
     {
         if (!isTyping)
             return;
@@ -78,7 +78,7 @@ public class Typewriter : MonoBehaviour
         if (routine != null)
             StopCoroutine(routine);
 
-        textUI.text = cachedText;
+        cachedTextUI.text = cachedText;
         isTyping = false;
         routine = null;
         OnTypingComplete?.Invoke();

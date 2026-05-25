@@ -147,7 +147,7 @@ public class StorySelectionUI : MonoBehaviour
         }
 
         if (Typewriter.Instance != null && Typewriter.Instance.IsTyping)
-            Typewriter.Instance.Complete(label);
+            Typewriter.Instance.Complete();
 
         label.text = "";
         _typingCoroutine = StartCoroutine(TypeAfterDelay(label, text));
@@ -168,9 +168,7 @@ public class StorySelectionUI : MonoBehaviour
     void OnContinue()
     {
         if (Typewriter.Instance != null && Typewriter.Instance.IsTyping)
-        {
-            Typewriter.Instance.Complete(GetActivePanelText());
-        }
+            Typewriter.Instance.Complete();
 
         if (string.IsNullOrEmpty(_pendingOriginID))
         {
