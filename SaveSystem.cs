@@ -178,6 +178,8 @@ public static class SaveSystem
             data.activeQuests = questSave.runtimeStates;
             data.completedQuests = questSave.completedQuestIDs;
             data.trackedQuests = questSave.trackedQuestIDs;
+            data.questTimerKeys = questSave.questTimerKeys;
+            data.questTimerValues = questSave.questTimerValues;
         }
 
         if (PlayerStats.Instance != null)
@@ -267,33 +269,37 @@ public static class SaveSystem
 
             if (data.inventoryKeys != null && data.inventoryKeys.Count > 0)
             {
-                for (int i = 0; i < data.inventoryKeys.Count; i++)
+                if (ItemDatabase.Instance == null)
                 {
-                    string key = data.inventoryKeys[i];
-                    int sep = key.LastIndexOf(':');
+                    Debug.LogWarning("[SaveSystem] ItemDatabase.Instance null, inventory yüklenemedi.");
+                }
+                else
+                {
+                    for (int i = 0; i < data.inventoryKeys.Count; i++)
+                    {
+                        string key = data.inventoryKeys[i];
+                        int sep = key.LastIndexOf(':');
 
-                    if (sep < 0)
-                        continue;
+                        if (sep < 0)
+                            continue;
 
-                    string id = key[..sep];
+                        string id = key[..sep];
 
-                    if (!int.TryParse(key[(sep + 1)..], out int lvl))
-                        continue;
+                        if (!int.TryParse(key[(sep + 1)..], out int lvl))
+                            continue;
 
-                    if (ItemDatabase.Instance == null)
-                        return;
+                        var itemData = ItemDatabase.Instance.GetByID(id);
 
-                    var itemData = ItemDatabase.Instance.GetByID(id);
+                        if (itemData == null)
+                            continue;
 
-                    if (itemData == null)
-                        continue;
+                        int qty = data.inventoryCounts[i];
 
-                    int qty = data.inventoryCounts[i];
-
-                    if (itemData is EquipmentData eq)
-                        InventoryManager.Instance.AddUpgradedItem(eq, lvl, qty);
-                    else
-                        InventoryManager.Instance.AddItem(itemData, qty);
+                        if (itemData is EquipmentData eq)
+                            InventoryManager.Instance.AddUpgradedItem(eq, lvl, qty);
+                        else
+                            InventoryManager.Instance.AddItem(itemData, qty);
+                    }
                 }
             }
         }
@@ -303,15 +309,19 @@ public static class SaveSystem
             foreach (EquipmentSlot slot in System.Enum.GetValues(typeof(EquipmentSlot)))
                 EquipmentManager.Instance.Unequip(slot, returnToInventory: false, save: false);
 
-            foreach (var saved in data.equippedItems)
+            if (ItemDatabase.Instance == null)
             {
-                if (ItemDatabase.Instance == null)
-                    return;
+                Debug.LogWarning("[SaveSystem] ItemDatabase.Instance null, equipment yüklenemedi.");
+            }
+            else
+            {
+                foreach (var saved in data.equippedItems)
+                {
+                    var eq = ItemDatabase.Instance.GetByID(saved.itemID) as EquipmentData;
 
-                var eq = ItemDatabase.Instance.GetByID(saved.itemID) as EquipmentData;
-
-                if (eq != null)
-                    EquipmentManager.Instance.Equip(new EquipmentInstance(eq, saved.upgradeLevel));
+                    if (eq != null)
+                        EquipmentManager.Instance.Equip(new EquipmentInstance(eq, saved.upgradeLevel));
+                }
             }
         }
 
@@ -336,7 +346,9 @@ public static class SaveSystem
             {
                 runtimeStates = data.activeQuests,
                 completedQuestIDs = data.completedQuests,
-                trackedQuestIDs = data.trackedQuests
+                trackedQuestIDs = data.trackedQuests,
+                questTimerKeys = data.questTimerKeys ?? new(),
+                questTimerValues = data.questTimerValues ?? new()
             };
 
             if (questSave.runtimeStates != null)

@@ -209,15 +209,4 @@ public class StorySelectionUI : MonoBehaviour
         var data = OriginManager.Instance.GetOrigin(originID);
         return (data != null && !string.IsNullOrEmpty(data.summary)) ? data.summary : "";
     }
-
-    TextMeshProUGUI GetActivePanelText()
-    {
-        return _pendingOriginID switch
-        {
-            "bound_archivist" => storyAText,
-            "foreign_echo" => storyBText,
-            "sinned_guardian" => storyCText,
-            _ => mainStoryText
-        };
-    }
 }

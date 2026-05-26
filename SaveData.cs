@@ -28,6 +28,8 @@ public class SaveData
     public List<QuestRuntimeState> activeQuests = new();
     public List<string> completedQuests = new();
     public List<string> trackedQuests = new();
+    public List<string> questTimerKeys = new();
+    public List<float> questTimerValues = new();
     public string activeScenarioID = "";
     public int activeScenarioStep = 0;
     public List<string> completedScenarios = new();

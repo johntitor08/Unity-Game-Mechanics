@@ -99,12 +99,24 @@ public class ProfileManager : MonoBehaviour
 
     public void AddCurrency(int amount)
     {
+        if (CurrencyManager.Instance == null)
+        {
+            Debug.LogWarning("[ProfileManager] AddCurrency: CurrencyManager.Instance null.");
+            return;
+        }
+
         CurrencyManager.Instance.Add(CurrencyType.Gold, amount);
         OnProfileChanged?.Invoke(profile);
     }
 
     public bool SpendCurrency(int amount)
     {
+        if (CurrencyManager.Instance == null)
+        {
+            Debug.LogWarning("[ProfileManager] SpendCurrency: CurrencyManager.Instance null.");
+            return false;
+        }
+
         bool success = CurrencyManager.Instance.Spend(CurrencyType.Gold, amount);
 
         if (success)
@@ -129,6 +141,12 @@ public class ProfileManager : MonoBehaviour
 
     public bool PurchaseIcon(string iconID, int cost)
     {
+        if (CurrencyManager.Instance == null)
+        {
+            Debug.LogWarning("[ProfileManager] PurchaseIcon: CurrencyManager.Instance null.");
+            return false;
+        }
+
         if (profile.unlockedIconIDs.Contains(iconID) || !CurrencyManager.Instance.Spend(CurrencyType.Gold, cost))
             return false;
 

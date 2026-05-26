@@ -34,7 +34,6 @@ public class QuestManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            OnReady?.Invoke();
         }
         else
         {
@@ -44,6 +43,8 @@ public class QuestManager : MonoBehaviour
 
     void Start()
     {
+        OnReady?.Invoke();
+
         if (CombatManager.Instance != null)
             CombatManager.Instance.OnCombatVictory += CheckKillObjectives;
 
@@ -77,14 +78,15 @@ public class QuestManager : MonoBehaviour
 
     void UpdateQuestTimers()
     {
+        var keys = questTimers.Keys.ToList();
         List<string> expiredQuests = new();
 
-        foreach (var kvp in questTimers)
+        foreach (var key in keys)
         {
-            questTimers[kvp.Key] -= Time.deltaTime;
+            questTimers[key] -= Time.deltaTime;
 
-            if (questTimers[kvp.Key] <= 0)
-                expiredQuests.Add(kvp.Key);
+            if (questTimers[key] <= 0)
+                expiredQuests.Add(key);
         }
 
         foreach (var questID in expiredQuests)
@@ -411,6 +413,5 @@ public class QuestManager : MonoBehaviour
 
     public List<QuestData> GetAvailableQuests() => allQuests.Where(CanStartQuest).ToList();
 
-    public float GetQuestTimeRemaining(string questID) =>
-        questTimers.TryGetValue(questID, out float t) ? t : 0f;
+    public float GetQuestTimeRemaining(string questID) => questTimers.TryGetValue(questID, out float t) ? t : 0f;
 }
