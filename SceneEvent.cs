@@ -172,6 +172,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         HideAllPanels();
         SubscribeDialogue();
         SubscribeHoverEffects();
+        SetActive(timePanel, false);
+        SetActive(iconPanel, false);
 
         if (charImage != null)
             charImage.gameObject.SetActive(false);
@@ -251,8 +253,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (PlayerStats.Instance != null)
             PlayerStats.Instance.FullRestore();
 
-        SetActive(timePanel, false);
-        SetActive(iconPanel, false);
         TryStartDialogue(0);
         InitializeGameContinue();
     }
