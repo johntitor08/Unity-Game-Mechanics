@@ -6,7 +6,6 @@ using Firebase.Database;
 
 #else
 
-using WebSocketSharp;
 using UnityEngine.Networking;
 
 #endif
@@ -37,7 +36,7 @@ public class MPSVCharacterComponents : NetworkBehaviour
     [SerializeField] private float jumpingPower;
     private bool canJump;
     private bool isFacingRight = true;
-    [SerializeField] private float wallSlidingSpeed;
+    [SerializeField] private readonly float wallSlidingSpeed;
     [SerializeField] private Rigidbody2D rb;
     [SerializeField] private Transform groundCheck;
     [SerializeField] private LayerMask groundLayer;

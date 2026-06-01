@@ -3,6 +3,7 @@
 using Firebase;
 using Firebase.Database;
 using Firebase.Auth;
+using System.Threading.Tasks;
 
 #else
 
@@ -12,7 +13,6 @@ using UnityEngine.Networking;
 
 using System;
 using System.Collections;
-using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;

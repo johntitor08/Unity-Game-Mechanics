@@ -1,10 +1,10 @@
 ﻿#if !UNITY_WEBGL
 
 using Firebase.Database;
+using System.Threading.Tasks;
 
 #else
 
-using System.Threading.Tasks;
 using Newtonsoft.Json;
 using UnityEngine.Networking;
 

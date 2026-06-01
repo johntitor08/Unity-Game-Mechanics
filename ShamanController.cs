@@ -3,7 +3,6 @@ using UnityEngine;
 #if !UNITY_WEBGL
 
 using Firebase.Database;
-using WebSocketSharp;
 
 #endif
 

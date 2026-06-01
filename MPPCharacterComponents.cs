@@ -6,12 +6,11 @@ using UnityEngine.UI;
 using System.Collections.Generic;
 using Unity.Services.Lobbies.Models;
 using Unity.Services.Lobbies;
-using UnityEngine.Tilemaps;
 
 #if !UNITY_WEBGL
 
 using Firebase.Database;
-using WebSocketSharp;
+using UnityEngine.Tilemaps;
 
 [RequireComponent(typeof(LineRenderer))]
 
