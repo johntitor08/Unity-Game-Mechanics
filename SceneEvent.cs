@@ -767,6 +767,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             dialoguePanelAnimator.SetTrigger(dialoguePanelCloseTrigger);
     }
 
+    public float DialogueOpenAnimationDuration() => 0f;
+
     public float DialogueCloseAnimationDuration()
     {
         if (dialoguePanelAnimator != null)

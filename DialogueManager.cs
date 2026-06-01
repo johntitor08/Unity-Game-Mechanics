@@ -132,7 +132,7 @@ public class DialogueManager : MonoBehaviour
         if (PanelAnimator != null)
         {
             PanelAnimator.OpenDialoguePanel();
-            float openDuration = PanelAnimator.DialogueCloseAnimationDuration();
+            float openDuration = PanelAnimator.DialogueOpenAnimationDuration();
 
             if (openDuration > 0f)
                 StartCoroutine(WaitThenShowLine(openDuration));
@@ -383,6 +383,8 @@ public interface IDialoguePanelAnimator
     void OpenDialoguePanel();
 
     void CloseDialoguePanel();
+
+    float DialogueOpenAnimationDuration();
 
     float DialogueCloseAnimationDuration();
 }
