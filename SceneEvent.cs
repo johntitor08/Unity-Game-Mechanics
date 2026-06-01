@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -252,6 +251,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (PlayerStats.Instance != null)
             PlayerStats.Instance.FullRestore();
 
+        SetActive(timePanel, false);
+        SetActive(iconPanel, false);
         TryStartDialogue(0);
         InitializeGameContinue();
     }
@@ -703,6 +704,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     {
         if (endedNode == null || !endedNode.isFinalNode)
             return;
+
+        SetActive(timePanel, true);
+        SetActive(iconPanel, true);
 
         if (timePanelAnimator != null)
             timePanelAnimator.SetTrigger(timePanelOpenTrigger);
