@@ -13,32 +13,6 @@ public class AshenveilQuestMapRegions : MonoBehaviour
     [Header("Parent (optional)")]
     public RectTransform regionParentOverride;
 
-    [Header("Q01 · Bir Fincan Huzur")]
-    public bool spawnQ01OnStart = true;
-
-    public Q01RegionPlacement[] q01Placements =
-    {
-        new("Ashenveil_Kitchen_Stove", "q01_obj3", new Vector2(420f, -180f), QuestUIHoverBridge.TriggerKind.Interact),
-        new("Ashenveil_Maren_TeaHandIn", "q01_obj4", new Vector2(-120f, 280f), QuestUIHoverBridge.TriggerKind.Talk)
-    };
-
-    [System.Serializable]
-    public struct Q01RegionPlacement
-    {
-        public string objectName;
-        public string catalogObjectiveID;
-        public Vector2 anchoredPosition;
-        public QuestUIHoverBridge.TriggerKind kind;
-
-        public Q01RegionPlacement(string objectName, string catalogObjectiveID, Vector2 anchoredPosition, QuestUIHoverBridge.TriggerKind kind)
-        {
-            this.objectName = objectName;
-            this.catalogObjectiveID = catalogObjectiveID;
-            this.anchoredPosition = anchoredPosition;
-            this.kind = kind;
-        }
-    }
-
     struct SpawnedRegion
     {
         public string questID;
@@ -65,8 +39,8 @@ public class AshenveilQuestMapRegions : MonoBehaviour
 
         EnsureRegionRoot();
 
-        if (spawnQ01OnStart && spawned.Count == 0)
-            SpawnQ01Regions();
+        if (spawned.Count == 0)
+            SpawnAllFromCatalog();
 
         SubscribeQuestEvents();
         RefreshAllVisibility();
@@ -87,7 +61,7 @@ public class AshenveilQuestMapRegions : MonoBehaviour
 
         if (map == null)
         {
-            Debug.LogWarning("[AshenveilQuestMapRegions] Map RectTransform bulunamadı. MapPanel altında 'Map' objesi veya regionParentOverride atayın.");
+            Debug.LogWarning("[AshenveilQuestMapRegions] Map RectTransform bulunamadı.");
             return;
         }
 
@@ -111,46 +85,46 @@ public class AshenveilQuestMapRegions : MonoBehaviour
         regionRoot = rt;
     }
 
-    public void SpawnQ01Regions()
+    void SpawnAllFromCatalog()
     {
-        if (hoverRegionPrefab == null)
-            return;
-
-        EnsureRegionRoot();
-
         if (regionRoot == null)
             return;
 
-        foreach (var placement in q01Placements)
-            SpawnRegion(AshenveilQuestIds.Q01, placement);
+        foreach (var entry in AshenveilQuestTriggerCatalog.All)
+        {
+            if (entry.component != AshenveilQuestTriggerCatalog.RecommendedComponent.UIHoverBridge || IsAlreadySpawned(entry.objectiveID))
+                continue;
+
+            SpawnRegion(entry);
+        }
     }
 
-    void SpawnRegion(string questID, Q01RegionPlacement placement)
+    bool IsAlreadySpawned(string objectiveID)
     {
         foreach (var s in spawned)
-        {
-            if (s.instance != null && s.instance.name == placement.objectName)
-                return;
-        }
+            if (s.objectiveID == objectiveID)
+                return true;
 
+        return false;
+    }
+
+    void SpawnRegion(AshenveilQuestTriggerCatalog.Entry entry)
+    {
         var instance = Instantiate(hoverRegionPrefab, regionRoot);
-        instance.name = placement.objectName;
+        instance.name = entry.suggestedSceneObjectName;
 
-        if (instance.TryGetComponent(out RectTransform rt))
-            rt.anchoredPosition = placement.anchoredPosition;
-        
         if (!instance.TryGetComponent<QuestUIHoverBridge>(out var bridge))
             bridge = instance.AddComponent<QuestUIHoverBridge>();
 
-        bridge.catalogObjectiveID = placement.catalogObjectiveID;
-        bridge.kind = placement.kind;
+        bridge.catalogObjectiveID = entry.objectiveID;
         bridge.requireQuestActive = true;
         bridge.ApplyCatalogEntry();
+        instance.SetActive(false);
 
         spawned.Add(new SpawnedRegion
         {
-            questID = questID,
-            objectiveID = placement.catalogObjectiveID,
+            questID = entry.questID,
+            objectiveID = entry.objectiveID,
             instance = instance
         });
     }
@@ -185,7 +159,7 @@ public class AshenveilQuestMapRegions : MonoBehaviour
 
     void OnQuestChanged(QuestData _) => RefreshAllVisibility();
 
-    void OnObjectiveChanged(QuestData quest, QuestObjective objective) => RefreshAllVisibility();
+    void OnObjectiveChanged(QuestData _, QuestObjective __) => RefreshAllVisibility();
 
     void RefreshAllVisibility()
     {
@@ -197,8 +171,7 @@ public class AshenveilQuestMapRegions : MonoBehaviour
             if (entry.instance == null)
                 continue;
 
-            bool show = ShouldShowRegion(entry.questID, entry.objectiveID);
-            entry.instance.SetActive(show);
+            entry.instance.SetActive(ShouldShowRegion(entry.questID, entry.objectiveID));
         }
     }
 
@@ -209,8 +182,7 @@ public class AshenveilQuestMapRegions : MonoBehaviour
         if (!qm.IsQuestActive(questID))
             return false;
 
-        var state = qm.GetObjectiveState(questID, objectiveID);
-        return !state.isCompleted;
+        return !qm.GetObjectiveState(questID, objectiveID).isCompleted;
     }
 
     public static RectTransform FindMapRect()
