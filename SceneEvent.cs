@@ -33,6 +33,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     private bool isDialogueSubscribed;
     private bool isHoverEffectsSubscribed;
     public GameObject[] hoverEffects;
+    public GameObject[] items;
     private readonly List<System.Action> _hoverHideActions = new();
     private Action<EnemyData> _currentVictoryHandler;
     private Action _currentDefeatHandler;
@@ -471,6 +472,16 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             hoverEffects[6].SetActive(true);
         else
             hoverEffects[6].SetActive(false);
+
+        if (index == 15)
+            hoverEffects[7].SetActive(true);
+        else
+            hoverEffects[7].SetActive(false);
+
+        if (index == 38)
+            items[0].SetActive(true);
+        else
+            items[0].SetActive(false);
 
         if (showChar)
         {
@@ -913,6 +924,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (hoverEffects[6] != null)
             hoverEffects[6].GetComponent<UIHoverRegion>().OnRegionClicked += SkipToNextDay;
 
+        if (hoverEffects[7] != null)
+            hoverEffects[7].GetComponent<UIHoverRegion>().OnRegionClicked += ShowGardenHole;
+
+        if (hoverEffects[8] != null)
+            hoverEffects[8].GetComponent<UIHoverRegion>().OnRegionClicked += CollectAppleTeaSeed;
+
         isHoverEffectsSubscribed = true;
     }
 
@@ -952,6 +969,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (hoverEffects[6] != null)
             hoverEffects[6].GetComponent<UIHoverRegion>().OnRegionClicked -= SkipToNextDay;
+
+        if (hoverEffects[7] != null)
+            hoverEffects[7].GetComponent<UIHoverRegion>().OnRegionClicked -= ShowGardenHole;
+
+        if (hoverEffects[8] != null)
+            hoverEffects[8].GetComponent<UIHoverRegion>().OnRegionClicked -= CollectAppleTeaSeed;
 
         isHoverEffectsSubscribed = false;
     }
@@ -1114,6 +1137,14 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetActive(sleepingPanel, true);
         yield return new WaitForSeconds(delay);
         SetActive(sleepingPanel, false);
+    }
+
+    public void ShowGardenHole() => SetBackground(38);
+
+    public void CollectAppleTeaSeed()
+    {
+        Destroy(items[0]);
+        Debug.Log("Apple Tea Seed is collected.");
     }
 
     public void StartCashierDialogue() => TriggerMarketScene();
