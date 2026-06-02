@@ -1082,7 +1082,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             {
                 SetFleeDisabled(false);
                 UnsubscribeSceneCombat();
-                TriggerScene5();
+                StartCoroutine(TriggerScene5());
             },
             onDefeat: () =>
             {
@@ -1186,11 +1186,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         TryStartDialogue(3);
     }
 
-    public void TriggerScene5()
+    private IEnumerator TriggerScene5()
     {
         if (Progress != SceneProgress.Scene4)
-            return;
+            yield break;
 
+        yield return new WaitUntil(() => combatMapPanel == null || !combatMapPanel.activeSelf);
         Progress = SceneProgress.Scene5;
         SetCharacter(8);
         TryStartDialogue(4);
