@@ -138,10 +138,8 @@ public class AshenveilQuestMapRegions : MonoBehaviour
 
         if (instance.TryGetComponent(out RectTransform rt))
             rt.anchoredPosition = placement.anchoredPosition;
-
-        var bridge = instance.GetComponent<QuestUIHoverBridge>();
-
-        if (bridge == null)
+        
+        if (!instance.TryGetComponent<QuestUIHoverBridge>(out var bridge))
             bridge = instance.AddComponent<QuestUIHoverBridge>();
 
         bridge.catalogObjectiveID = placement.catalogObjectiveID;
@@ -219,8 +217,7 @@ public class AshenveilQuestMapRegions : MonoBehaviour
     {
         if (SceneEvent.Instance != null && SceneEvent.Instance.mapPanel != null)
         {
-            var mapPanel = SceneEvent.Instance.mapPanel.transform;
-            var map = mapPanel.Find("Map");
+            var map = SceneEvent.Instance.mapPanel.transform.Find("Map");
 
             if (map is RectTransform mapRt)
                 return mapRt;
@@ -230,7 +227,7 @@ public class AshenveilQuestMapRegions : MonoBehaviour
 
         if (mapCanvas != null)
         {
-            var map = mapCanvas.transform.Find("MapPanel/Map") ?? mapCanvas.transform.Find("Map");
+            var map = mapCanvas.transform.Find("MapPanel/Map");
 
             if (map is RectTransform mapRt)
                 return mapRt;
