@@ -1,8 +1,11 @@
 public static class QuestFlags
 {
     public const string OriginPrefix = "origin:";
+    public const string LegacyBoundArchivistStart = "archivist_start";
+    public const string LegacyForeignEchoStart = "echo_start";
     public const string AshenveilEntered = "ashenveil_entered";
     public const string BoundArchivistStart = "bound_archivist_start";
+    public const string BoundArchivistOpeningComplete = "bound_archivist_opening_complete";
     public const string BrahmaLeft = "brahma_left";
     public const string SealedFileTaken = "sealed_file_taken";
     public const string MarenMetBoundArchivist = "maren_met_bound_archivist";
@@ -22,6 +25,7 @@ public static class QuestFlags
     public const string BoundArchivistQuest1Done = "bound_archivist_quest1_done";
     public const string BoundArchivistQ1EowInvited = "bound_archivist_q1_eow_invited";
     public const string ForeignEchoStart = "foreign_echo_start";
+    public const string ForeignEchoOpeningComplete = "foreign_echo_opening_complete";
     public const string ShadowAnomalySeen = "shadow_anomaly_seen";
     public const string MarenMetForeignEcho = "maren_met_foreign_echo";
     public const string VossCantIdentifyForeignEcho = "voss_cant_identify_foreign_echo";
@@ -44,6 +48,7 @@ public static class QuestFlags
     public const string ChamberInteriorSeen = "chamber_interior_seen";
     public const string AxiosAnomalyIdentified = "axios_anomaly_identified";
     public const string SinnedGuardianStart = "sinned_guardian_start";
+    public const string SinnedGuardianOpeningComplete = "sinned_guardian_opening_complete";
     public const string MarenFirstMeeting = "maren_first_meeting";
     public const string MarenToldGuardianMission = "maren_told_guardian_mission";
     public const string VossCollectsNotDestroysKnown = "voss_collects_not_destroys_known";
@@ -73,4 +78,13 @@ public static class QuestFlags
     public const string Q09VossWarehouseFound = "q09_voss_warehouse_found";
     public const string VossDefeatedClean = "voss_defeated_clean";
     public const string ScenarioCompleted = "scenario_completed";
+
+    public static void MigrateLegacyOriginStartFlags()
+    {
+        if (StoryFlags.Has(LegacyBoundArchivistStart) && !StoryFlags.Has(BoundArchivistStart))
+            StoryFlags.Add(BoundArchivistStart);
+
+        if (StoryFlags.Has(LegacyForeignEchoStart) && !StoryFlags.Has(ForeignEchoStart))
+            StoryFlags.Add(ForeignEchoStart);
+    }
 }

@@ -1,14 +1,18 @@
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
+using System;
 
+[RequireComponent(typeof(Button))]
 public class RewardItemUI : MonoBehaviour
 {
     public Image icon;
     public TextMeshProUGUI nameText;
     public TextMeshProUGUI amountText;
+    public Button selectButton;
+    public GameObject selectedIndicator;
 
-    public void Setup(string itemName, string amount, Sprite itemIcon)
+    public void Setup(string itemName, string amount, Sprite itemIcon, Action onClicked = null, bool isSelected = false)
     {
         if (nameText != null)
             nameText.text = itemName;
@@ -25,5 +29,20 @@ public class RewardItemUI : MonoBehaviour
         {
             icon.enabled = false;
         }
+
+        if (selectButton == null)
+            selectButton = GetComponent<Button>();
+
+        if (selectButton != null)
+        {
+            selectButton.onClick.RemoveAllListeners();
+            selectButton.interactable = onClicked != null;
+
+            if (onClicked != null)
+                selectButton.onClick.AddListener(() => onClicked());
+        }
+
+        if (selectedIndicator != null)
+            selectedIndicator.SetActive(isSelected);
     }
 }

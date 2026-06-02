@@ -97,21 +97,23 @@ public class AshenveilQuestFactory : MonoBehaviour
         return q;
     }
 
-    static QuestObjective Interact(string id, string desc, bool optional = false) => new()
+    static QuestObjective Interact(string id, string desc, string interactTag = null, bool optional = false) => new()
     {
         objectiveID = id,
         description = desc,
         type = QuestObjectiveType.InteractWithObject,
+        interactObjectTag = string.IsNullOrEmpty(interactTag) ? id : interactTag,
         targetCount = 1,
         isOptional = optional
     };
 
-    static QuestObjective Talk(string id, string desc, bool optional = false) => new()
+    static QuestObjective Talk(string id, string desc, string npcTag = null, int talkCount = 1, bool optional = false) => new()
     {
         objectiveID = id,
         description = desc,
         type = QuestObjectiveType.TalkToNPC,
-        targetCount = 1,
+        npcTag = string.IsNullOrEmpty(npcTag) ? id : npcTag,
+        targetCount = talkCount,
         isOptional = optional
     };
 
@@ -183,7 +185,7 @@ public class AshenveilQuestFactory : MonoBehaviour
 
         q.objectives = new[]
         {
-            Talk("q03_obj1", "Köyde 3 farklı NPC ile konuş"),
+            Talk("q03_obj1", "Köyde 3 farklı NPC ile konuş", talkCount: 3),
             Interact("q03_obj2", "Köy meydanında gizli izi takip et"),
             Interact("q03_obj3", "Ahırın arkasındaki kutuyu bul")
         };

@@ -35,6 +35,7 @@ public class QuestUI : MonoBehaviour
     public Transform objectivesContainer;
     public QuestObjectiveUI objectivePrefab;
     public Transform rewardsContainer;
+    public RewardItemUI rewardItemPrefab;
     public Button acceptButton;
     public Button abandonButton;
     public Button trackButton;
@@ -103,6 +104,7 @@ public class QuestUI : MonoBehaviour
         {
             QuestManager.Instance.OnQuestStarted -= OnQuestStarted;
             QuestManager.Instance.OnQuestCompleted -= OnQuestCompleted;
+            QuestManager.Instance.OnQuestFailed -= OnQuestFailed;
             QuestManager.Instance.OnQuestAbandoned -= OnQuestAbandoned;
             QuestManager.Instance.OnObjectiveUpdated -= OnObjectiveUpdated;
             QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveCompleted;
@@ -118,6 +120,7 @@ public class QuestUI : MonoBehaviour
         {
             QuestManager.Instance.OnQuestStarted += OnQuestStarted;
             QuestManager.Instance.OnQuestCompleted += OnQuestCompleted;
+            QuestManager.Instance.OnQuestFailed += OnQuestFailed;
             QuestManager.Instance.OnQuestAbandoned += OnQuestAbandoned;
             QuestManager.Instance.OnObjectiveUpdated += OnObjectiveUpdated;
             QuestManager.Instance.OnObjectiveCompleted += OnObjectiveCompleted;
@@ -132,7 +135,9 @@ public class QuestUI : MonoBehaviour
         {
             bool nowActive = !questPanel.activeSelf;
             questPanel.SetActive(nowActive);
-            questLogPanel.SetActive(nowActive);
+
+            if (questLogPanel != null)
+                questLogPanel.SetActive(nowActive);
 
             if (nowActive)
                 RefreshQuestLog();
@@ -222,16 +227,17 @@ public class QuestUI : MonoBehaviour
 
         if (objectivesContainer != null && objectivePrefab != null)
         {
-            foreach (Transform child in objectivesContainer)
-                Destroy(child.gameObject);
+            ClearContainer(objectivesContainer);
 
-            foreach (var objective in quest.objectives)
+            foreach (var objective in GetObjectives(quest))
             {
                 var objUI = Instantiate(objectivePrefab, objectivesContainer);
                 var state = qm.GetObjectiveState(quest.questID, objective.objectiveID);
                 objUI.Setup(objective, state);
             }
         }
+
+        PopulateRewards(quest);
 
         bool isActive = qm.IsQuestActive(quest.questID);
         bool isCompleted = qm.IsQuestCompleted(quest.questID);
@@ -290,7 +296,7 @@ public class QuestUI : MonoBehaviour
 
     void OnAcceptClicked()
     {
-        if (selectedQuest == null)
+        if (selectedQuest == null || QuestManager.Instance == null)
             return;
 
         QuestManager.Instance.StartQuest(selectedQuest);
@@ -303,7 +309,7 @@ public class QuestUI : MonoBehaviour
 
     void OnAbandonClicked()
     {
-        if (selectedQuest == null)
+        if (selectedQuest == null || QuestManager.Instance == null)
             return;
 
         QuestManager.Instance.AbandonQuest(selectedQuest);
@@ -316,7 +322,7 @@ public class QuestUI : MonoBehaviour
 
     void OnTrackClicked()
     {
-        if (selectedQuest == null)
+        if (selectedQuest == null || QuestManager.Instance == null)
             return;
 
         QuestManager.Instance.ToggleTracking(selectedQuest);
@@ -326,6 +332,8 @@ public class QuestUI : MonoBehaviour
     void OnQuestStarted(QuestData quest) => RefreshQuestLog();
 
     void OnQuestCompleted(QuestData quest) => RefreshQuestLog();
+
+    void OnQuestFailed(QuestData quest) => RefreshQuestLog();
 
     void OnQuestAbandoned(QuestData quest) => RefreshQuestLog();
 
@@ -346,5 +354,93 @@ public class QuestUI : MonoBehaviour
 
         if (questDetailsPanel != null)
             questDetailsPanel.SetActive(false);
+    }
+
+    void PopulateRewards(QuestData quest)
+    {
+        if (rewardsContainer == null || rewardItemPrefab == null)
+            return;
+
+        ClearContainer(rewardsContainer);
+
+        if (quest.experienceReward > 0)
+            SpawnRewardItem("Experience", quest.experienceReward.ToString(), null);
+
+        if (quest.currencyRewards != null)
+        {
+            foreach (var reward in quest.currencyRewards)
+            {
+                var currencyInfo = CurrencyManager.Instance != null ? CurrencyManager.Instance.GetCurrencyInfo(reward.type) : null;
+                SpawnRewardItem(reward.type.ToString(), reward.amount.ToString(), currencyInfo?.icon);
+            }
+        }
+
+        if (quest.itemRewards != null)
+        {
+            for (int i = 0; i < quest.itemRewards.Length; i++)
+            {
+                var item = quest.itemRewards[i];
+
+                if (item == null)
+                    continue;
+
+                int qty = quest.itemRewardQuantities != null && i < quest.itemRewardQuantities.Length ? quest.itemRewardQuantities[i] : 1;
+                SpawnRewardItem(item.itemName, $"x{qty}", item.icon);
+            }
+        }
+
+        if (quest.optionalRewards != null)
+        {
+            var qm = QuestManager.Instance;
+            bool canSelectOptionalReward = qm != null && qm.IsQuestActive(quest.questID);
+            var selectedOptionalReward = qm != null ? qm.GetSelectedOptionalReward(quest.questID) : null;
+
+            foreach (var item in quest.optionalRewards)
+            {
+                if (item == null)
+                    continue;
+
+                var reward = item;
+                bool isSelected = selectedOptionalReward == reward;
+                string value = canSelectOptionalReward ? isSelected ? "Selected" : "Choose" : "x1";
+                System.Action onClick = null;
+
+                if (canSelectOptionalReward)
+                {
+                    onClick = () =>
+                    {
+                        if (QuestManager.Instance != null && QuestManager.Instance.SelectOptionalReward(quest, reward))
+                            ShowQuestDetails(quest);
+                    };
+                }
+
+                SpawnRewardItem($"{reward.itemName} (Optional)", value, reward.icon, onClick, isSelected);
+            }
+        }
+    }
+
+    void SpawnRewardItem(string label, string value, Sprite icon, System.Action onClicked = null, bool isSelected = false)
+    {
+        var rewardUI = Instantiate(rewardItemPrefab, rewardsContainer);
+        rewardUI.Setup(label, value, icon, onClicked, isSelected);
+    }
+
+    void ClearContainer(Transform container)
+    {
+        if (container == null)
+            return;
+
+        foreach (Transform child in container)
+            Destroy(child.gameObject);
+    }
+
+    IEnumerable<QuestObjective> GetObjectives(QuestData quest)
+    {
+        if (quest == null || quest.objectives == null)
+            yield break;
+
+        foreach (var objective in quest.objectives)
+            if (objective != null)
+                yield return objective;
     }
 }

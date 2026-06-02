@@ -5,9 +5,17 @@ public class OriginManager : MonoBehaviour
     public static OriginManager Instance { get; private set; }
     public PlayerOriginData CurrentOrigin { get; private set; }
     public bool OriginSelected { get; private set; }
+    public const string OriginBoundArchivist = "bound_archivist";
+    public const string OriginForeignEcho = "foreign_echo";
+    public const string OriginSinnedGuardian = "sinned_guardian";
 
     [Header("All Origins")]
     public PlayerOriginData[] allOrigins;
+
+    [Header("Origin Quest Controllers (optional — auto-found in scene)")]
+    [SerializeField] BoundArchivistQuestController boundArchivistQuest;
+    [SerializeField] ForeignEchoQuestController foreignEchoQuest;
+    [SerializeField] SinnedGuardianQuestController sinnedGuardianQuest;
 
     void Awake()
     {
@@ -23,6 +31,7 @@ public class OriginManager : MonoBehaviour
 
     void Start()
     {
+        QuestFlags.MigrateLegacyOriginStartFlags();
         TryRestoreFromFlags();
     }
 
@@ -36,7 +45,8 @@ public class OriginManager : MonoBehaviour
 
         CurrentOrigin = origin;
         OriginSelected = true;
-        StoryFlags.Add("origin:" + origin.originID);
+        StoryFlags.Add(QuestFlags.OriginPrefix + origin.originID);
+        RunOriginOpeningScene(origin.originID);
         ApplyOriginFlags(origin);
         ApplyStats(origin);
         GrantStartingItems(origin);
@@ -82,6 +92,10 @@ public class OriginManager : MonoBehaviour
 
         CurrentOrigin = origin;
         OriginSelected = true;
+
+        if (!IsOriginOpeningComplete(savedOriginID))
+            RunOriginOpeningScene(savedOriginID);
+
         ApplyOriginFlags(origin);
         AshenveilQuestFactory.OnOriginApplied();
         Debug.Log($"[OriginManager] Origin loaded from save: {origin.displayName}");
@@ -91,11 +105,15 @@ public class OriginManager : MonoBehaviour
     {
         foreach (var o in allOrigins)
         {
-            if (!StoryFlags.Has("origin:" + o.originID))
+            if (!StoryFlags.Has(QuestFlags.OriginPrefix + o.originID))
                 continue;
 
             CurrentOrigin = o;
             OriginSelected = true;
+
+            if (!IsOriginOpeningComplete(o.originID))
+                RunOriginOpeningScene(o.originID);
+
             ApplyOriginFlags(o);
             AshenveilQuestFactory.OnOriginApplied();
             Debug.Log($"[OriginManager] Origin restored from flags: {o.displayName}");
@@ -144,5 +162,67 @@ public class OriginManager : MonoBehaviour
             int qty = (origin.startingItemQty != null && i < origin.startingItemQty.Length) ? origin.startingItemQty[i] : 1;
             InventoryManager.Instance.AddItem(origin.startingItems[i], qty);
         }
+    }
+
+    void RunOriginOpeningScene(string originID)
+    {
+        switch (originID)
+        {
+            case OriginBoundArchivist:
+            {
+                var controller = ResolveController(ref boundArchivistQuest);
+
+                if (controller == null)
+                    LogMissingController(originID);
+                else
+                    controller.OnOpeningSceneComplete();
+
+                break;
+            }
+            case OriginForeignEcho:
+            {
+                var controller = ResolveController(ref foreignEchoQuest);
+
+                if (controller == null)
+                    LogMissingController(originID);
+                else
+                    controller.OnOpeningSceneComplete();
+
+                break;
+            }
+            case OriginSinnedGuardian:
+            {
+                var controller = ResolveController(ref sinnedGuardianQuest);
+
+                if (controller == null)
+                    LogMissingController(originID);
+                else
+                    controller.OnOpeningSceneComplete();
+
+                break;
+            }
+            default:
+                Debug.LogWarning($"[OriginManager] No opening scene handler for origin '{originID}'.");
+                break;
+        }
+    }
+
+    static void LogMissingController(string originID) => Debug.LogWarning($"[OriginManager] Quest controller not found for origin '{originID}'. Add it to the scene or assign it on OriginManager.");
+
+    static bool IsOriginOpeningComplete(string originID) => originID switch
+    {
+        OriginBoundArchivist => StoryFlags.Has(QuestFlags.BoundArchivistOpeningComplete),
+        OriginForeignEcho => StoryFlags.Has(QuestFlags.ForeignEchoOpeningComplete),
+        OriginSinnedGuardian => StoryFlags.Has(QuestFlags.SinnedGuardianOpeningComplete),
+        _ => true
+    };
+
+    static T ResolveController<T>(ref T cached) where T : Object
+    {
+        if (cached != null)
+            return cached;
+
+        cached = Object.FindAnyObjectByType<T>(FindObjectsInactive.Include);
+        return cached;
     }
 }

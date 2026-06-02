@@ -6,6 +6,10 @@ public class ForeignEchoQuestController : MonoBehaviour
 
     public void OnOpeningSceneComplete()
     {
+        if (StoryFlags.Has(QuestFlags.ForeignEchoOpeningComplete))
+            return;
+
+        StoryFlags.Add(QuestFlags.ForeignEchoOpeningComplete);
         StoryFlags.Add(QuestFlags.ForeignEchoStart);
         StoryFlags.Add(QuestFlags.ShadowAnomalySeen);
         StoryFlags.Add(QuestFlags.AshenveilEntered);

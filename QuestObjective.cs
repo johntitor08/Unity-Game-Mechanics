@@ -25,18 +25,11 @@ public class QuestObjective
     public int targetCount = 1;
 
     [Header("Progress")]
-    [System.NonSerialized] public int currentProgress = 0;
-    [System.NonSerialized] public bool isCompleted = false;
     public bool isOptional = false;
 
     [Header("Events")]
     public UnityEngine.Events.UnityEvent onObjectiveStart;
     public UnityEngine.Events.UnityEvent onObjectiveComplete;
-
-    public bool IsComplete()
-    {
-        return currentProgress >= GetRequiredCount();
-    }
 
     public int GetRequiredCount()
     {
@@ -46,18 +39,11 @@ public class QuestObjective
             QuestObjectiveType.CollectItems => itemCount,
             QuestObjectiveType.CraftItems => craftCount,
             QuestObjectiveType.SpendCurrency => currencyAmount,
+            QuestObjectiveType.TalkToNPC => targetCount > 0 ? targetCount : 1,
+            QuestObjectiveType.InteractWithObject => targetCount > 0 ? targetCount : 1,
+            QuestObjectiveType.GoToLocation => targetCount > 0 ? targetCount : 1,
             _ => 1
         };
-    }
-
-    public float GetProgressPercentage()
-    {
-        int required = GetRequiredCount();
-
-        if (required == 0)
-            return 1f;
-
-        return Mathf.Clamp01((float)currentProgress / required);
     }
 }
 

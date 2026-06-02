@@ -6,6 +6,10 @@ public class SinnedGuardianQuestController : MonoBehaviour
 
     public void OnOpeningSceneComplete()
     {
+        if (StoryFlags.Has(QuestFlags.SinnedGuardianOpeningComplete))
+            return;
+
+        StoryFlags.Add(QuestFlags.SinnedGuardianOpeningComplete);
         StoryFlags.Add(QuestFlags.SinnedGuardianStart);
         TryAutoStartQuest("q_sg01_the_debt_that_breathes");
         Debug.Log("[GuardianQuest] Opening scene complete.");
@@ -60,6 +64,7 @@ public class SinnedGuardianQuestController : MonoBehaviour
         if (!IsGuardian)
             return;
 
+        StoryFlags.Add(QuestFlags.VossDay3Guardian);
         UpdateObjective("q_sg01_the_debt_that_breathes", "q_sg01_obj5");
         Debug.Log("[GuardianQuest] Voss tracked from western road.");
     }

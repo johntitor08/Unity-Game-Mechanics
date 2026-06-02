@@ -42,6 +42,9 @@ public class QuestData : ScriptableObject
     public bool showOnMap = true;
     public Vector3 questMarkerPosition;
 
+    [Header("Completion")]
+    public bool autoCompleteWhenObjectivesComplete = false;
+
     [Header("Time Limit")]
     public bool hasTimeLimit = false;
     public float timeLimitSeconds = 300f;

@@ -40,7 +40,9 @@ public class QuestRewardUI : MonoBehaviour
         }
 
         Instance = this;
-        rewardPanel.SetActive(false);
+
+        if (rewardPanel != null)
+            rewardPanel.SetActive(false);
     }
 
     void Start()
@@ -55,7 +57,7 @@ public class QuestRewardUI : MonoBehaviour
             Instance = null;
     }
 
-    public void ShowRewards(QuestData quest)
+    public void ShowRewards(QuestData quest, ItemData selectedOptionalReward = null)
     {
         if (quest == null || rewardItemPrefab == null)
             return;
@@ -63,7 +65,8 @@ public class QuestRewardUI : MonoBehaviour
         if (autoCloseCoroutine != null)
             StopCoroutine(autoCloseCoroutine);
 
-        rewardPanel.SetActive(true);
+        if (rewardPanel != null)
+            rewardPanel.SetActive(true);
 
         if (questNameText != null)
             questNameText.text = quest.questName;
@@ -89,21 +92,33 @@ public class QuestRewardUI : MonoBehaviour
         {
             for (int i = 0; i < quest.itemRewards.Length; i++)
             {
+                var item = quest.itemRewards[i];
+
+                if (item == null)
+                    continue;
+
                 int qty = (quest.itemRewardQuantities != null && i < quest.itemRewardQuantities.Length) ? quest.itemRewardQuantities[i] : 1;
-                SpawnRewardItem(rewardsContainer, quest.itemRewards[i].itemName, $"x{qty}", quest.itemRewards[i].icon);
+                SpawnRewardItem(rewardsContainer, item.itemName, $"x{qty}", item.icon);
             }
         }
 
-        bool hasOptional = quest.optionalRewards != null && quest.optionalRewards.Length > 0;
+        bool hasOptional = selectedOptionalReward != null || quest.optionalRewards != null && quest.optionalRewards.Length > 0;
 
         if (optionalRewardsLabel != null)
             optionalRewardsLabel.gameObject.SetActive(hasOptional);
 
         ClearContainer(optionalRewardsContainer);
 
-        if (hasOptional && optionalRewardsContainer != null)
+        if (selectedOptionalReward != null)
+        {
+            SpawnRewardItem(optionalRewardsContainer, selectedOptionalReward.itemName, "x1", selectedOptionalReward.icon);
+        }
+        else if (quest.optionalRewards != null && optionalRewardsContainer != null)
+        {
             foreach (var item in quest.optionalRewards)
-                SpawnRewardItem(optionalRewardsContainer, item.itemName, "x1", item.icon);
+                if (item != null)
+                    SpawnRewardItem(optionalRewardsContainer, item.itemName, "x1", item.icon);
+        }
 
         autoCloseCoroutine = StartCoroutine(AutoClose());
         StartCoroutine(UpdateScrollsNextFrame());
@@ -161,6 +176,7 @@ public class QuestRewardUI : MonoBehaviour
             autoCloseCoroutine = null;
         }
 
-        rewardPanel.SetActive(false);
+        if (rewardPanel != null)
+            rewardPanel.SetActive(false);
     }
 }

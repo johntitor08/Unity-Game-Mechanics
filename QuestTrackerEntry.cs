@@ -35,7 +35,7 @@ public class QuestTrackerEntry : MonoBehaviour
 
         int count = incompleteObjectives.Count;
 
-        while (objectiveTexts.Count < count)
+        while (objectiveTexts.Count < count && objectiveTextPrefab != null && objectivesContainer != null)
         {
             var t = Instantiate(objectiveTextPrefab, objectivesContainer);
             objectiveTexts.Add(t);
@@ -47,7 +47,7 @@ public class QuestTrackerEntry : MonoBehaviour
             {
                 var (obj, state) = incompleteObjectives[i];
                 var textComp = objectiveTexts[i];
-                textComp.text = $"• {obj.description} ({state.currentProgress}/{obj.GetRequiredCount()})";
+                textComp.text = $"- {obj.description} ({state.currentProgress}/{obj.GetRequiredCount()})";
                 textComp.gameObject.SetActive(true);
             }
             else
@@ -88,7 +88,6 @@ public class QuestTrackerEntry : MonoBehaviour
         }
         else
         {
-            float extraHeight = (maxVisibleRows - objectiveCount) * objectiveTextHeight;
             selfRt.sizeDelta = new Vector2(selfRt.sizeDelta.x, objectiveCount * objectiveTextHeight + 100f);
         }
     }

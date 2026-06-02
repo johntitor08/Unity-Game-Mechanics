@@ -6,6 +6,10 @@ public class BoundArchivistQuestController : MonoBehaviour
 
     public void OnOpeningSceneComplete()
     {
+        if (StoryFlags.Has(QuestFlags.BoundArchivistOpeningComplete))
+            return;
+
+        StoryFlags.Add(QuestFlags.BoundArchivistOpeningComplete);
         StoryFlags.Add(QuestFlags.BoundArchivistStart);
         StoryFlags.Add(QuestFlags.BrahmaLeft);
         StoryFlags.Add(QuestFlags.SealedFileTaken);

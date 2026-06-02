@@ -67,4 +67,6 @@ public class QuestSaveData
     public List<string> trackedQuestIDs = new();
     public List<float> questTimerValues = new();
     public List<string> questTimerKeys = new();
+    public List<string> selectedOptionalRewardQuestIDs = new();
+    public List<string> selectedOptionalRewardItemIDs = new();
 }

@@ -40,6 +40,9 @@ public class QuestGiver : MonoBehaviour, IPointerClickHandler
         {
             QuestManager.Instance.OnQuestStarted -= OnQuestChanged;
             QuestManager.Instance.OnQuestCompleted -= OnQuestChanged;
+            QuestManager.Instance.OnQuestFailed -= OnQuestChanged;
+            QuestManager.Instance.OnQuestAbandoned -= OnQuestChanged;
+            QuestManager.Instance.OnQuestReadyToComplete -= OnQuestChanged;
             QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveChanged;
         }
     }
@@ -53,8 +56,14 @@ public class QuestGiver : MonoBehaviour, IPointerClickHandler
 
     void Subscribe()
     {
+        if (QuestManager.Instance == null)
+            return;
+
         QuestManager.Instance.OnQuestStarted += OnQuestChanged;
         QuestManager.Instance.OnQuestCompleted += OnQuestChanged;
+        QuestManager.Instance.OnQuestFailed += OnQuestChanged;
+        QuestManager.Instance.OnQuestAbandoned += OnQuestChanged;
+        QuestManager.Instance.OnQuestReadyToComplete += OnQuestChanged;
         QuestManager.Instance.OnObjectiveCompleted += OnObjectiveChanged;
     }
 
@@ -98,18 +107,7 @@ public class QuestGiver : MonoBehaviour, IPointerClickHandler
 
     bool AreAllObjectivesComplete(QuestData quest)
     {
-        foreach (var obj in quest.objectives)
-        {
-            if (!obj.isOptional)
-            {
-                var state = QuestManager.Instance.GetObjectiveState(quest.questID, obj.objectiveID);
-
-                if (!state.isCompleted)
-                    return false;
-            }
-        }
-
-        return true;
+        return QuestManager.Instance != null && QuestManager.Instance.AreRequiredObjectivesComplete(quest);
     }
 
     void UpdateQuestIndicators()
@@ -121,8 +119,14 @@ public class QuestGiver : MonoBehaviour, IPointerClickHandler
         bool hasActiveQuest = false;
         bool hasCompleteQuest = false;
 
+        if (availableQuests == null)
+            return;
+
         foreach (var quest in availableQuests)
         {
+            if (quest == null)
+                continue;
+
             if (QuestManager.Instance.CanStartQuest(quest))
             {
                 hasNewQuest = true;
@@ -148,39 +152,48 @@ public class QuestGiver : MonoBehaviour, IPointerClickHandler
 
     void Interact()
     {
+        if (QuestManager.Instance == null || availableQuests == null)
+            return;
+
         foreach (var quest in availableQuests)
         {
-            if (!QuestManager.Instance.IsQuestActive(quest.questID))
+            if (quest == null || !QuestManager.Instance.IsQuestActive(quest.questID))
                 continue;
 
             if (AreAllObjectivesComplete(quest))
             {
-                if (quest.completionDialogue != null && DialogueManager.Instance != null)
-                    DialogueManager.Instance.StartDialogue(quest.completionDialogue, () => QuestManager.Instance.CompleteQuest(quest));
-                else
-                    QuestManager.Instance.CompleteQuest(quest);
-
+                StartDialogueOrRun(quest.completionDialogue, () => QuestManager.Instance.CompleteQuest(quest));
                 return;
             }
 
             if (quest.progressDialogue != null)
             {
-                DialogueManager.Instance.StartDialogue(quest.progressDialogue);
+                StartDialogueOrRun(quest.progressDialogue, null);
                 return;
             }
         }
 
         foreach (var quest in availableQuests)
         {
+            if (quest == null)
+                continue;
+
             if (QuestManager.Instance.CanStartQuest(quest))
             {
-                if (quest.startDialogue != null)
-                    DialogueManager.Instance.StartDialogue(quest.startDialogue, () => QuestManager.Instance.StartQuest(quest));
-                else
-                    QuestManager.Instance.StartQuest(quest);
-
+                StartDialogueOrRun(quest.startDialogue, () => QuestManager.Instance.StartQuest(quest));
                 return;
             }
         }
+    }
+
+    void StartDialogueOrRun(DialogueNode dialogue, System.Action onComplete)
+    {
+        if (dialogue != null && DialogueManager.Instance != null)
+        {
+            DialogueManager.Instance.StartDialogue(dialogue, onComplete);
+            return;
+        }
+
+        onComplete?.Invoke();
     }
 }

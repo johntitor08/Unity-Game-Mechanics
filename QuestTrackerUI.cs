@@ -66,6 +66,7 @@ public class QuestTrackerUI : MonoBehaviour
         {
             QuestManager.Instance.OnQuestStarted -= OnQuestStarted;
             QuestManager.Instance.OnQuestCompleted -= OnQuestCompleted;
+            QuestManager.Instance.OnQuestFailed -= OnQuestFailed;
             QuestManager.Instance.OnObjectiveUpdated -= OnObjectiveUpdated;
             QuestManager.Instance.OnObjectiveCompleted -= OnObjectiveCompleted;
             QuestManager.Instance.OnTrackingToggleRequested -= OnTrackingToggleRequested;
@@ -84,6 +85,7 @@ public class QuestTrackerUI : MonoBehaviour
         {
             QuestManager.Instance.OnQuestStarted += OnQuestStarted;
             QuestManager.Instance.OnQuestCompleted += OnQuestCompleted;
+            QuestManager.Instance.OnQuestFailed += OnQuestFailed;
             QuestManager.Instance.OnObjectiveUpdated += OnObjectiveUpdated;
             QuestManager.Instance.OnObjectiveCompleted += OnObjectiveCompleted;
             QuestManager.Instance.OnTrackingToggleRequested += OnTrackingToggleRequested;
@@ -105,6 +107,8 @@ public class QuestTrackerUI : MonoBehaviour
     }
 
     void OnQuestCompleted(QuestData quest) => UntrackQuest(quest.questID);
+
+    void OnQuestFailed(QuestData quest) => UntrackQuest(quest.questID);
 
     void OnQuestAbandoned(QuestData quest) => UntrackQuest(quest.questID);
 
