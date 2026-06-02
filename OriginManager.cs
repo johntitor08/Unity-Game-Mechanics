@@ -12,7 +12,7 @@ public class OriginManager : MonoBehaviour
     [Header("All Origins")]
     public PlayerOriginData[] allOrigins;
 
-    [Header("Origin Quest Controllers (optional — auto-found in scene)")]
+    [Header("Origin Quest Controllers")]
     [SerializeField] BoundArchivistQuestController boundArchivistQuest;
     [SerializeField] ForeignEchoQuestController foreignEchoQuest;
     [SerializeField] SinnedGuardianQuestController sinnedGuardianQuest;
