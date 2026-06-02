@@ -11,6 +11,12 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     void Awake() => _instance = this;
 
+    void OnDestroy()
+    {
+        if (_instance == this)
+            _instance = null;
+    }
+
     void Start()
     {
         if (QuestManager.Instance == null)
@@ -21,6 +27,7 @@ public class AshenveilQuestFactory : MonoBehaviour
 
         BuildAllQuests();
         InjectIntoQuestManager();
+        TryAutoStartAvailableQuests();
     }
 
     public static void OnOriginApplied()

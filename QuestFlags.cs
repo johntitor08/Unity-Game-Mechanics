@@ -36,7 +36,7 @@ public static class QuestFlags
     public const string MireyaMetForeignEcho = "mireya_met_foreign_echo";
     public const string LurkerPatrolData = "lurker_patrol_data";
     public const string ChicoMet = "chico_met";
-    public const string AwamorIncomingKnown = "awamori_incoming_known";
+    public const string AwamoriIncomingKnown = "awamori_incoming_known";
     public const string AxiosFrequencyShared = "axios_frequency_shared";
     public const string VossDay3ForeignEcho = "voss_day3_foreign_echo";
     public const string ChamberFrequencyWarning = "chamber_frequency_warning";
@@ -58,6 +58,7 @@ public static class QuestFlags
     public const string CorvinOptionalSpoken = "corvin_optional_spoken";
     public const string DragsimEastClue = "dragsimo_east_clue";
     public const string VossDay3Guardian = "voss_day3_guardian";
+    public const string VossTrackedGuardian = "voss_tracked_guardian";
     public const string DragsimSecondWallKnown = "dragsimo_second_wall_known";
     public const string VossReversalClauseHinted = "voss_reversal_clause_hinted";
     public const string ThreeFamiliesLocated = "three_families_located";

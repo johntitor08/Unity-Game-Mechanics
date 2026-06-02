@@ -58,7 +58,7 @@ public class ForeignEchoQuestController : MonoBehaviour
             return;
 
         StoryFlags.Add(QuestFlags.ChicoMet);
-        StoryFlags.Add(QuestFlags.AwamorIncomingKnown);
+        StoryFlags.Add(QuestFlags.AwamoriIncomingKnown);
 
         if (exchangeAccepted)
             StoryFlags.Add(QuestFlags.AxiosFrequencyShared);
