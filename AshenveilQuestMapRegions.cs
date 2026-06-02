@@ -171,7 +171,10 @@ public class AshenveilQuestMapRegions : MonoBehaviour
             if (entry.instance == null)
                 continue;
 
-            entry.instance.SetActive(ShouldShowRegion(entry.questID, entry.objectiveID));
+            bool shouldShow = ShouldShowRegion(entry.questID, entry.objectiveID);
+
+            if (entry.instance.activeSelf != shouldShow)
+                entry.instance.SetActive(shouldShow);
         }
     }
 
