@@ -6,6 +6,7 @@ public class AshenveilAssetRegistry : ScriptableObject
     [Header("Items — Ashenveil Core")]
     public ItemData freshApple;
     public ItemData cinnamon;
+    public ItemData appleTeaSeed;
     public ItemData appleTea;
     public ItemData tornContract;
     public ItemData rustedKey;

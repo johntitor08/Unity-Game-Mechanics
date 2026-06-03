@@ -352,8 +352,7 @@ public class AshenveilQuestFactory : MonoBehaviour
             Talk("q_sg01_obj9", "Return to Aslude with the discovery")
         };
 
-        q.itemRewards = assets?.corvinSeal != null ? new[] { assets.corvinSeal } : new ItemData[0];
-        q.itemRewardQuantities = new[] { 1 };
+        q.itemRewards = assets != null && assets.corvinSeal != null ? new[] { assets.corvinSeal } : new ItemData[0]; q.itemRewardQuantities = new[] { 1 };
         q.experienceReward = 420;
         return q;
     }

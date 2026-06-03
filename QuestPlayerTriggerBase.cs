@@ -8,7 +8,7 @@ public abstract class QuestPlayerTriggerBase : MonoBehaviour, IPointerClickHandl
 
     [Header("Trigger")]
     public bool triggerOnce = true;
-    public bool requirePlayerInRange = true;
+    public bool requirePlayerInRange = false;
     public bool allowPointerClick = true;
     public KeyCode interactionKey = KeyCode.E;
 

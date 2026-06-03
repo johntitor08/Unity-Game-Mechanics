@@ -113,6 +113,12 @@ public class AshenveilQuestMapRegions : MonoBehaviour
         var instance = Instantiate(hoverRegionPrefab, regionRoot);
         instance.name = entry.suggestedSceneObjectName;
 
+        if (instance.TryGetComponent<RectTransform>(out var rt))
+        {
+            rt.anchoredPosition = entry.anchoredPosition;
+            rt.sizeDelta = entry.size;
+        }
+
         if (!instance.TryGetComponent<QuestUIHoverBridge>(out var bridge))
             bridge = instance.AddComponent<QuestUIHoverBridge>();
 

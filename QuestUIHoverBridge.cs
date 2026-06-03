@@ -1,7 +1,8 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 [DisallowMultipleComponent]
-public class QuestUIHoverBridge : MonoBehaviour
+public class QuestUIHoverBridge : MonoBehaviour, IPointerClickHandler
 {
     public enum TriggerKind
     {
@@ -52,6 +53,8 @@ public class QuestUIHoverBridge : MonoBehaviour
 
     public void OnRegionClicked() => TryFire();
 
+    public void OnPointerClick(PointerEventData eventData) => TryFire();
+
     public void TryFire()
     {
         if (QuestManager.Instance == null || (requireQuestActive && !string.IsNullOrEmpty(questID) && !QuestManager.Instance.IsQuestActive(questID)))
@@ -86,15 +89,19 @@ public class QuestUIHoverBridge : MonoBehaviour
             case TriggerKind.Talk:
                 QuestManager.Instance.NotifyTalkToNPC(resolvedTag, progressAmount);
                 break;
+
             case TriggerKind.Interact:
                 QuestManager.Instance.NotifyObjectInteracted(resolvedTag, progressAmount);
                 break;
+
             case TriggerKind.Location:
                 QuestManager.Instance.NotifyLocationReached(resolvedTag, progressAmount);
                 break;
+
             case TriggerKind.DirectProgress:
                 if (!string.IsNullOrEmpty(questID) && !string.IsNullOrEmpty(objectiveID))
                     QuestManager.Instance.UpdateObjectiveProgress(questID, objectiveID, progressAmount);
+
                 break;
         }
     }

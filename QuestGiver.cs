@@ -7,23 +7,13 @@ public class QuestGiver : MonoBehaviour, IPointerClickHandler
     [Header("Quests")]
     public List<QuestData> availableQuests;
 
-    [Header("Interaction")]
+    [Header("Visual")]
     public GameObject exclamationMark;
     public GameObject questionMark;
     public GameObject goldExclamation;
-    public float interactionRange = 2f;
-    public KeyCode interactionKey = KeyCode.E;
-
-    [Header("Visual")]
-    public GameObject interactionPrompt;
-
-    private bool playerInRange = false;
 
     void Start()
     {
-        if (interactionPrompt != null)
-            interactionPrompt.SetActive(false);
-
         if (QuestManager.Instance != null)
             Subscribe();
         else
@@ -71,56 +61,16 @@ public class QuestGiver : MonoBehaviour, IPointerClickHandler
 
     void OnObjectiveChanged(QuestData _, QuestObjective __) => UpdateQuestIndicators();
 
-    void Update()
-    {
-        if (playerInRange && Input.GetKeyDown(interactionKey))
-            Interact();
-    }
-
-    public void OnPointerClick(PointerEventData eventData)
-    {
-        if (playerInRange)
-            Interact();
-    }
-
-    void OnTriggerEnter2D(Collider2D other)
-    {
-        if (other.CompareTag("Player"))
-        {
-            playerInRange = true;
-
-            if (interactionPrompt != null)
-                interactionPrompt.SetActive(true);
-        }
-    }
-
-    void OnTriggerExit2D(Collider2D other)
-    {
-        if (other.CompareTag("Player"))
-        {
-            playerInRange = false;
-
-            if (interactionPrompt != null)
-                interactionPrompt.SetActive(false);
-        }
-    }
-
-    bool AreAllObjectivesComplete(QuestData quest)
-    {
-        return QuestManager.Instance != null && QuestManager.Instance.AreRequiredObjectivesComplete(quest);
-    }
+    public void OnPointerClick(PointerEventData eventData) => Interact();
 
     void UpdateQuestIndicators()
     {
-        if (QuestManager.Instance == null)
+        if (QuestManager.Instance == null || availableQuests == null)
             return;
 
         bool hasNewQuest = false;
         bool hasActiveQuest = false;
         bool hasCompleteQuest = false;
-
-        if (availableQuests == null)
-            return;
 
         foreach (var quest in availableQuests)
         {
@@ -133,7 +83,7 @@ public class QuestGiver : MonoBehaviour, IPointerClickHandler
             }
             else if (QuestManager.Instance.IsQuestActive(quest.questID))
             {
-                if (AreAllObjectivesComplete(quest))
+                if (QuestManager.Instance.AreRequiredObjectivesComplete(quest))
                     hasCompleteQuest = true;
                 else
                     hasActiveQuest = true;
@@ -160,7 +110,7 @@ public class QuestGiver : MonoBehaviour, IPointerClickHandler
             if (quest == null || !QuestManager.Instance.IsQuestActive(quest.questID))
                 continue;
 
-            if (AreAllObjectivesComplete(quest))
+            if (QuestManager.Instance.AreRequiredObjectivesComplete(quest))
             {
                 StartDialogueOrRun(quest.completionDialogue, () => QuestManager.Instance.CompleteQuest(quest));
                 return;

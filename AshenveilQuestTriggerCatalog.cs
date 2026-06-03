@@ -1,3 +1,4 @@
+using UnityEngine;
 using System.Collections.Generic;
 
 public static class AshenveilQuestTriggerCatalog
@@ -25,8 +26,10 @@ public static class AshenveilQuestTriggerCatalog
         public readonly RecommendedComponent component;
         public readonly int progressAmount;
         public readonly string notes;
+        public readonly Vector2 anchoredPosition;
+        public readonly Vector2 size;
 
-        public Entry(string questID, string objectiveID, string suggestedSceneObjectName, QuestUIHoverBridge.TriggerKind kind, RecommendedComponent component, string parentHint = "", string tag = null, int progressAmount = 1, string notes = "")
+        public Entry(string questID, string objectiveID, string suggestedSceneObjectName, QuestUIHoverBridge.TriggerKind kind, RecommendedComponent component, string parentHint = "", string tag = null, int progressAmount = 1, string notes = "", Vector2 anchoredPosition = default, Vector2 size = default)
         {
             this.questID = questID;
             this.objectiveID = objectiveID;
@@ -37,6 +40,8 @@ public static class AshenveilQuestTriggerCatalog
             this.tag = tag ?? objectiveID;
             this.progressAmount = progressAmount;
             this.notes = notes;
+            this.anchoredPosition = anchoredPosition;
+            this.size = size == default ? new Vector2(60f, 60f) : size;
         }
     }
 
