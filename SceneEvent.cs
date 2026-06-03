@@ -455,9 +455,13 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             SetActive(hoverEffects[3], index == 11);
             SetActive(hoverEffects[4], index == 9);
             SetActive(hoverEffects[5], index == 8);
+            SetActive(hoverEffects[6], index == 13);
+            SetActive(hoverEffects[7], index == 15);
+            SetActive(items[0], index == 38);
+            SetActive(hoverEffects[9], index == 15);
         }
 
-        bool isHouse = index == 11 || index == 13 || index == 14 || index == 15 || index == 16 || index == 17 || index == 20;
+        bool isHouse = index == 11 || index == 13 || index == 14 || index == 15 || index == 16 || index == 17 || index == 20 || index == 38 || index == 39 || index == 40;
         SetActive(houseIconsPanel, isHouse);
         SetActive(livingRoomIcon, isHouse);
         SetActive(bedroomIcon, isHouse);
@@ -467,21 +471,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetActive(gardenIcon, isHouse);
         bool showChar = index >= 8 && index <= 12;
         SetActive(charImage.gameObject, showChar);
-
-        if (index == 13)
-            hoverEffects[6].SetActive(true);
-        else
-            hoverEffects[6].SetActive(false);
-
-        if (index == 15)
-            hoverEffects[7].SetActive(true);
-        else
-            hoverEffects[7].SetActive(false);
-
-        if (index == 38)
-            items[0].SetActive(true);
-        else
-            items[0].SetActive(false);
 
         if (showChar)
         {
@@ -930,6 +919,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (hoverEffects[8] != null)
             hoverEffects[8].GetComponent<UIHoverRegion>().OnRegionClicked += CollectAppleTeaSeed;
 
+        if (hoverEffects[9] != null)
+            hoverEffects[9].GetComponent<UIHoverRegion>().OnRegionClicked += ShowPool;
+
         isHoverEffectsSubscribed = true;
     }
 
@@ -975,6 +967,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (hoverEffects[8] != null)
             hoverEffects[8].GetComponent<UIHoverRegion>().OnRegionClicked -= CollectAppleTeaSeed;
+
+        if (hoverEffects[9] != null)
+            hoverEffects[9].GetComponent<UIHoverRegion>().OnRegionClicked -= ShowPool;
 
         isHoverEffectsSubscribed = false;
     }
@@ -1146,6 +1141,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         Destroy(items[0]);
         Debug.Log("Apple Tea Seed is collected.");
     }
+
+    public void ShowPool() => SetBackground(39);
 
     public void StartCashierDialogue() => TriggerMarketScene();
 
