@@ -236,9 +236,11 @@ public class AshenveilQuestChainDebug : MonoBehaviour
             case QuestObjectiveType.TalkToNPC:
                 QuestManager.Instance.NotifyTalkToNPC(tag, amount);
                 break;
+
             case QuestObjectiveType.InteractWithObject:
                 QuestManager.Instance.NotifyObjectInteracted(tag, amount);
                 break;
+
             case QuestObjectiveType.GoToLocation:
                 QuestManager.Instance.NotifyLocationReached(tag, amount);
                 break;
@@ -252,23 +254,29 @@ public class AshenveilQuestChainDebug : MonoBehaviour
             case AshenveilQuestIds.Q04:
                 StoryFlags.Add(QuestFlags.StillSmokeDone);
                 break;
+
             case AshenveilQuestIds.Q05:
             case AshenveilQuestIds.Q09:
                 StoryFlags.Add(QuestFlags.ElderTruthKnown);
                 break;
+
             case AshenveilQuestIds.Q06:
                 StoryFlags.Add(QuestFlags.FirstPrisonerRescued);
                 break;
+
             case AshenveilQuestIds.Q07:
                 StoryFlags.Add(QuestFlags.MissingContractFound);
                 break;
+
             case AshenveilQuestIds.Q08:
                 StoryFlags.Add(QuestFlags.VossContractPlayerAware);
                 break;
+
             case AshenveilQuestIds.Q10:
                 StoryFlags.Add(QuestFlags.ElderTruthKnown);
                 StoryFlags.Add(QuestFlags.Q09VossWarehouseFound);
                 break;
+
             case AshenveilQuestIds.Q11:
                 StoryFlags.Add(QuestFlags.VossDefeatedClean);
                 break;
