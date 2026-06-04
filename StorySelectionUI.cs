@@ -9,16 +9,11 @@ public class StorySelectionUI : MonoBehaviour
     public static StorySelectionUI Instance { get; private set; }
     private string _pendingOriginID = "";
     private Coroutine _typingCoroutine;
-
-    [Header("Data-Driven Origin Select")]
-    [Tooltip("A button used as the template; it is deactivated and cloned once per origin in OriginManager.allOrigins.")]
     public Button originButtonTemplate;
-    [Tooltip("Parent that the cloned origin buttons are placed under (ideally with a layout group).")]
     public Transform originButtonContainer;
-    [Tooltip("Vertical spacing between generated buttons, applied when the container has no layout group.")]
     public float buttonSpacing = 70f;
 
-    [Header("Detail Panel (single, reused)")]
+    [Header("Detail Panel")]
     public GameObject detailPanel;
     public TextMeshProUGUI detailTitle;
     public TextMeshProUGUI detailText;
@@ -27,7 +22,7 @@ public class StorySelectionUI : MonoBehaviour
     [Header("Main Story Panel")]
     public GameObject mainStoryPanel;
 
-    [Header("Legacy (auto-migrated; no longer drives the UI)")]
+    [Header("Legacy")]
     public Button originAButton;
     public TextMeshProUGUI mainStoryText;
     public Button originBButton;
