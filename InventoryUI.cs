@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class InventoryUI : MonoBehaviour
+public class InventoryUI : HotkeyPanelUI
 {
     public static InventoryUI Instance;
     private readonly List<ItemSlot> slots = new();
@@ -25,10 +25,10 @@ public class InventoryUI : MonoBehaviour
 
     void Update()
     {
-        if (!gameStarted)
+        if (!gameStarted || PanelInputBlocked())
             return;
 
-        if (Input.GetKeyDown(KeyCode.I))
+        if (Input.GetKeyDown(KeyCode.I) && panel != null)
             panel.SetActive(!panel.activeSelf);
     }
 

@@ -2,7 +2,7 @@ using UnityEngine;
 using TMPro;
 using System.Collections.Generic;
 
-public class EquipmentUI : MonoBehaviour
+public class EquipmentUI : HotkeyPanelUI
 {
     public static EquipmentUI Instance { get; private set; }
     private Dictionary<EquipmentSlot, EquipmentSlotUI> slotUIMap;
@@ -51,7 +51,7 @@ public class EquipmentUI : MonoBehaviour
 
     void Update()
     {
-        if (!gameStarted)
+        if (!gameStarted || PanelInputBlocked())
             return;
 
         if (Input.GetKeyDown(toggleKey))

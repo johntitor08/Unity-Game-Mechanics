@@ -9,10 +9,7 @@ public class CurrencyReward
 
     public void Grant(bool showNotification = true)
     {
-        if (CurrencyManager.Instance == null)
-            return;
-
-        if (amount <= 0)
+        if (CurrencyManager.Instance == null || amount <= 0)
             return;
 
         CurrencyManager.Instance.Add(type, amount, showNotification);
@@ -26,10 +23,7 @@ public class MultiCurrencyReward
 
     public void GrantAll(bool showNotification = true)
     {
-        if (rewards == null || rewards.Length == 0)
-            return;
-
-        if (CurrencyManager.Instance == null)
+        if (rewards == null || rewards.Length == 0 || CurrencyManager.Instance == null)
             return;
 
         Dictionary<CurrencyType, int> rewardDict = new();

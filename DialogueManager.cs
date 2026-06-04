@@ -284,7 +284,12 @@ public class DialogueManager : MonoBehaviour
         ClearChoices();
         PlaySound(choiceSelectSound);
         OnChoiceSelected?.Invoke(choice);
+
+        if (choice.setFlag && !string.IsNullOrEmpty(choice.flagToSet))
+            StoryFlags.Add(choice.flagToSet);
+
         currentNode.onExit?.Invoke();
+        ApplyExitFlags(currentNode);
 
         if (choice.nextNode != null)
         {
@@ -316,7 +321,10 @@ public class DialogueManager : MonoBehaviour
         DialogueNode endedNode = currentNode;
 
         if (endedNode != null)
+        {
             endedNode.onExit?.Invoke();
+            ApplyExitFlags(endedNode);
+        }
 
         currentNode = null;
 
@@ -367,6 +375,16 @@ public class DialogueManager : MonoBehaviour
             line = line.Replace("{playerName}", ProfileManager.Instance.profile.playerName);
 
         return line;
+    }
+
+    void ApplyExitFlags(DialogueNode node)
+    {
+        if (node == null || node.flagsToSetOnExit == null)
+            return;
+
+        foreach (var flag in node.flagsToSetOnExit)
+            if (!string.IsNullOrEmpty(flag))
+                StoryFlags.Add(flag);
     }
 
     void PlaySound(AudioClip clip)

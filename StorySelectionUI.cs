@@ -9,28 +9,35 @@ public class StorySelectionUI : MonoBehaviour
     public static StorySelectionUI Instance { get; private set; }
     private string _pendingOriginID = "";
     private Coroutine _typingCoroutine;
-    private string _summaryA;
-    private string _summaryB;
-    private string _summaryC;
 
-    [Header("Origin Select Buttons")]
+    [Header("Data-Driven Origin Select")]
+    [Tooltip("A button used as the template; it is deactivated and cloned once per origin in OriginManager.allOrigins.")]
+    public Button originButtonTemplate;
+    [Tooltip("Parent that the cloned origin buttons are placed under (ideally with a layout group).")]
+    public Transform originButtonContainer;
+    [Tooltip("Vertical spacing between generated buttons, applied when the container has no layout group.")]
+    public float buttonSpacing = 70f;
+
+    [Header("Detail Panel (single, reused)")]
+    public GameObject detailPanel;
+    public TextMeshProUGUI detailTitle;
+    public TextMeshProUGUI detailText;
+    public Button continueButton;
+
+    [Header("Main Story Panel")]
+    public GameObject mainStoryPanel;
+
+    [Header("Legacy (auto-migrated; no longer drives the UI)")]
     public Button originAButton;
+    public TextMeshProUGUI mainStoryText;
     public Button originBButton;
     public Button originCButton;
-
-    [Header("Story Panels")]
-    public GameObject mainStoryPanel;
     public GameObject storyAPanel;
     public GameObject storyBPanel;
     public GameObject storyCPanel;
-
-    [Header("Story Texts")]
-    public TextMeshProUGUI mainStoryText;
     public TextMeshProUGUI storyAText;
     public TextMeshProUGUI storyBText;
     public TextMeshProUGUI storyCText;
-
-    [Header("Continue Buttons")]
     public Button continueAButton;
     public Button continueBButton;
     public Button continueCButton;
@@ -48,91 +55,105 @@ public class StorySelectionUI : MonoBehaviour
 
     void Start()
     {
-        SetPanels(false, false, false, false);
+        if (detailPanel != null)
+            detailPanel.SetActive(false);
 
-        if (originAButton != null)
-            originAButton.onClick.AddListener(() => OpenPanel("bound_archivist"));
+        if (continueButton != null)
+        {
+            continueButton.onClick.RemoveListener(OnContinue);
+            continueButton.onClick.AddListener(OnContinue);
+        }
 
-        if (originBButton != null)
-            originBButton.onClick.AddListener(() => OpenPanel("foreign_echo"));
-
-        if (originCButton != null)
-            originCButton.onClick.AddListener(() => OpenPanel("sinned_guardian"));
-
-        if (continueAButton != null)
-            continueAButton.onClick.AddListener(OnContinue);
-
-        if (continueBButton != null)
-            continueBButton.onClick.AddListener(OnContinue);
-
-        if (continueCButton != null)
-            continueCButton.onClick.AddListener(OnContinue);
-
-        if (storyAText != null)
-            storyAText.text = "";
-
-        if (storyBText != null)
-            storyBText.text = "";
-
-        if (storyCText != null)
-            storyCText.text = "";
-
-        StartCoroutine(CacheAfterFrame());
-    }
-
-    IEnumerator CacheAfterFrame()
-    {
-        yield return null;
-        CacheOriginSummaries();
+        BuildOriginButtons();
     }
 
     public void ShowMainPanel()
     {
-        mainStoryPanel.transform.parent.gameObject.SetActive(true);
-        SetPanels(true, false, false, false);
+        if (mainStoryPanel != null)
+        {
+            if (mainStoryPanel.transform.parent != null)
+                mainStoryPanel.transform.parent.gameObject.SetActive(true);
+
+            mainStoryPanel.SetActive(true);
+        }
+
+        if (detailPanel != null)
+            detailPanel.SetActive(false);
 
         if (mainStoryText != null)
+            StartTypewriter(mainStoryText, mainStoryText.text);
+    }
+
+    void BuildOriginButtons()
+    {
+        if (originButtonTemplate == null || originButtonContainer == null || OriginManager.Instance == null)
+            return;
+
+        originButtonTemplate.gameObject.SetActive(false);
+
+        for (int i = originButtonContainer.childCount - 1; i >= 0; i--)
         {
-            string content = mainStoryText.text;
-            StartTypewriter(mainStoryText, content);
+            var child = originButtonContainer.GetChild(i);
+
+            if (child.name.StartsWith("OriginBtn_"))
+                Destroy(child.gameObject);
+        }
+
+        var origins = OriginManager.Instance.allOrigins;
+
+        if (origins == null)
+            return;
+
+        var templateRect = originButtonTemplate.transform as RectTransform;
+        bool hasLayoutGroup = originButtonContainer.GetComponent<LayoutGroup>() != null;
+        int shown = 0;
+
+        foreach (var origin in origins)
+        {
+            if (origin == null)
+                continue;
+
+            var btn = Instantiate(originButtonTemplate, originButtonContainer);
+            btn.gameObject.name = "OriginBtn_" + origin.originID;
+            btn.gameObject.SetActive(true);
+
+            if (!hasLayoutGroup && templateRect != null && btn.transform is RectTransform rect)
+                rect.anchoredPosition = templateRect.anchoredPosition + new Vector2(0f, -buttonSpacing * shown);
+
+            var label = btn.GetComponentInChildren<TextMeshProUGUI>();
+
+            if (label != null)
+                label.text = origin.displayName;
+
+            string capturedID = origin.originID;
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => OpenPanel(capturedID));
+            shown++;
         }
     }
 
     void OpenPanel(string originID)
     {
-        if (string.IsNullOrEmpty(_summaryA) && string.IsNullOrEmpty(_summaryB) && string.IsNullOrEmpty(_summaryC))
-            CacheOriginSummaries();
-
         _pendingOriginID = originID;
-        bool a = originID == "bound_archivist";
-        bool b = originID == "foreign_echo";
-        bool c = originID == "sinned_guardian";
-        SetPanels(false, a, b, c);
-        TextMeshProUGUI targetLabel = a ? storyAText : b ? storyBText : storyCText;
-        string summary = a ? _summaryA : b ? _summaryB : _summaryC;
+
+        var data = OriginManager.Instance != null ? OriginManager.Instance.GetOrigin(originID) : null;
+
+        if (mainStoryPanel != null)
+            mainStoryPanel.SetActive(false);
+
+        if (detailPanel != null)
+            detailPanel.SetActive(true);
+
+        if (detailTitle != null && data != null)
+            detailTitle.text = data.displayName;
+
+        string summary = data != null ? data.summary : "";
 
         if (string.IsNullOrEmpty(summary))
-        {
-            Debug.LogWarning($"[StorySelectionUI] '{originID}' summary boþ.");
-            return;
-        }
+            Debug.LogWarning($"[StorySelectionUI] '{originID}' has no summary.");
 
-        StartTypewriter(targetLabel, summary);
-    }
-
-    void SetPanels(bool main, bool a, bool b, bool c)
-    {
-        if (mainStoryPanel != null)
-            mainStoryPanel.SetActive(main);
-
-        if (storyAPanel != null)
-            storyAPanel.SetActive(a);
-
-        if (storyBPanel != null)
-            storyBPanel.SetActive(b);
-
-        if (storyCPanel != null)
-            storyCPanel.SetActive(c);
+        if (detailText != null)
+            StartTypewriter(detailText, summary);
     }
 
     void StartTypewriter(TextMeshProUGUI label, string text)
@@ -172,41 +193,24 @@ public class StorySelectionUI : MonoBehaviour
 
         if (string.IsNullOrEmpty(_pendingOriginID))
         {
-            Debug.LogWarning("[StorySelectionUI] OnContinue: origin seçilmedi.");
+            Debug.LogWarning("[StorySelectionUI] OnContinue: no origin selected.");
             return;
         }
 
         if (OriginManager.Instance == null)
         {
-            Debug.LogError("[StorySelectionUI] OriginManager.Instance null.");
+            Debug.LogError("[StorySelectionUI] OriginManager.Instance is null.");
             return;
         }
 
         OriginManager.Instance.SelectOrigin(_pendingOriginID);
-        mainStoryPanel.transform.parent.gameObject.SetActive(false);
+
+        if (mainStoryPanel != null && mainStoryPanel.transform.parent != null)
+            mainStoryPanel.transform.parent.gameObject.SetActive(false);
 
         if (SceneEvent.Instance != null)
             SceneEvent.Instance.InitializeGame();
         else
-            Debug.LogWarning("[StorySelectionUI] SceneEvent.Instance null.");
-    }
-
-    void CacheOriginSummaries()
-    {
-        if (OriginManager.Instance == null)
-        {
-            Debug.LogWarning("[StorySelectionUI] OriginManager null.");
-            return;
-        }
-
-        _summaryA = GetSummary("bound_archivist");
-        _summaryB = GetSummary("foreign_echo");
-        _summaryC = GetSummary("sinned_guardian");
-    }
-
-    string GetSummary(string originID)
-    {
-        var data = OriginManager.Instance.GetOrigin(originID);
-        return (data != null && !string.IsNullOrEmpty(data.summary)) ? data.summary : "";
+            Debug.LogWarning("[StorySelectionUI] SceneEvent.Instance is null.");
     }
 }

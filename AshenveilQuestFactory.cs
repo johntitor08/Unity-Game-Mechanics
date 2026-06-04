@@ -337,7 +337,7 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildSinnedGuardianQuest1()
     {
-        var q = Make("q_sg01_the_debt_that_breathes", "The Debt That Breathes", "Three families. Three names on a list. Your hand, your choice. Shadow Garden believes they are still reachable — held somewhere east of Dragsimo.", QuestType.Main, requiredFlags: new[] { QuestFlags.SinnedGuardianStart }, flagsOnComplete: new[] { QuestFlags.ThreeFamiliesLocated, QuestFlags.ShadowGardenRank1 });
+        var q = Make(QuestIds.Q_SG01, "The Debt That Breathes", "Three families. Three names on a list. Your hand, your choice. Shadow Garden believes they are still reachable — held somewhere east of Dragsimo.", QuestType.Main, requiredFlags: new[] { QuestFlags.SinnedGuardianStart }, flagsOnComplete: new[] { QuestFlags.ThreeFamiliesLocated, QuestFlags.ShadowGardenRank1 });
 
         q.objectives = new[]
         {
@@ -359,7 +359,7 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildBoundArchivistQuest1()
     {
-        var q = Make("quest_bound_archivist_01", "Bound Archivist", "Brahma'nın bıraktığı dosya, kayıp bir kaydın izini taşıyor. Maren'den başla — Ashenveil'in geçmişi ona sorulur.", QuestType.Main, requiredFlags: new[] { QuestFlags.BoundArchivistStart }, flagsOnComplete: new[] { QuestFlags.BoundArchivistQuest1Done });
+        var q = Make(QuestIds.Q_BA01, "The Reversal Clause", "Brahma'nın bıraktığı dosya, kayıp bir kaydın izini taşıyor. Maren'den başla — Ashenveil'in geçmişi ona sorulur.", QuestType.Main, requiredFlags: new[] { QuestFlags.BoundArchivistStart }, flagsOnComplete: new[] { QuestFlags.BoundArchivistQuest1Done });
 
         q.objectives = new[]
         {
@@ -377,7 +377,7 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildForeignEchoQuest1()
     {
-        var q = Make("quest_foreign_echo_01", "Foreign Echo", "Axios anomalisi seni Ashenveil'e çekti. Maren'in kapısındaki gölgeyi takip et — chamber'ın içinde ne olduğunu kimse bilmiyor.", QuestType.Main, requiredFlags: new[] { QuestFlags.ForeignEchoStart }, flagsOnComplete: new[] { QuestFlags.ForeignEchoQuest1Done, QuestFlags.ChamberInteriorSeen });
+        var q = Make(QuestIds.Q_FE01, "The Originating Record", "Axios anomalisi seni Ashenveil'e çekti. Maren'in kapısındaki gölgeyi takip et — chamber'ın içinde ne olduğunu kimse bilmiyor.", QuestType.Main, requiredFlags: new[] { QuestFlags.ForeignEchoStart }, flagsOnComplete: new[] { QuestFlags.ForeignEchoQuest1Done, QuestFlags.ChamberInteriorSeen });
 
         q.objectives = new[]
         {

@@ -13,7 +13,7 @@ public class BoundArchivistQuestController : MonoBehaviour
         StoryFlags.Add(QuestFlags.BoundArchivistStart);
         StoryFlags.Add(QuestFlags.BrahmaLeft);
         StoryFlags.Add(QuestFlags.SealedFileTaken);
-        TryAutoStartQuest("quest_bound_archivist_01");
+        TryAutoStartQuest(QuestIds.Q_BA01);
         Debug.Log("[BoundArchivistQuest] Scene 1.1 flags set.");
     }
 
@@ -24,7 +24,7 @@ public class BoundArchivistQuestController : MonoBehaviour
 
         StoryFlags.Add(QuestFlags.MarenMetBoundArchivist);
         StoryFlags.Add(QuestFlags.AshenveilEntered);
-        UpdateObjective("quest_bound_archivist_01", "obj_speak_maren_gate");
+        UpdateObjective(QuestIds.Q_BA01, "obj_speak_maren_gate");
         Debug.Log("[BoundArchivistQuest] Maren met at gate.");
     }
 
@@ -36,7 +36,7 @@ public class BoundArchivistQuestController : MonoBehaviour
         StoryFlags.Add(QuestFlags.MarenDialogueDone);
         StoryFlags.Add(QuestFlags.ReversalClauseKnown);
         StoryFlags.Add(QuestFlags.ChurchRuinsClue);
-        UpdateObjective("quest_bound_archivist_01", "obj_learn_maren_knowledge");
+        UpdateObjective(QuestIds.Q_BA01, "obj_learn_maren_knowledge");
         Debug.Log("[BoundArchivistQuest] Maren kitchen dialogue done.");
     }
 
@@ -47,7 +47,7 @@ public class BoundArchivistQuestController : MonoBehaviour
 
         StoryFlags.Add(QuestFlags.ElisMet);
         StoryFlags.Add(QuestFlags.ThreeLocationsKnown);
-        UpdateObjective("quest_bound_archivist_01", "obj_find_elis");
+        UpdateObjective(QuestIds.Q_BA01, "obj_find_elis");
         Debug.Log("[BoundArchivistQuest] Elis met (optional).");
     }
 
@@ -62,7 +62,7 @@ public class BoundArchivistQuestController : MonoBehaviour
         if (tokenGranted)
             StoryFlags.Add(QuestFlags.BoundArchivistEowToken);
 
-        UpdateObjective("quest_bound_archivist_01", "obj_handle_eow_operative");
+        UpdateObjective(QuestIds.Q_BA01, "obj_handle_eow_operative");
         Debug.Log($"[BoundArchivistQuest] EoW operative met. Token granted: {tokenGranted}");
     }
 
@@ -77,7 +77,7 @@ public class BoundArchivistQuestController : MonoBehaviour
         StoryFlags.Add(QuestFlags.VossDay3BoundArchivist);
         StoryFlags.Add(QuestFlags.RecordNotChurchConfirmed);
         StoryFlags.Add(QuestFlags.VossMovedRecord);
-        UpdateObjective("quest_bound_archivist_01", "obj_speak_voss_day3");
+        UpdateObjective(QuestIds.Q_BA01, "obj_speak_voss_day3");
         Debug.Log("[BoundArchivistQuest] Voss Day 3 dialogue done.");
     }
 
@@ -88,7 +88,7 @@ public class BoundArchivistQuestController : MonoBehaviour
 
         StoryFlags.Add(QuestFlags.RecordLocationNarrowed);
         StoryFlags.Add(QuestFlags.WitnessRequiredKnown);
-        UpdateObjective("quest_bound_archivist_01", "obj_cross_reference");
+        UpdateObjective(QuestIds.Q_BA01, "obj_cross_reference");
         Debug.Log("[BoundArchivistQuest] Cross-reference complete — location narrowed.");
     }
 
@@ -100,7 +100,7 @@ public class BoundArchivistQuestController : MonoBehaviour
         if (branchC_eowInvited)
             StoryFlags.Add(QuestFlags.BoundArchivistQ1EowInvited);
 
-        var quest = QuestManager.Instance != null ? QuestManager.Instance.GetActiveQuest("quest_bound_archivist_01") : null;
+        var quest = QuestManager.Instance != null ? QuestManager.Instance.GetActiveQuest(QuestIds.Q_BA01) : null;
 
         if (quest != null)
             QuestManager.Instance.CompleteQuest(quest);

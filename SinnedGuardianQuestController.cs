@@ -11,7 +11,7 @@ public class SinnedGuardianQuestController : MonoBehaviour
 
         StoryFlags.Add(QuestFlags.SinnedGuardianOpeningComplete);
         StoryFlags.Add(QuestFlags.SinnedGuardianStart);
-        TryAutoStartQuest("q_sg01_the_debt_that_breathes");
+        TryAutoStartQuest(QuestIds.Q_SG01);
         Debug.Log("[GuardianQuest] Opening scene complete.");
     }
 
@@ -24,7 +24,7 @@ public class SinnedGuardianQuestController : MonoBehaviour
         StoryFlags.Add(QuestFlags.MarenToldGuardianMission);
         StoryFlags.Add(QuestFlags.VossCollectsNotDestroysKnown);
         StoryFlags.Add(QuestFlags.ShadowGardenQuestAssigned);
-        UpdateObjective("q_sg01_the_debt_that_breathes", "q_sg01_obj1");
+        UpdateObjective(QuestIds.Q_SG01, "q_sg01_obj1");
         Debug.Log("[GuardianQuest] Maren night dialogue done.");
     }
 
@@ -35,7 +35,7 @@ public class SinnedGuardianQuestController : MonoBehaviour
 
         StoryFlags.Add(QuestFlags.AsludeMet);
         StoryFlags.Add(QuestFlags.VossReturnsDay3Known);
-        UpdateObjective("q_sg01_the_debt_that_breathes", "q_sg01_obj2");
+        UpdateObjective(QuestIds.Q_SG01, "q_sg01_obj2");
         Debug.Log("[GuardianQuest] Aslude met at well.");
     }
 
@@ -45,7 +45,7 @@ public class SinnedGuardianQuestController : MonoBehaviour
             return;
 
         StoryFlags.Add(QuestFlags.CorvinOptionalSpoken);
-        UpdateObjective("q_sg01_the_debt_that_breathes", "q_sg01_obj3");
+        UpdateObjective(QuestIds.Q_SG01, "q_sg01_obj3");
         Debug.Log("[GuardianQuest] Corvin optional dialogue done.");
     }
 
@@ -55,7 +55,7 @@ public class SinnedGuardianQuestController : MonoBehaviour
             return;
 
         StoryFlags.Add(QuestFlags.DragsimEastClue);
-        UpdateObjective("q_sg01_the_debt_that_breathes", "q_sg01_obj4");
+        UpdateObjective(QuestIds.Q_SG01, "q_sg01_obj4");
         Debug.Log("[GuardianQuest] Western edge locations learned.");
     }
 
@@ -65,7 +65,7 @@ public class SinnedGuardianQuestController : MonoBehaviour
             return;
 
         StoryFlags.Add(QuestFlags.VossTrackedGuardian);
-        UpdateObjective("q_sg01_the_debt_that_breathes", "q_sg01_obj5");
+        UpdateObjective(QuestIds.Q_SG01, "q_sg01_obj5");
         Debug.Log("[GuardianQuest] Voss tracked from western road.");
     }
 
@@ -76,7 +76,7 @@ public class SinnedGuardianQuestController : MonoBehaviour
 
         StoryFlags.Add(QuestFlags.VossDay3Guardian);
         StoryFlags.Add(QuestFlags.VossReversalClauseHinted);
-        UpdateObjective("q_sg01_the_debt_that_breathes", "q_sg01_obj6");
+        UpdateObjective(QuestIds.Q_SG01, "q_sg01_obj6");
         Debug.Log("[GuardianQuest] Voss Day 3 dialogue done.");
     }
 
@@ -86,7 +86,7 @@ public class SinnedGuardianQuestController : MonoBehaviour
             return;
 
         StoryFlags.Add(QuestFlags.DragsimSecondWallKnown);
-        UpdateObjective("q_sg01_the_debt_that_breathes", "q_sg01_obj7");
+        UpdateObjective(QuestIds.Q_SG01, "q_sg01_obj7");
         Debug.Log("[GuardianQuest] Second wall found east of Dragsimo.");
     }
 
@@ -97,7 +97,7 @@ public class SinnedGuardianQuestController : MonoBehaviour
 
         StoryFlags.Add(QuestFlags.FourthCrystalSlotSeen);
         StoryFlags.Add(QuestFlags.VossPreparedGuardianContract);
-        UpdateObjective("q_sg01_the_debt_that_breathes", "q_sg01_obj8");
+        UpdateObjective(QuestIds.Q_SG01, "q_sg01_obj8");
         Debug.Log("[GuardianQuest] Behind the second wall examined.");
     }
 
@@ -106,8 +106,8 @@ public class SinnedGuardianQuestController : MonoBehaviour
         if (!IsGuardian)
             return;
 
-        UpdateObjective("q_sg01_the_debt_that_breathes", "q_sg01_obj9");
-        var quest = QuestManager.Instance != null ? QuestManager.Instance.GetActiveQuest("q_sg01_the_debt_that_breathes") : null;
+        UpdateObjective(QuestIds.Q_SG01, "q_sg01_obj9");
+        var quest = QuestManager.Instance != null ? QuestManager.Instance.GetActiveQuest(QuestIds.Q_SG01) : null;
 
         if (quest != null)
             QuestManager.Instance.CompleteQuest(quest);

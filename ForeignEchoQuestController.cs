@@ -13,7 +13,7 @@ public class ForeignEchoQuestController : MonoBehaviour
         StoryFlags.Add(QuestFlags.ForeignEchoStart);
         StoryFlags.Add(QuestFlags.ShadowAnomalySeen);
         StoryFlags.Add(QuestFlags.AshenveilEntered);
-        TryAutoStartQuest("quest_foreign_echo_01");
+        TryAutoStartQuest(QuestIds.Q_FE01);
         Debug.Log("[ForeignEchoQuest] Scene 1.1 flags set.");
     }
 
@@ -25,7 +25,7 @@ public class ForeignEchoQuestController : MonoBehaviour
         StoryFlags.Add(QuestFlags.MarenMetForeignEcho);
         StoryFlags.Add(QuestFlags.VossCantIdentifyForeignEcho);
         StoryFlags.Add(QuestFlags.AxiosResonanceExplained);
-        UpdateObjective("quest_foreign_echo_01", "obj_follow_shadow_maren");
+        UpdateObjective(QuestIds.Q_FE01, "obj_follow_shadow_maren");
         Debug.Log("[ForeignEchoQuest] Maren door dialogue done.");
     }
 
@@ -37,7 +37,7 @@ public class ForeignEchoQuestController : MonoBehaviour
         StoryFlags.Add(QuestFlags.MarenMissionGiven);
         StoryFlags.Add(QuestFlags.ForeignEchoInvisibleToTracking);
         StoryFlags.Add(QuestFlags.ChamberTargetKnown);
-        UpdateObjective("quest_foreign_echo_01", "obj_understand_maren_need");
+        UpdateObjective(QuestIds.Q_FE01, "obj_understand_maren_need");
         Debug.Log("[ForeignEchoQuest] Maren mission given.");
     }
 
@@ -48,7 +48,7 @@ public class ForeignEchoQuestController : MonoBehaviour
 
         StoryFlags.Add(QuestFlags.MireyaMetForeignEcho);
         StoryFlags.Add(QuestFlags.LurkerPatrolData);
-        UpdateObjective("quest_foreign_echo_01", "obj_speak_mireya");
+        UpdateObjective(QuestIds.Q_FE01, "obj_speak_mireya");
         Debug.Log("[ForeignEchoQuest] Mireya met (optional).");
     }
 
@@ -63,7 +63,7 @@ public class ForeignEchoQuestController : MonoBehaviour
         if (exchangeAccepted)
             StoryFlags.Add(QuestFlags.AxiosFrequencyShared);
 
-        UpdateObjective("quest_foreign_echo_01", "obj_meet_chico");
+        UpdateObjective(QuestIds.Q_FE01, "obj_meet_chico");
         Debug.Log($"[ForeignEchoQuest] Chico met. Exchange accepted: {exchangeAccepted}");
     }
 
@@ -78,7 +78,7 @@ public class ForeignEchoQuestController : MonoBehaviour
         StoryFlags.Add(QuestFlags.VossDay3ForeignEcho);
         StoryFlags.Add(QuestFlags.ChamberFrequencyWarning);
         StoryFlags.Add(QuestFlags.VossCannotTrackForeignEcho);
-        UpdateObjective("quest_foreign_echo_01", "obj_speak_voss_day3");
+        UpdateObjective(QuestIds.Q_FE01, "obj_speak_voss_day3");
         Debug.Log("[ForeignEchoQuest] Voss Day 3 dialogue done.");
     }
 
@@ -107,7 +107,7 @@ public class ForeignEchoQuestController : MonoBehaviour
 
         StoryFlags.Add(QuestFlags.OriginatingRecordBelow);
         StoryFlags.Add(QuestFlags.AxiosAnomalyIdentified);
-        UpdateObjective("quest_foreign_echo_01", "obj_identify_axios_anomaly");
+        UpdateObjective(QuestIds.Q_FE01, "obj_identify_axios_anomaly");
         Debug.Log("[ForeignEchoQuest] Originating record detected below chamber floor.");
     }
 
@@ -116,7 +116,7 @@ public class ForeignEchoQuestController : MonoBehaviour
         if (!IsForeignEcho)
             return;
 
-        var quest = QuestManager.Instance != null ? QuestManager.Instance.GetActiveQuest("quest_foreign_echo_01") : null;
+        var quest = QuestManager.Instance != null ? QuestManager.Instance.GetActiveQuest(QuestIds.Q_FE01) : null;
 
         if (quest != null)
             QuestManager.Instance.CompleteQuest(quest);

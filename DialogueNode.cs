@@ -24,6 +24,9 @@ public class DialogueNode : ScriptableObject
     public UnityEvent onEnter;
     public UnityEvent onExit;
 
+    [Tooltip("Story flags set when this node is exited (for linear, choice-less beats).")]
+    public string[] flagsToSetOnExit;
+
     [Header("Camera")]
     public bool changeCameraOnEnter = false;
     public string cameraTargetTag = "MainCamera";

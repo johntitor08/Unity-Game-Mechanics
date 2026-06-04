@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections.Generic;
 
 [System.Serializable]
@@ -28,10 +28,7 @@ public class CurrencyConverter : MonoBehaviour
 
     public bool Convert(CurrencyType from, CurrencyType to, int fromAmount)
     {
-        if (CurrencyManager.Instance == null || fromAmount <= 0)
-            return false;
-
-        if (!CurrencyManager.Instance.Has(from, fromAmount))
+        if (CurrencyManager.Instance == null || fromAmount <= 0 || !CurrencyManager.Instance.Has(from, fromAmount))
             return false;
 
         if (!rateDict.TryGetValue((from, to), out float conversionRate))
