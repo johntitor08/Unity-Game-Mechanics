@@ -3,7 +3,7 @@ using TMPro;
 using System.Collections.Generic;
 using UnityEngine.UI;
 
-public class QuestUI : MonoBehaviour
+public class QuestUI : HotkeyPanelUI
 {
     public static QuestUI Instance;
     private QuestData selectedQuest;
@@ -131,6 +131,9 @@ public class QuestUI : MonoBehaviour
 
     void Update()
     {
+        if (PanelInputBlocked())
+            return;
+
         if (Input.GetKeyDown(toggleKey) && questPanel != null)
         {
             bool nowActive = !questPanel.activeSelf;

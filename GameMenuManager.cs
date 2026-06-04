@@ -69,6 +69,9 @@ public class GameMenuManager : MonoBehaviour
 
         if (Input.GetKeyDown(pauseKey))
         {
+            if (!_isPaused && UIPanelManager.Instance != null && UIPanelManager.Instance.CloseOpenPanels())
+                return;
+
             if (_isPaused)
                 ResumeGame();
             else

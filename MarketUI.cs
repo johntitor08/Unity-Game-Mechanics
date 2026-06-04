@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class MarketUI : MonoBehaviour
+public class MarketUI : HotkeyPanelUI
 {
     public static MarketUI Instance;
     public GameObject marketPanel;
@@ -16,10 +16,10 @@ public class MarketUI : MonoBehaviour
 
     private void Update()
     {
-        if (!gameStarted || SaveSystem.IsLoading)
+        if (!gameStarted || SaveSystem.IsLoading || PanelInputBlocked())
             return;
 
-        if (Input.GetKeyDown(KeyCode.S))
+        if (Input.GetKeyDown(KeyCode.S) && marketPanel != null)
         {
             if (marketPanel.activeSelf)
                 CloseAll();
@@ -35,7 +35,9 @@ public class MarketUI : MonoBehaviour
 
     public void OpenMarket()
     {
-        marketPanel.SetActive(true);
+        if (marketPanel != null)
+            marketPanel.SetActive(true);
+
         OpenShop();
     }
 
@@ -81,6 +83,7 @@ public class MarketUI : MonoBehaviour
         if (SellUI.Instance != null)
             SellUI.Instance.Close();
 
-        marketPanel.SetActive(false);
+        if (marketPanel != null)
+            marketPanel.SetActive(false);
     }
 }

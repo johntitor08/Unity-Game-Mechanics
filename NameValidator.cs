@@ -6,19 +6,19 @@ public class NameValidator
 
         if (string.IsNullOrWhiteSpace(name))
         {
-            error = "Ýsim boþ olamaz!";
+            error = "ï¿½sim boï¿½ olamaz!";
             return false;
         }
 
         if (name.Length < 3)
         {
-            error = "Ýsim çok kýsa!";
+            error = "ï¿½sim ï¿½ok kï¿½sa!";
             return false;
         }
 
         if (name.Length > 15)
         {
-            error = "Ýsim çok uzun!";
+            error = "ï¿½sim ï¿½ok uzun!";
             return false;
         }
 
@@ -27,16 +27,13 @@ public class NameValidator
 
     public static string SanitizeName(string name)
     {
-        // Remove extra spaces
         name = name.Trim();
 
-        // Replace multiple spaces with single space
         while (name.Contains("  "))
         {
             name = name.Replace("  ", " ");
         }
 
-        // Capitalize first letter
         if (name.Length > 0)
         {
             name = char.ToUpper(name[0]) + name[1..];

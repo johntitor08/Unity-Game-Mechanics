@@ -4,7 +4,13 @@ public static class StoryFlags
 {
     private static readonly HashSet<string> flags = new();
 
-    public static void Add(string flag) => flags.Add(flag);
+    public static event System.Action<string> OnFlagAdded;
+
+    public static void Add(string flag)
+    {
+        if (flag != null && flags.Add(flag))
+            OnFlagAdded?.Invoke(flag);
+    }
 
     public static bool Has(string flag) => flags.Contains(flag);
 
@@ -14,6 +20,8 @@ public static class StoryFlags
 
         if (savedFlags != null)
             flags.UnionWith(savedFlags);
+
+        QuestFlags.MigrateLegacyOriginStartFlags();
     }
 
     public static void Reset() => flags.Clear();

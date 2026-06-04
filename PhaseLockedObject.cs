@@ -30,7 +30,6 @@ public class PhaseLockedObject : MonoBehaviour
 
         if (multiplePhasesAllowed && allowedPhases.Length > 0)
         {
-            // Multiple phase check
             foreach (var allowedPhase in allowedPhases)
             {
                 if (phase == allowedPhase)
@@ -42,7 +41,6 @@ public class PhaseLockedObject : MonoBehaviour
         }
         else
         {
-            // Single phase check
             shouldBeActive = phase == requiredPhase;
         }
 

@@ -54,13 +54,17 @@ public class IconSelectionUI : MonoBehaviour
             if (slot != null) Destroy(slot.gameObject);
 
         spawnedSlots.Clear();
-        if (iconDatabase == null || iconGrid == null || iconSlotPrefab == null) return;
+
+        if (iconDatabase == null || iconGrid == null || iconSlotPrefab == null)
+            return;
 
         foreach (var entry in iconDatabase.icons)
         {
             var go = Instantiate(iconSlotPrefab, iconGrid);
-            var slot = go.GetComponent<IconSlotUI>();
-            if (slot == null) continue;
+            
+            if (!go.TryGetComponent<IconSlotUI>(out var slot))
+                continue;
+
             bool unlocked = ProfileManager.Instance.IsIconUnlocked(entry.id);
             bool selected = ProfileManager.Instance.profile.profileIconID == entry.id;
             slot.Setup(entry, unlocked, selected, OnSlotClicked);

@@ -38,7 +38,7 @@ public class QuestTestRunner : MonoBehaviour
                     return;
 
                 _archivist.OnOpeningSceneComplete();
-                Log("Archivist başladı → quest_bound_archivist_01");
+                Log($"Archivist başladı → {QuestIds.Q_BA01}");
                 break;
 
             case TestOrigin.ForeignEcho:
@@ -46,7 +46,7 @@ public class QuestTestRunner : MonoBehaviour
                     return;
 
                 _echo.OnOpeningSceneComplete();
-                Log("Echo başladı → quest_foreign_echo_01");
+                Log($"Echo başladı → {QuestIds.Q_FE01}");
                 break;
 
             case TestOrigin.SinnedGuardian:
@@ -54,7 +54,7 @@ public class QuestTestRunner : MonoBehaviour
                     return;
 
                 _guardian.OnOpeningSceneComplete();
-                Log("Guardian başladı → q_sg01_the_debt_that_breathes");
+                Log($"Guardian başladı → {QuestIds.Q_SG01}");
                 break;
         }
     }
@@ -126,7 +126,7 @@ public class QuestTestRunner : MonoBehaviour
             return;
 
         _archivist.OnQuestComplete(archivistEowInvited);
-        Log($"quest_bound_archivist_01 COMPLETE  eowInvited:{archivistEowInvited}");
+        Log($"{QuestIds.Q_BA01} COMPLETE  eowInvited:{archivistEowInvited}");
     }
 
     [ContextMenu("Echo · 2 · Maren door complete")]
@@ -216,7 +216,7 @@ public class QuestTestRunner : MonoBehaviour
             return;
 
         _echo.OnQuestComplete();
-        Log("quest_foreign_echo_01 COMPLETE");
+        Log($"{QuestIds.Q_FE01} COMPLETE");
     }
 
     [ContextMenu("Guardian · 2 · Maren night met")]
@@ -306,7 +306,7 @@ public class QuestTestRunner : MonoBehaviour
             return;
 
         _guardian.OnQuestComplete();
-        Log("q_sg01_the_debt_that_breathes COMPLETE");
+        Log($"{QuestIds.Q_SG01} COMPLETE");
     }
 
     bool Require<T>(T obj, string name = null) where T : Object
