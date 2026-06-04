@@ -1219,7 +1219,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (Progress != SceneProgress.Scene4)
             yield break;
 
-        yield return new WaitUntil(() => combatMapPanel == null || !combatMapPanel.activeSelf);
+        yield return new WaitUntil(() => CombatUI.Instance == null || CombatUI.Instance.combatPanel == null || !CombatUI.Instance.combatPanel.activeSelf);
         Progress = SceneProgress.Scene5;
         SetCharacter(8);
         TryStartDialogue(4);
