@@ -88,17 +88,6 @@ public class DialogueManager : MonoBehaviour
         choicesPanel = fresh.choicesPanel;
         choicesContainer = fresh.choicesContainer;
         choiceButtonPrefab = fresh.choiceButtonPrefab;
-
-        if (typewriter != fresh.typewriter)
-        {
-            if (typewriter != null)
-                typewriter.OnTypingComplete -= OnTypingFinished;
-
-            typewriter = fresh.typewriter;
-
-            if (typewriter != null)
-                typewriter.OnTypingComplete += OnTypingFinished;
-        }
     }
 
     void BuildLocMap()
