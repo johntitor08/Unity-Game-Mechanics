@@ -182,7 +182,10 @@ public class TimePhaseManager : MonoBehaviour
         }
 
         if (nextPhaseButton != null)
-            nextPhaseButton.interactable = true;
+        {
+            bool canGoNext = currentPhase != TimePhase.Night;
+            nextPhaseButton.interactable = canGoNext;
+        }
     }
 
     public float GetPhaseProgress() => Mathf.Clamp01(phaseTimer / phaseDuration);
