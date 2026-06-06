@@ -12,6 +12,7 @@ public class Typewriter : MonoBehaviour
     private TextMeshProUGUI cachedTextUI;
     public event Action OnTypingComplete;
     public bool IsTyping => isTyping;
+    public TextMeshProUGUI CurrentTarget => cachedTextUI;
     private AudioSource _audioSource;
 
     [Header("Settings")]

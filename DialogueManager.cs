@@ -265,7 +265,7 @@ public class DialogueManager : MonoBehaviour
 
     void OnTypingFinished()
     {
-        if (State != DialogueState.Typing)
+        if (State != DialogueState.Typing || (typewriter != null && typewriter.CurrentTarget != dialogueText))
             return;
 
         if (currentNode != null && currentNode.autoAdvance)

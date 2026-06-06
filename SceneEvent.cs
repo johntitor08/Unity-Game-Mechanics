@@ -550,15 +550,16 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         {
             TimePhase phase = TimePhaseManager.Instance != null ? TimePhaseManager.Instance.currentPhase : TimePhase.Morning;
             UpdateModernIconStates(phase);
-            mapTitleText.text = "Ashenveil Town";
         }
-        else if (isFantasy)
+
+        if (mapTitleText != null)
         {
-            mapTitleText.text = "Neighborhood";
-        }
-        else if (isCombat)
-        {
-            mapTitleText.text = "Combat Region";
+            if (isModern)
+                mapTitleText.text = "Ashenveil Town";
+            else if (isFantasy)
+                mapTitleText.text = "Neighborhood";
+            else if (isCombat)
+                mapTitleText.text = "Combat Region";
         }
     }
 
