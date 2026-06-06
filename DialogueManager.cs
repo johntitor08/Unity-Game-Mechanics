@@ -44,6 +44,10 @@ public class DialogueManager : MonoBehaviour
     [Header("Typewriter")]
     public Typewriter typewriter;
 
+    [Header("Localization")]
+    public DialogueLocalizationTable localizationTable;
+    private System.Collections.Generic.Dictionary<DialogueNode, DialogueLocalizationTable.Entry> _locMap;
+
     [Header("Audio")]
     public AudioClip dialogueOpenSound;
     public AudioClip dialogueCloseSound;
@@ -53,6 +57,7 @@ public class DialogueManager : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
+            Instance.AdoptSceneReferences(this);
             Destroy(gameObject);
             return;
         }
@@ -66,6 +71,72 @@ public class DialogueManager : MonoBehaviour
             typewriter.OnTypingComplete += OnTypingFinished;
 
         PanelAnimator ??= GetComponent<IDialoguePanelAnimator>();
+        BuildLocMap();
+    }
+
+    void AdoptSceneReferences(DialogueManager fresh)
+    {
+        if (fresh == null)
+            return;
+
+        dialoguePanel = fresh.dialoguePanel;
+        speakerNameText = fresh.speakerNameText;
+        dialogueText = fresh.dialogueText;
+        speakerPortrait = fresh.speakerPortrait;
+        backgroundImage = fresh.backgroundImage;
+        continueButton = fresh.continueButton;
+        choicesPanel = fresh.choicesPanel;
+        choicesContainer = fresh.choicesContainer;
+        choiceButtonPrefab = fresh.choiceButtonPrefab;
+
+        if (typewriter != fresh.typewriter)
+        {
+            if (typewriter != null)
+                typewriter.OnTypingComplete -= OnTypingFinished;
+
+            typewriter = fresh.typewriter;
+
+            if (typewriter != null)
+                typewriter.OnTypingComplete += OnTypingFinished;
+        }
+    }
+
+    void BuildLocMap()
+    {
+        _locMap = new System.Collections.Generic.Dictionary<DialogueNode, DialogueLocalizationTable.Entry>();
+
+        if (localizationTable == null || localizationTable.entries == null)
+            return;
+
+        foreach (var e in localizationTable.entries)
+        {
+            if (e == null)
+                continue;
+
+            if (e.en != null)
+                _locMap[e.en] = e;
+
+            if (e.tr != null)
+                _locMap[e.tr] = e;
+        }
+    }
+
+    DialogueNode Localize(DialogueNode node)
+    {
+        if (node == null)
+            return null;
+
+        if (_locMap == null)
+            BuildLocMap();
+
+        if (_locMap.TryGetValue(node, out var e))
+        {
+            var want = LanguageManager.Current == GameLanguage.EN ? e.en : e.tr;
+            var other = LanguageManager.Current == GameLanguage.EN ? e.tr : e.en;
+            return want != null ? want : (other != null ? other : node);
+        }
+
+        return node;
     }
 
     void Update()
@@ -118,7 +189,7 @@ public class DialogueManager : MonoBehaviour
 
         StopAllCoroutines();
         autoAdvanceCoroutine = null;
-        currentNode = startNode;
+        currentNode = Localize(startNode);
         currentLineIndex = 0;
         onDialogueEnd = callback;
         State = DialogueState.Opening;
@@ -293,7 +364,7 @@ public class DialogueManager : MonoBehaviour
 
         if (choice.nextNode != null)
         {
-            currentNode = choice.nextNode;
+            currentNode = Localize(choice.nextNode);
             currentLineIndex = 0;
             currentNode.onEnter?.Invoke();
             SetupVisuals();
