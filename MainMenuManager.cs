@@ -127,13 +127,13 @@ public class MainMenuManager : MonoBehaviour
     {
         PlayButtonSound();
         PlaySound(menuOpenSound);
-
         SetButtonPanel(false);
+
         if (settingsMenu != null)
             settingsMenu.SetActive(true);
     }
 
-    public void OnSettingsBack()
+    public void OnSettingsClose()
     {
         PlaySound(menuCloseSound);
 
@@ -199,8 +199,10 @@ public class MainMenuManager : MonoBehaviour
         if (op == null)
         {
             Debug.LogError($"[MainMenuManager] Scene not found: {sceneName}");
+
             if (loadingScreen != null)
                 loadingScreen.SetActive(false);
+
             yield break;
         }
 

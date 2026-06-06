@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public enum SceneProgress
 {
@@ -38,6 +39,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     private Action<EnemyData> _currentVictoryHandler;
     private Action _currentDefeatHandler;
     private Vector2 _officeIconDefaultPos;
+    public TMP_Text mapTitleText;
 
     public SceneProgress Progress
     {
@@ -73,8 +75,11 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public Sprite[] maps;
 
     [Header("UI Panels")]
-    public GameObject timePanel;
+    public GameObject settingsIconPanel;
     public GameObject iconPanel;
+    public GameObject timePanel;
+    public GameObject settingsPanel;
+    public GameObject savePanel;
     public GameObject profilePanel;
     public GameObject inventoryPanel;
     public GameObject shopPanel;
@@ -83,19 +88,16 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public GameObject equipmentPanel;
     public GameObject coinPanel;
     public GameObject questPanel;
-    public GameObject savePanel;
-    public GameObject settingsPanel;
     public GameObject houseIconsPanel;
     public GameObject sleepingPanel;
 
     [Header("UI Icons")]
-    public GameObject saveIcon;
-    public GameObject loadIcon;
-    public GameObject resetIcon;
+    public GameObject settingsIcon;
     public GameObject profileIcon;
     public GameObject inventoryIcon;
     public GameObject mapIcon;
     public GameObject coinIcon;
+    public GameObject questIcon;
     public GameObject combatIcon;
     public GameObject homeIcon;
     public GameObject marketIcon;
@@ -107,7 +109,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public GameObject dungeonIcon;
     public GameObject castleIcon;
     public GameObject arenaIcon;
-    public GameObject questIcon;
 
     [Header("House Icons")]
     public GameObject livingRoomIcon;
@@ -173,6 +174,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         HideAllPanels();
         SubscribeDialogue();
         SubscribeHoverEffects();
+        SetActive(settingsIconPanel, false);
         SetActive(timePanel, false);
         SetActive(iconPanel, false);
 
@@ -206,6 +208,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     void SetupIconButtons()
     {
+        if (settingsIcon != null)
+            settingsIcon.GetComponent<Button>().onClick.AddListener(() => TogglePanel(settingsPanel, "Settings"));
+
         if (profileIcon != null)
             profileIcon.GetComponent<Button>().onClick.AddListener(() => TogglePanel(profilePanel, "Profile"));
 
@@ -293,6 +298,14 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         panel.SetActive(true);
     }
 
+    public void OpenSettings()
+    {
+        OpenPanel(settingsPanel, "Settings");
+
+        if (ProfileUI.Instance != null)
+            ProfileUI.Instance.RefreshAll();
+    }
+
     public void OpenProfile()
     {
         OpenPanel(profilePanel, "Profile");
@@ -368,14 +381,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             ProfileUI.Instance.RefreshAll();
     }
 
-    public void OpenSettings()
-    {
-        OpenPanel(settingsPanel, "Settings");
-
-        if (ProfileUI.Instance != null)
-            ProfileUI.Instance.RefreshAll();
-    }
-
     public void OpenCombatMap()
     {
         OpenPanel(combatMapPanel, "Combat Map");
@@ -386,14 +391,14 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     public void HideAllPanels()
     {
+        SetActive(settingsPanel, false);
+        SetActive(savePanel, false);
         SetActive(profilePanel, false);
         SetActive(inventoryPanel, false);
         SetActive(mapPanel, false);
         SetActive(equipmentPanel, false);
         SetActive(coinPanel, false);
         SetActive(questPanel, false);
-        SetActive(savePanel, false);
-        SetActive(settingsPanel, false);
         SetActive(combatMapPanel, false);
 
         if (MarketUI.Instance != null)
@@ -545,15 +550,21 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         {
             TimePhase phase = TimePhaseManager.Instance != null ? TimePhaseManager.Instance.currentPhase : TimePhase.Morning;
             UpdateModernIconStates(phase);
+            mapTitleText.text = "Ashenveil Town";
+        }
+        else if (isFantasy)
+        {
+            mapTitleText.text = "Neighborhood";
+        }
+        else if (isCombat)
+        {
+            mapTitleText.text = "Combat Region";
         }
     }
 
     public void SetCombatMap(int index)
     {
-        if (combatMapImage == null)
-            return;
-
-        if (index < 0 || index >= maps.Length || maps[index] == null)
+        if (combatMapImage == null || (index < 0 || index >= maps.Length || maps[index] == null))
             return;
 
         combatMapImage.sprite = maps[index];
@@ -705,6 +716,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (endedNode == null || !endedNode.isFinalNode)
             return;
 
+        SetActive(settingsIconPanel, true);
         SetActive(timePanel, true);
         SetActive(iconPanel, true);
 

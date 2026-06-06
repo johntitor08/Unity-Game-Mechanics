@@ -35,28 +35,26 @@ public class UIThemeApplier : MonoBehaviour
 
         Color c = Resolve(role);
 
-        var graphic = GetComponent<Graphic>();
-        if (graphic != null)
+        if (TryGetComponent<Graphic>(out var graphic))
             graphic.color = c;
 
-        var tmp = GetComponent<TMP_Text>();
-        if (tmp != null)
+        if (TryGetComponent<TMP_Text>(out var tmp))
             tmp.color = c;
     }
 
     Color Resolve(Role r)
     {
-        switch (r)
+        return r switch
         {
-            case Role.PanelBackground: return theme.panelBackground;
-            case Role.PanelBorder: return theme.panelBorder;
-            case Role.Header: return theme.headerText;
-            case Role.Body: return theme.bodyText;
-            case Role.Muted: return theme.mutedText;
-            case Role.Accent: return theme.accent;
-            case Role.ButtonBackground: return theme.buttonBackground;
-            case Role.ButtonText: return theme.buttonText;
-            default: return Color.white;
-        }
+            Role.PanelBackground => theme.panelBackground,
+            Role.PanelBorder => theme.panelBorder,
+            Role.Header => theme.headerText,
+            Role.Body => theme.bodyText,
+            Role.Muted => theme.mutedText,
+            Role.Accent => theme.accent,
+            Role.ButtonBackground => theme.buttonBackground,
+            Role.ButtonText => theme.buttonText,
+            _ => Color.white,
+        };
     }
 }

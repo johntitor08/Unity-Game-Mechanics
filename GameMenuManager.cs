@@ -138,22 +138,22 @@ public class GameMenuManager : MonoBehaviour
         PlayButtonSound();
         PlaySound(menuOpenSound);
 
-        if (pauseMenu != null)
+        if (pauseMenu != null && settingsMenu != null)
+        {
             pauseMenu.SetActive(false);
-
-        if (settingsMenu != null)
             settingsMenu.SetActive(true);
+        }
     }
 
-    public void OnSettingsBack()
+    public void OnSettingsClose()
     {
         PlaySound(menuCloseSound);
 
-        if (settingsMenu != null)
+        if (settingsMenu != null && pauseMenu != null)
+        {
             settingsMenu.SetActive(false);
-
-        if (pauseMenu != null)
             pauseMenu.SetActive(true);
+        }
     }
 
     public void OnMainMenuClicked()

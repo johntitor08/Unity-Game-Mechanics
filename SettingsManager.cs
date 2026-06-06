@@ -9,6 +9,10 @@ public class SettingsManager : MonoBehaviour
     public static SettingsManager Instance;
     private Resolution[] resolutions;
 
+    [Header("Panel")]
+    public GameObject settingsPanel;
+    public GameObject savePanel;
+
     [Header("Audio")]
     public AudioMixer audioMixer;
     public Slider masterVolumeSlider;
@@ -30,10 +34,14 @@ public class SettingsManager : MonoBehaviour
     public Toggle subtitlesToggle;
     public Toggle autosaveToggle;
 
+    [Header("Language")]
+    public TMP_Dropdown languageDropdown;
+
     [Header("Buttons")]
+    public Button savePanelButton;
     public Button applyButton;
     public Button resetButton;
-    public Button backButton;
+    public Button closeButton;
 
     void Awake()
     {
@@ -48,31 +56,38 @@ public class SettingsManager : MonoBehaviour
         SetupDropdowns();
         LoadSettings();
         BindListeners();
-        BindBackButton();
     }
 
-    public void OnOpen()
+    public void OnOpenFromMenu()
     {
-        BindBackButton();
+        BindCloseButton();
     }
 
-    void BindBackButton()
+    void BindCloseButton()
     {
-        if (backButton == null)
+        if (closeButton == null)
             return;
 
-        backButton.onClick.RemoveAllListeners();
+        closeButton.onClick.RemoveAllListeners();
 
         if (MainMenuManager.Instance != null)
-            backButton.onClick.AddListener(MainMenuManager.Instance.OnSettingsBack);
+            closeButton.onClick.AddListener(MainMenuManager.Instance.OnSettingsClose);
         else if (GameMenuManager.Instance != null)
-            backButton.onClick.AddListener(GameMenuManager.Instance.OnSettingsBack);
+            closeButton.onClick.AddListener(GameMenuManager.Instance.OnSettingsClose);
         else
             Debug.LogWarning("[SettingsManager] Back button bağlanamadı: ne MainMenuManager ne GameMenuManager sahnede var.");
     }
 
     void SetupDropdowns()
     {
+        if (languageDropdown != null)
+        {
+            languageDropdown.ClearOptions();
+            languageDropdown.AddOptions(new List<string> { "English", "Türkçe" });
+            languageDropdown.value = (int)LanguageManager.Current;
+            languageDropdown.RefreshShownValue();
+        }
+
         if (qualityDropdown != null)
         {
             qualityDropdown.ClearOptions();
@@ -145,6 +160,18 @@ public class SettingsManager : MonoBehaviour
             difficultySlider.onValueChanged.AddListener(OnDifficultyChanged);
         }
 
+        if (languageDropdown != null)
+        {
+            languageDropdown.onValueChanged.RemoveAllListeners();
+            languageDropdown.onValueChanged.AddListener(OnLanguageChanged);
+        }
+
+        if (savePanelButton != null)
+        {
+            savePanelButton.onClick.RemoveAllListeners();
+            savePanelButton.onClick.AddListener(OpenSavePanel);
+        }
+
         if (applyButton != null)
         {
             applyButton.onClick.RemoveAllListeners();
@@ -155,6 +182,12 @@ public class SettingsManager : MonoBehaviour
         {
             resetButton.onClick.RemoveAllListeners();
             resetButton.onClick.AddListener(ResetSettings);
+        }
+
+        if (closeButton != null)
+        {
+            closeButton.onClick.RemoveAllListeners();
+            closeButton.onClick.AddListener(ClosePanel);
         }
     }
 
@@ -187,6 +220,11 @@ public class SettingsManager : MonoBehaviour
         QualitySettings.SetQualityLevel(index);
     }
 
+    void OnLanguageChanged(int index)
+    {
+        LanguageManager.SetLanguage(index == 0 ? GameLanguage.EN : GameLanguage.TR);
+    }
+
     void OnDifficultyChanged(float value)
     {
         if (difficultyText == null)
@@ -199,6 +237,24 @@ public class SettingsManager : MonoBehaviour
             2 => "Hard",
             _ => "Nightmare"
         };
+    }
+
+    void SetMixerVolume(string parameter, float value)
+    {
+        if (audioMixer == null)
+            return;
+
+        float db = value > 0.0001f ? Mathf.Log10(value) * 20f : -80f;
+        audioMixer.SetFloat(parameter, db);
+    }
+
+    public void OpenSavePanel()
+    {
+        if (settingsPanel != null && savePanel != null)
+        {
+            settingsPanel.SetActive(false);
+            savePanel.SetActive(true);
+        }
     }
 
     void ApplySettings()
@@ -302,6 +358,9 @@ public class SettingsManager : MonoBehaviour
         if (qualityDropdown != null)
             qualityDropdown.value = PlayerPrefs.GetInt("QualityLevel", QualitySettings.GetQualityLevel());
 
+        if (languageDropdown != null)
+            languageDropdown.value = (int)LanguageManager.Current;
+
         if (fullscreenToggle != null)
             fullscreenToggle.isOn = PlayerPrefs.GetInt("Fullscreen", 1) == 1;
 
@@ -315,14 +374,7 @@ public class SettingsManager : MonoBehaviour
             autosaveToggle.isOn = PlayerPrefs.GetInt("Autosave", 1) == 1;
     }
 
-    void SetMixerVolume(string parameter, float value)
-    {
-        if (audioMixer == null)
-            return;
-
-        float db = value > 0.0001f ? Mathf.Log10(value) * 20f : -80f;
-        audioMixer.SetFloat(parameter, db);
-    }
+    public void ClosePanel() => settingsPanel.SetActive(false);
 
     public bool IsAutosaveEnabled() => autosaveToggle != null && autosaveToggle.isOn;
 

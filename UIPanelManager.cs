@@ -14,7 +14,6 @@ public class UIPanelManager : MonoBehaviour
         public GameObject root;
         public GameObject[] companions;
         public GameObject firstSelected;
-
         [System.NonSerialized] public bool wasActive;
         [System.NonSerialized] public UIPanelAnimator animator;
         [System.NonSerialized] public bool animatorResolved;
