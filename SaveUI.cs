@@ -8,6 +8,7 @@ public class SaveUI : MonoBehaviour
 
     [Header("Panel")]
     public GameObject savePanel;
+    public GameObject settingsPanel;
 
     [Header("Slots")]
     public SaveSlotUI[] slots;
@@ -65,6 +66,15 @@ public class SaveUI : MonoBehaviour
             ClosePanel();
         else
             OpenPanel();
+    }
+
+    public void BackToSettingsPanel()
+    {
+        if (savePanel != null && settingsPanel != null)
+        {
+            savePanel.SetActive(false);
+            settingsPanel.SetActive(true);
+        }
     }
 
     public void RefreshAllSlots()
