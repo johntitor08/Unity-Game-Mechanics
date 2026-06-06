@@ -241,43 +241,43 @@ public class GameStartNameInput : MonoBehaviour
 
         if (string.IsNullOrWhiteSpace(name))
         {
-            errorMessage = "Ýsim boþ olamaz!";
+            errorMessage = "Name cannot be empty!";
             return false;
         }
 
         if (name.Length < minNameLength)
         {
-            errorMessage = $"Ýsim en az {minNameLength} karakter olmalý!";
+            errorMessage = $"Name must be at least {minNameLength} characters!";
             return false;
         }
 
         if (name.Length > maxNameLength)
         {
-            errorMessage = $"Ýsim en fazla {maxNameLength} karakter olabilir!";
+            errorMessage = $"Name can be at most {maxNameLength} characters!";
             return false;
         }
 
         if (!allowSpaces && name.Contains(" "))
         {
-            errorMessage = "Ýsimde boþluk kullanýlamaz!";
+            errorMessage = "Name cannot contain spaces!";
             return false;
         }
 
         if (!allowNumbers && ContainsNumbers(name))
         {
-            errorMessage = "Ýsimde sayý kullanýlamaz!";
+            errorMessage = "Name cannot contain numbers!";
             return false;
         }
 
         if (!allowSpecialCharacters && ContainsSpecialCharacters(name))
         {
-            errorMessage = "Ýsimde özel karakter kullanýlamaz!";
+            errorMessage = "Name cannot contain special characters!";
             return false;
         }
 
         if (IsProfane(name))
         {
-            errorMessage = "Lütfen uygun bir isim seçin!";
+            errorMessage = "Please choose an appropriate name!";
             return false;
         }
 
@@ -355,10 +355,13 @@ public class GameStartNameInput : MonoBehaviour
             return;
         }
 
-        confirmButton.gameObject.SetActive(false);
-        randomNameButton.gameObject.SetActive(false);
+        if (confirmButton != null)
+            confirmButton.gameObject.SetActive(false);
+
+        if (randomNameButton != null)
+            randomNameButton.gameObject.SetActive(false);
+
         StartGame(playerName);
-        PlaySound(confirmSound);
     }
 
     void OnRandomNameClicked()
@@ -401,7 +404,7 @@ public class GameStartNameInput : MonoBehaviour
 
     IEnumerator ShowWelcomeMessage(string playerName)
     {
-        string welcomeMessage = $"Hoþ geldin, {playerName}!";
+        string welcomeMessage = $"Welcome, {playerName}!";
 
         if (welcomeText != null)
         {
@@ -437,10 +440,10 @@ public class GameStartNameInput : MonoBehaviour
         if (nameInputPanel != null)
             nameInputPanel.SetActive(false);
 
-        if (StorySelectionUI.Instance != null)
-            StorySelectionUI.Instance.ShowMainPanel();
+        if (SceneEvent.Instance != null)
+            SceneEvent.Instance.InitializeGame();
         else
-            Debug.LogWarning("[GameStartNameInput] StorySelectionUI bulunamadý.");
+            Debug.LogWarning("[GameStartNameInput] SceneEvent not found.");
     }
 
     void CheckExistingProfile()
@@ -453,7 +456,7 @@ public class GameStartNameInput : MonoBehaviour
             if (SceneEvent.Instance != null)
                 SceneEvent.Instance.InitializeGameContinue();
             else
-                Debug.LogWarning("[GameStartNameInput] SceneEvent bulunamadý.");
+                Debug.LogWarning("[GameStartNameInput] SceneEvent not found.");
 
             return;
         }

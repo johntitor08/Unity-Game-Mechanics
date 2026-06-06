@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Serialization;
 
 [DisallowMultipleComponent]
 public class QuestUIHoverBridge : MonoBehaviour, IPointerClickHandler
@@ -14,11 +15,14 @@ public class QuestUIHoverBridge : MonoBehaviour, IPointerClickHandler
 
     UIHoverRegion hoverRegion;
     public bool requireQuestActive = true;
+    public bool triggerOnce = true;
+    bool hasFired;
 
     [Header("Quest")]
     public TriggerKind kind = TriggerKind.Interact;
     public string questID;
-    public new string tag;
+    [FormerlySerializedAs("tag")]
+    public string questTag;
     public string objectiveID;
 
     [Min(1)]
@@ -57,7 +61,7 @@ public class QuestUIHoverBridge : MonoBehaviour, IPointerClickHandler
 
     public void TryFire()
     {
-        if (QuestManager.Instance == null || (requireQuestActive && !string.IsNullOrEmpty(questID) && !QuestManager.Instance.IsQuestActive(questID)))
+        if (QuestManager.Instance == null || (hasFired && triggerOnce) || (requireQuestActive && !string.IsNullOrEmpty(questID) && !QuestManager.Instance.IsQuestActive(questID)))
             return;
 
         if (dialogue != null && DialogueManager.Instance != null && kind == TriggerKind.Talk)
@@ -88,19 +92,25 @@ public class QuestUIHoverBridge : MonoBehaviour, IPointerClickHandler
         {
             case TriggerKind.Talk:
                 QuestManager.Instance.NotifyTalkToNPC(resolvedTag, progressAmount);
+                hasFired = true;
                 break;
 
             case TriggerKind.Interact:
                 QuestManager.Instance.NotifyObjectInteracted(resolvedTag, progressAmount);
+                hasFired = true;
                 break;
 
             case TriggerKind.Location:
                 QuestManager.Instance.NotifyLocationReached(resolvedTag, progressAmount);
+                hasFired = true;
                 break;
 
             case TriggerKind.DirectProgress:
                 if (!string.IsNullOrEmpty(questID) && !string.IsNullOrEmpty(objectiveID))
+                {
                     QuestManager.Instance.UpdateObjectiveProgress(questID, objectiveID, progressAmount);
+                    hasFired = true;
+                }
 
                 break;
         }
@@ -108,8 +118,8 @@ public class QuestUIHoverBridge : MonoBehaviour, IPointerClickHandler
 
     string ResolveTag()
     {
-        if (!string.IsNullOrEmpty(tag))
-            return tag;
+        if (!string.IsNullOrEmpty(questTag))
+            return questTag;
 
         if (!string.IsNullOrEmpty(objectiveID))
             return objectiveID;
@@ -124,7 +134,7 @@ public class QuestUIHoverBridge : MonoBehaviour, IPointerClickHandler
 
         questID = entry.questID;
         objectiveID = entry.objectiveID;
-        tag = string.IsNullOrEmpty(entry.tag) ? entry.objectiveID : entry.tag;
+        questTag = string.IsNullOrEmpty(entry.tag) ? entry.objectiveID : entry.tag;
         kind = entry.recommendedKind;
         progressAmount = entry.progressAmount;
     }

@@ -13,11 +13,13 @@ public class TimePhaseManager : MonoBehaviour
 {
     public static TimePhaseManager Instance;
     private float phaseTimer = 0f;
+    private CurrencyManager subscribedCurrency;
     public event System.Action<TimePhase> OnPhaseChanged;
 
     [Header("Time Settings")]
     public TimePhase currentPhase = TimePhase.Morning;
     public bool autoProgress = true;
+    [Min(0.01f)]
     public float phaseDuration = 300f;
     public float timeScale = 1f;
 
@@ -58,8 +60,7 @@ public class TimePhaseManager : MonoBehaviour
         if (previousPhaseButton != null)
             previousPhaseButton.onClick.AddListener(GoPreviousPhase);
 
-        if (CurrencyManager.Instance != null)
-            CurrencyManager.Instance.OnCurrencyChanged += OnCurrencyChanged;
+        EnsureCurrencySubscription();
 
         OnPhaseChanged?.Invoke(currentPhase);
         UpdateCameraColor(currentPhase);
@@ -68,6 +69,9 @@ public class TimePhaseManager : MonoBehaviour
 
     void Update()
     {
+        if (subscribedCurrency == null)
+            EnsureCurrencySubscription();
+
         if (!autoProgress)
             return;
 
@@ -82,8 +86,27 @@ public class TimePhaseManager : MonoBehaviour
 
     void OnDestroy()
     {
-        if (CurrencyManager.Instance != null)
-            CurrencyManager.Instance.OnCurrencyChanged -= OnCurrencyChanged;
+        if (subscribedCurrency != null)
+            subscribedCurrency.OnCurrencyChanged -= OnCurrencyChanged;
+    }
+
+    void EnsureCurrencySubscription()
+    {
+        CurrencyManager current = CurrencyManager.Instance;
+
+        if (current == subscribedCurrency)
+            return;
+
+        if (subscribedCurrency != null)
+            subscribedCurrency.OnCurrencyChanged -= OnCurrencyChanged;
+
+        subscribedCurrency = current;
+
+        if (subscribedCurrency != null)
+        {
+            subscribedCurrency.OnCurrencyChanged += OnCurrencyChanged;
+            UpdatePhaseButtons();
+        }
     }
 
     void OnCurrencyChanged(CurrencyType type, int oldAmount, int newAmount)
@@ -129,16 +152,18 @@ public class TimePhaseManager : MonoBehaviour
 
     public void GoPreviousPhase()
     {
-        if (currentPhase == TimePhase.Morning || CurrencyManager.Instance == null || !CurrencyManager.Instance.Spend(previousPhaseCostType, previousPhaseCost))
+        if (currentPhase == TimePhase.Morning)
+            return;
+
+        if (CurrencyManager.Instance == null || !CurrencyManager.Instance.Spend(previousPhaseCostType, previousPhaseCost))
             return;
 
         currentPhase = currentPhase switch
         {
-            TimePhase.Morning => TimePhase.Night,
             TimePhase.Noon => TimePhase.Morning,
             TimePhase.Evening => TimePhase.Noon,
             TimePhase.Night => TimePhase.Evening,
-            _ => TimePhase.Morning
+            _ => currentPhase
         };
 
         phaseTimer = 0f;
@@ -188,7 +213,7 @@ public class TimePhaseManager : MonoBehaviour
         }
     }
 
-    public float GetPhaseProgress() => Mathf.Clamp01(phaseTimer / phaseDuration);
+    public float GetPhaseProgress() => phaseDuration <= 0f ? 0f : Mathf.Clamp01(phaseTimer / phaseDuration);
 
     public float GetTimeRemaining() => Mathf.Max(0f, phaseDuration - phaseTimer);
 
