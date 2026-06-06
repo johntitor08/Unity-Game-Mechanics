@@ -8,10 +8,10 @@ public class UIPanelAnimator : MonoBehaviour
     public float duration = 0.14f;
     public bool animateScale = true;
     [Range(0.5f, 1f)] public float startScale = 0.94f;
-
     private CanvasGroup _cg;
     private RectTransform _rt;
     private Coroutine _routine;
+    private bool _closeRequested;
 
     void Awake()
     {
@@ -40,6 +40,8 @@ public class UIPanelAnimator : MonoBehaviour
         if (_cg == null)
             _cg = GetComponent<CanvasGroup>();
 
+        _closeRequested = false;
+
         if (!gameObject.activeInHierarchy)
             return;
 
@@ -59,8 +61,14 @@ public class UIPanelAnimator : MonoBehaviour
             return;
         }
 
+        _closeRequested = true;
         StopRoutine();
-        _routine = StartCoroutine(Animate(_cg.alpha, 0f, false, onComplete));
+
+        _routine = StartCoroutine(Animate(_cg.alpha, 0f, false, () =>
+        {
+            if (_closeRequested)
+                onComplete?.Invoke();
+        }));
     }
 
     IEnumerator Animate(float from, float to, bool opening, System.Action onComplete)
@@ -106,5 +114,36 @@ public class UIPanelAnimator : MonoBehaviour
             StopCoroutine(_routine);
             _routine = null;
         }
+    }
+
+    public static void Show(GameObject go)
+    {
+        if (go == null)
+            return;
+
+        if (!go.activeSelf)
+        {
+            go.SetActive(true);
+            return;
+        }
+
+        if (go.TryGetComponent<UIPanelAnimator>(out var animator))
+            animator.PlayOpen();
+    }
+
+    public static void Hide(GameObject go)
+    {
+        if (go == null || !go.activeSelf)
+            return;
+
+        var animator = go.GetComponent<UIPanelAnimator>();
+
+        if (animator != null && go.activeInHierarchy)
+            animator.PlayClose(() => {
+                if (go != null)
+                    go.SetActive(false);
+            });
+        else
+            go.SetActive(false);
     }
 }

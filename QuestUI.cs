@@ -241,7 +241,6 @@ public class QuestUI : HotkeyPanelUI
         }
 
         PopulateRewards(quest);
-
         bool isActive = qm.IsQuestActive(quest.questID);
         bool isCompleted = qm.IsQuestCompleted(quest.questID);
         bool isTracked = QuestTrackerUI.Instance != null && QuestTrackerUI.Instance.IsTracked(quest.questID);
@@ -352,11 +351,8 @@ public class QuestUI : HotkeyPanelUI
 
     public void CloseQuestPanel()
     {
-        if (questPanel != null)
-            questPanel.SetActive(false);
-
-        if (questDetailsPanel != null)
-            questDetailsPanel.SetActive(false);
+        UIPanelAnimator.Hide(questPanel);
+        UIPanelAnimator.Hide(questDetailsPanel);
     }
 
     void PopulateRewards(QuestData quest)

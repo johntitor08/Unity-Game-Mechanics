@@ -374,7 +374,7 @@ public class SettingsManager : MonoBehaviour
             autosaveToggle.isOn = PlayerPrefs.GetInt("Autosave", 1) == 1;
     }
 
-    public void ClosePanel() => settingsPanel.SetActive(false);
+    public void ClosePanel() => UIPanelAnimator.Hide(settingsPanel);
 
     public bool IsAutosaveEnabled() => autosaveToggle != null && autosaveToggle.isOn;
 

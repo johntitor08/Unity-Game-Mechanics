@@ -53,8 +53,7 @@ public class SaveUI : MonoBehaviour
 
     public void ClosePanel()
     {
-        if (savePanel != null)
-            savePanel.SetActive(false);
+        UIPanelAnimator.Hide(savePanel);
     }
 
     public void TogglePanel()
@@ -72,8 +71,8 @@ public class SaveUI : MonoBehaviour
     {
         if (savePanel != null && settingsPanel != null)
         {
-            savePanel.SetActive(false);
-            settingsPanel.SetActive(true);
+            UIPanelAnimator.Hide(savePanel);
+            UIPanelAnimator.Show(settingsPanel);
         }
     }
 

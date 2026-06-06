@@ -75,7 +75,7 @@ public class ShopUI : MonoBehaviour
     {
         if (shopPanel != null)
         {
-            shopPanel.SetActive(true);
+            UIPanelAnimator.Show(shopPanel);
             Refresh();
         }
 
@@ -84,11 +84,8 @@ public class ShopUI : MonoBehaviour
 
     public void Close()
     {
-        if (shopPanel != null)
-            shopPanel.SetActive(false);
-
-        if (marketClosedPanel != null)
-            marketClosedPanel.SetActive(false);
+        UIPanelAnimator.Hide(shopPanel);
+        UIPanelAnimator.Hide(marketClosedPanel);
     }
 
     public void CloseAll()
@@ -99,8 +96,7 @@ public class ShopUI : MonoBehaviour
 
     public void ShowMarketClosed()
     {
-        if (marketClosedPanel != null)
-            marketClosedPanel.SetActive(true);
+        UIPanelAnimator.Show(marketClosedPanel);
     }
 
     public void Refresh()

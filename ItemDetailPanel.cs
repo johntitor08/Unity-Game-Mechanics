@@ -76,7 +76,7 @@ public class ItemDetailPanel : MonoBehaviour
             upgradeFusionButton.SetItem(item is EquipmentData eq ? eq : null);
 
         ConfigureButtons(item, qty);
-        itemDetailPanel.SetActive(true);
+        UIPanelAnimator.Show(itemDetailPanel);
     }
 
     public void RefreshPanel()
@@ -227,6 +227,6 @@ public class ItemDetailPanel : MonoBehaviour
         currentItem = null;
         currentUpgradeLevel = 0;
         isProcessingUse = false;
-        itemDetailPanel.SetActive(false);
+        UIPanelAnimator.Hide(itemDetailPanel);
     }
 }

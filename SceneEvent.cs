@@ -295,7 +295,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (closeOtherPanelsOnOpen && !allowMultiplePanels)
             HideAllPanels();
 
-        panel.SetActive(true);
+        OpenAnimated(panel);
     }
 
     public void OpenSettings()
@@ -389,22 +389,24 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             ProfileUI.Instance.RefreshAll();
     }
 
+    public void ClosePanel(GameObject panel) => CloseAnimated(panel);
+
     public void HideAllPanels()
     {
-        SetActive(settingsPanel, false);
-        SetActive(savePanel, false);
-        SetActive(profilePanel, false);
-        SetActive(inventoryPanel, false);
-        SetActive(mapPanel, false);
-        SetActive(equipmentPanel, false);
-        SetActive(coinPanel, false);
-        SetActive(questPanel, false);
-        SetActive(combatMapPanel, false);
+        CloseAnimated(settingsPanel);
+        CloseAnimated(savePanel);
+        CloseAnimated(profilePanel);
+        CloseAnimated(inventoryPanel);
+        CloseAnimated(mapPanel);
+        CloseAnimated(equipmentPanel);
+        CloseAnimated(coinPanel);
+        CloseAnimated(questPanel);
+        CloseAnimated(combatMapPanel);
 
         if (MarketUI.Instance != null)
             MarketUI.Instance.CloseAll();
         else
-            SetActive(shopPanel, false);
+            CloseAnimated(shopPanel);
     }
 
     void TogglePanel(GameObject panel, string panelName)
@@ -423,7 +425,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (closeOtherPanelsOnOpen && !allowMultiplePanels && !isActive)
             HideAllPanels();
 
-        panel.SetActive(!isActive);
+        if (isActive)
+            CloseAnimated(panel);
+        else
+            OpenAnimated(panel);
 
         if (!isActive && panel == mapPanel)
             SetMap(currentMapIndex);
@@ -437,8 +442,13 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     public void ToggleInventoryInCombat()
     {
-        if (inventoryPanel != null)
-            inventoryPanel.SetActive(!inventoryPanel.activeSelf);
+        if (inventoryPanel == null)
+            return;
+
+        if (inventoryPanel.activeSelf)
+            CloseAnimated(inventoryPanel);
+        else
+            OpenAnimated(inventoryPanel);
     }
 
     public void SetCharacter(int index)
@@ -1000,6 +1010,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (go != null)
             go.SetActive(active);
     }
+
+    static void OpenAnimated(GameObject go) => UIPanelAnimator.Show(go);
+
+    static void CloseAnimated(GameObject go) => UIPanelAnimator.Hide(go);
 
     static void SetInteractable(GameObject go, bool interactable)
     {

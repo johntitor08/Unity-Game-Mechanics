@@ -73,15 +73,14 @@ public class SellUI : MonoBehaviour
     {
         if (sellPanel != null)
         {
-            sellPanel.SetActive(true);
+            UIPanelAnimator.Show(sellPanel);
             Refresh();
         }
     }
 
     public void Close()
     {
-        if (sellPanel != null)
-            sellPanel.SetActive(false);
+        UIPanelAnimator.Hide(sellPanel);
     }
 
     public void Refresh()

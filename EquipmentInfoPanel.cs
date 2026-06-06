@@ -89,7 +89,7 @@ public class EquipmentInfoPanel : MonoBehaviour
             return;
 
         currentInstance = instance;
-        panel.SetActive(true);
+        UIPanelAnimator.Show(panel);
         DisplayEquipment(instance);
         EquipmentInstance slotInst = EquipmentManager.Instance.GetEquipped(instance.baseData.slot);
         bool isEquipped = slotInst != null && slotInst.baseData.itemID == instance.baseData.itemID && slotInst.upgradeLevel == instance.upgradeLevel;
@@ -217,7 +217,7 @@ public class EquipmentInfoPanel : MonoBehaviour
 
     public void Close()
     {
-        panel.SetActive(false);
+        UIPanelAnimator.Hide(panel);
         currentInstance = null;
     }
 }

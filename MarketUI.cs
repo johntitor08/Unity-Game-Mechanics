@@ -35,9 +35,7 @@ public class MarketUI : HotkeyPanelUI
 
     public void OpenMarket()
     {
-        if (marketPanel != null)
-            marketPanel.SetActive(true);
-
+        UIPanelAnimator.Show(marketPanel);
         OpenShop();
     }
 
@@ -83,7 +81,6 @@ public class MarketUI : HotkeyPanelUI
         if (SellUI.Instance != null)
             SellUI.Instance.Close();
 
-        if (marketPanel != null)
-            marketPanel.SetActive(false);
+        UIPanelAnimator.Hide(marketPanel);
     }
 }
