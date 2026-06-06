@@ -90,6 +90,14 @@ public class DialogueManager : MonoBehaviour
         choiceButtonPrefab = fresh.choiceButtonPrefab;
     }
 
+    bool IsPanelAnimatorAlive()
+    {
+        if (PanelAnimator == null)
+            return false;
+
+        return PanelAnimator is not UnityEngine.Object unityObj || unityObj != null;
+    }
+
     void BuildLocMap()
     {
         _locMap = new System.Collections.Generic.Dictionary<DialogueNode, DialogueLocalizationTable.Entry>();
@@ -189,7 +197,7 @@ public class DialogueManager : MonoBehaviour
         SetupVisuals();
         ClearChoices();
 
-        if (PanelAnimator != null)
+        if (IsPanelAnimatorAlive())
         {
             PanelAnimator.OpenDialoguePanel();
             float openDuration = PanelAnimator.DialogueOpenAnimationDuration();
@@ -393,13 +401,16 @@ public class DialogueManager : MonoBehaviour
 
         ClearChoices();
         PlaySound(dialogueCloseSound);
-        PanelAnimator?.CloseDialoguePanel();
+
+        if (IsPanelAnimatorAlive())
+            PanelAnimator.CloseDialoguePanel();
+
         StartCoroutine(FinishDialogue(endedNode));
     }
 
     IEnumerator FinishDialogue(DialogueNode endedNode)
     {
-        float closeDuration = PanelAnimator != null ? PanelAnimator.DialogueCloseAnimationDuration() : 0.25f;
+        float closeDuration = IsPanelAnimatorAlive() ? PanelAnimator.DialogueCloseAnimationDuration() : 0.25f;
 
         if (closeDuration > 0)
             yield return new WaitForSeconds(closeDuration);
