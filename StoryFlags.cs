@@ -3,7 +3,6 @@ using System.Collections.Generic;
 public static class StoryFlags
 {
     private static readonly HashSet<string> flags = new();
-
     public static event System.Action<string> OnFlagAdded;
 
     public static void Add(string flag)

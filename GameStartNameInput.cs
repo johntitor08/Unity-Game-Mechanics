@@ -440,10 +440,10 @@ public class GameStartNameInput : MonoBehaviour
         if (nameInputPanel != null)
             nameInputPanel.SetActive(false);
 
-        if (SceneEvent.Instance != null)
-            SceneEvent.Instance.InitializeGame();
+        if (StorySelectionUI.Instance != null)
+            StorySelectionUI.Instance.ShowMainPanel();
         else
-            Debug.LogWarning("[GameStartNameInput] SceneEvent not found.");
+            Debug.LogWarning("[GameStartNameInput] StorySelectionUI.Instance is null.");
     }
 
     void CheckExistingProfile()

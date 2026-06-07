@@ -15,13 +15,13 @@ public class QuestScenarioBridge : MonoBehaviour
 
     private ScenarioManager _sm;
 
+    void Start() => TryHook();
+
     void OnEnable()
     {
         StoryFlags.OnFlagAdded += OnFlagAdded;
         TryHook();
     }
-
-    void Start() => TryHook();
 
     void OnDisable()
     {
@@ -61,7 +61,6 @@ public class QuestScenarioBridge : MonoBehaviour
     void StartBranch(string scenarioID)
     {
         TryHook();
-
         var data = FindScenario(scenarioID);
 
         if (data != null && ScenarioManager.Instance != null && ScenarioManager.Instance.CanStartScenario(data))

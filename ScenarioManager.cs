@@ -21,6 +21,7 @@ public class ScenarioManager : MonoBehaviour
     private readonly HashSet<string> completedScenarios = new();
     private Coroutine activeCoroutine;
     private Transform cachedPlayer;
+    public bool hasStoryStarted = false;
 
     [Header("Active Scenario")]
     public ScenarioData currentScenario;
@@ -111,6 +112,9 @@ public class ScenarioManager : MonoBehaviour
         currentStepIndex = 0;
         isScenarioActive = true;
         OnScenarioStart?.Invoke(scenario);
+
+        if (!hasStoryStarted)
+            return;
 
         if (scenario.introDialogue != null && DialogueManager.Instance != null)
             DialogueManager.Instance.StartDialogue(scenario.introDialogue, StartNextStep);

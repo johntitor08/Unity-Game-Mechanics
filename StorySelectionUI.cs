@@ -130,7 +130,6 @@ public class StorySelectionUI : MonoBehaviour
     void OpenPanel(string originID)
     {
         _pendingOriginID = originID;
-
         var data = OriginManager.Instance != null ? OriginManager.Instance.GetOrigin(originID) : null;
 
         if (mainStoryPanel != null)
