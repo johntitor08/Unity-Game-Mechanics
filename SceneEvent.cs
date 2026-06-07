@@ -565,9 +565,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (mapTitleText != null)
         {
             if (isModern)
-                mapTitleText.text = "Ashenveil Town";
-            else if (isFantasy)
                 mapTitleText.text = "Neighborhood";
+            else if (isFantasy)
+                mapTitleText.text = "Ashenveil Town";
             else if (isCombat)
                 mapTitleText.text = "Combat Region";
         }
