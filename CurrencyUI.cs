@@ -97,9 +97,7 @@ public class CurrencyUI : MonoBehaviour
             if (animationCoroutines.TryGetValue(type, out var existing) && existing != null)
                 StopCoroutine(existing);
 
-            animationCoroutines[type] = StartCoroutine(
-                AnimateCountUp(display.amountText, oldAmount, newAmount, 0.5f)
-            );
+            animationCoroutines[type] = StartCoroutine(AnimateCountUp(display.amountText, oldAmount, newAmount, 0.5f));
         }
     }
 
