@@ -74,6 +74,22 @@ public class DialogueManager : MonoBehaviour
         BuildLocMap();
     }
 
+    void Update()
+    {
+        if (State != DialogueState.Typing && State != DialogueState.WaitingInput)
+            return;
+
+        bool advance = Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0);
+
+        if (!advance)
+            return;
+
+        if (State == DialogueState.Typing && typewriter != null && typewriter.IsTyping)
+            typewriter.Complete();
+        else if (State == DialogueState.WaitingInput)
+            NextLine();
+    }
+
     void AdoptSceneReferences(DialogueManager fresh)
     {
         if (fresh == null)
@@ -134,22 +150,6 @@ public class DialogueManager : MonoBehaviour
         }
 
         return node;
-    }
-
-    void Update()
-    {
-        if (State != DialogueState.Typing && State != DialogueState.WaitingInput)
-            return;
-
-        bool advance = Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0);
-
-        if (!advance)
-            return;
-
-        if (State == DialogueState.Typing && typewriter != null && typewriter.IsTyping)
-            typewriter.Complete();
-        else if (State == DialogueState.WaitingInput)
-            NextLine();
     }
 
     void SetupVisuals()

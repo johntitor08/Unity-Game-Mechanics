@@ -716,6 +716,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (iconPanelAnimator != null)
             iconPanelAnimator.SetTrigger(iconPanelCloseTrigger);
 
+        SetActive(settingsIconPanel, false);
+
         if (charImage != null)
             charImage.gameObject.SetActive(true);
     }
