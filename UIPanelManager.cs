@@ -23,7 +23,7 @@ public class UIPanelManager : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
-            Destroy(this);
+            Destroy(gameObject);
             return;
         }
 
@@ -45,7 +45,7 @@ public class UIPanelManager : MonoBehaviour
 
     void Update()
     {
-        if (!enforceMutualExclusion || panels == null)
+        if (panels == null)
             return;
 
         for (int i = 0; i < panels.Count; i++)
@@ -57,7 +57,7 @@ public class UIPanelManager : MonoBehaviour
 
             bool isActive = entry.root.activeSelf;
 
-            if (isActive && !entry.wasActive)
+            if (enforceMutualExclusion && isActive && !entry.wasActive)
             {
                 CloseOthers(entry);
                 FocusEntry(entry);
@@ -65,6 +65,19 @@ public class UIPanelManager : MonoBehaviour
 
             entry.wasActive = isActive;
         }
+    }
+
+    public void OpenPanel(PanelEntry entry)
+    {
+        if (entry == null)
+            return;
+
+        SetEntryActive(entry, true);
+
+        if (enforceMutualExclusion)
+            CloseOthers(entry);
+
+        FocusEntry(entry);
     }
 
     public bool CloseOpenPanels()
@@ -162,12 +175,10 @@ public class UIPanelManager : MonoBehaviour
 
     UIPanelAnimator ResolveAnimator(PanelEntry entry)
     {
-        if (!entry.animatorResolved)
+        if (!entry.animatorResolved || entry.animator == null)
         {
-            if (entry.root != null)
-                entry.animator = entry.root.GetComponent<UIPanelAnimator>();
-
-            entry.animatorResolved = true;
+            entry.animator = entry.root != null ? entry.root.GetComponent<UIPanelAnimator>() : null;
+            entry.animatorResolved = entry.animator != null;
         }
 
         return entry.animator;
