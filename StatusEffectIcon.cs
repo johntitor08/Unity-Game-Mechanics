@@ -72,8 +72,18 @@ public class StatusEffectIcon : MonoBehaviour
 
         if (fillImage != null && !effect.data.isPermanent)
         {
-            float fillAmount = effect.data.isRoundBased ? (float)effect.remainingRounds / effect.data.durationRounds : effect.remainingDuration / effect.data.duration;
-            fillImage.fillAmount = fillAmount;
+            float fillAmount;
+
+            if (effect.data.isRoundBased)
+            {
+                fillAmount = effect.data.durationRounds > 0 ? (float)effect.remainingRounds / effect.data.durationRounds : 0f;
+            }
+            else
+            {
+                fillAmount = effect.data.duration > 0f ? effect.remainingDuration / effect.data.duration : 0f;
+            }
+
+            fillImage.fillAmount = Mathf.Clamp01(fillAmount);
         }
     }
 }

@@ -13,8 +13,10 @@ public class StatusEffectManager : MonoBehaviour
     public event Action<StatusEffectData> OnEffectApplied;
     public event Action<StatusEffectData> OnEffectRemoved;
     public event Action<StatusEffectData, int> OnEffectTick;
+    public event Action<StatusEffectData, int> OnEffectHeal;
     public event Action<StatusEffectData> OnEffectExpired;
     private IStatOwner statOwner;
+    private Camera _mainCamera;
 
     private void Awake()
     {
@@ -25,6 +27,8 @@ public class StatusEffectManager : MonoBehaviour
 
         if (particleParent == null)
             particleParent = transform;
+
+        _mainCamera = Camera.main;
     }
 
     private void Update()
@@ -54,7 +58,7 @@ public class StatusEffectManager : MonoBehaviour
                 }
             }
 
-            if (effect.data.hasTicks && effect.data.tickInterval > 0f)
+            if (effect.data.hasTicks && effect.data.tickInterval > 0f && !effect.data.isRoundBased)
             {
                 effect.nextTickTime -= dt;
 
@@ -69,6 +73,16 @@ public class StatusEffectManager : MonoBehaviour
 
     public void OnEnemyTurnStart()
     {
+        TickRoundBasedEffects(onPlayerTurn: false);
+    }
+
+    public void OnPlayerTurnStart()
+    {
+        TickRoundBasedEffects(onPlayerTurn: true);
+    }
+
+    private void TickRoundBasedEffects(bool onPlayerTurn)
+    {
         for (int i = activeEffects.Count - 1; i >= 0; i--)
         {
             var effect = activeEffects[i];
@@ -76,7 +90,14 @@ public class StatusEffectManager : MonoBehaviour
             if (!effect.data.isRoundBased)
                 continue;
 
-            ProcessTick(effect);
+            bool shouldTick = onPlayerTurn ? !effect.data.isDebuff : effect.data.isDebuff;
+
+            if (!shouldTick)
+                continue;
+
+            if (effect.data.hasTicks)
+                ProcessTick(effect);
+
             effect.remainingRounds--;
 
             if (effect.remainingRounds <= 0)
@@ -96,7 +117,7 @@ public class StatusEffectManager : MonoBehaviour
             if (effectData.canStack)
             {
                 existing.AddStack();
-                ApplyStatModifiers(existing, true);
+                ApplyAndSnapshot(existing);
             }
 
             if (effectData.refreshOnReapply)
@@ -148,10 +169,16 @@ public class StatusEffectManager : MonoBehaviour
         if (effect == null || statOwner == null)
             return;
 
-        int totalDamage = effect.data.tickDamage * effect.currentStacks;
-
-        if (totalDamage != 0)
+        if (effect.data.tickHeal > 0)
         {
+            int totalHeal = effect.data.tickHeal * effect.currentStacks;
+            statOwner.Modify(StatType.Health, totalHeal, false);
+            OnEffectHeal?.Invoke(effect.data, totalHeal);
+            PlaySound(effect.data.tickSound);
+        }
+        else if (effect.data.tickDamage != 0)
+        {
+            int totalDamage = effect.data.tickDamage * effect.currentStacks;
             statOwner.Modify(StatType.Health, -totalDamage, false);
             OnEffectTick?.Invoke(effect.data, totalDamage);
             PlaySound(effect.data.tickSound);
@@ -181,6 +208,15 @@ public class StatusEffectManager : MonoBehaviour
         }
     }
 
+    public void RemoveAllBuffs()
+    {
+        for (int i = activeEffects.Count - 1; i >= 0; i--)
+        {
+            if (!activeEffects[i].data.isDebuff && activeEffects[i].data.isPurgeableByPlayer)
+                RemoveEffect(activeEffects[i]);
+        }
+    }
+
     public bool HasEffect(StatusEffectType type) => GetActiveEffect(type) != null;
 
     public ActiveStatusEffect GetActiveEffect(StatusEffectType type) => activeEffects.FirstOrDefault(e => e.data.effectType == type);
@@ -194,7 +230,10 @@ public class StatusEffectManager : MonoBehaviour
         float multiplier = 1f;
 
         foreach (var effect in activeEffects)
-            multiplier *= effect.data.damageMultiplier != 0f ? effect.data.damageMultiplier : 1f;
+        {
+            if (effect.data.damageMultiplier > 0f)
+                multiplier *= effect.data.damageMultiplier;
+        }
 
         return multiplier;
     }
@@ -230,9 +269,19 @@ public class StatusEffectManager : MonoBehaviour
             int newAmount;
 
             if (mod.isPercentage)
-                newAmount = Mathf.RoundToInt(statOwner.Get(mod.statType) * (mod.amount * effect.currentStacks) / 100f);
+            {
+                if (!effect.baseStatSnapshots.TryGetValue(i, out int baseSnapshot))
+                {
+                    baseSnapshot = statOwner.Get(mod.statType);
+                    effect.baseStatSnapshots[i] = baseSnapshot;
+                }
+
+                newAmount = Mathf.RoundToInt(baseSnapshot * (mod.amount * effect.currentStacks) / 100f);
+            }
             else
+            {
                 newAmount = mod.amount * effect.currentStacks;
+            }
 
             if (newAmount == 0)
                 continue;
@@ -261,11 +310,12 @@ public class StatusEffectManager : MonoBehaviour
         }
 
         effect.appliedModifierAmounts.Clear();
+        effect.baseStatSnapshots.Clear();
     }
 
     private void PlaySound(AudioClip clip)
     {
-        if (clip != null && Camera.main != null)
-            AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, 0.5f);
+        if (clip != null && _mainCamera != null)
+            AudioSource.PlayClipAtPoint(clip, _mainCamera.transform.position, 0.5f);
     }
 }

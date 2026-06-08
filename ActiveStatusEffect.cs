@@ -10,13 +10,14 @@ public class ActiveStatusEffect
     public int currentStacks;
     public GameObject particleInstance;
     public int remainingRounds;
-    [System.NonSerialized] public Dictionary<int, int> appliedModifierAmounts = new();
+    public SerializableDictionary<int, int> appliedModifierAmounts = new();
+    public SerializableDictionary<int, int> baseStatSnapshots = new();
 
     public ActiveStatusEffect(StatusEffectData effectData)
     {
         data = effectData;
         remainingDuration = effectData.duration;
-        nextTickTime = 0f;
+        nextTickTime = effectData.tickInterval;
         currentStacks = 1;
         remainingRounds = effectData.durationRounds;
     }
@@ -29,13 +30,12 @@ public class ActiveStatusEffect
     public void RefreshDuration()
     {
         remainingDuration = data.duration;
+        remainingRounds = data.durationRounds;
     }
 
     public void AddStack()
     {
         if (data.canStack && currentStacks < data.maxStacks)
-        {
             currentStacks++;
-        }
     }
 }

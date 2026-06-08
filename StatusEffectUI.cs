@@ -1,6 +1,8 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class StatusEffectUI : MonoBehaviour
 {
@@ -23,6 +25,7 @@ public class StatusEffectUI : MonoBehaviour
         {
             effectManager.OnEffectApplied -= OnEffectApplied;
             effectManager.OnEffectRemoved -= OnEffectRemoved;
+            effectManager.OnEffectHeal -= OnEffectHeal;
             isSubscribed = false;
         }
     }
@@ -33,6 +36,7 @@ public class StatusEffectUI : MonoBehaviour
         {
             effectManager.OnEffectApplied += OnEffectApplied;
             effectManager.OnEffectRemoved += OnEffectRemoved;
+            effectManager.OnEffectHeal += OnEffectHeal;
             isSubscribed = true;
         }
     }
@@ -88,5 +92,38 @@ public class StatusEffectUI : MonoBehaviour
             activeIcons.Remove(icon);
             Destroy(icon.gameObject);
         }
+    }
+
+    private void OnEffectHeal(StatusEffectData effect, int amount)
+    {
+        StatusEffectIcon icon = activeIcons.FirstOrDefault(i => i.effectType == effect.effectType);
+
+        if (icon != null)
+            StartCoroutine(FlashHeal(icon));
+    }
+
+    private IEnumerator FlashHeal(StatusEffectIcon icon)
+    {
+        if (icon == null)
+            yield break;
+
+        Image bg = icon.backgroundImage;
+
+        if (bg == null)
+            yield break;
+
+        Color original = bg.color;
+        Color flash = new(0.3f, 1f, 0.3f, 0.9f);
+        float duration = 0.25f;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            bg.color = Color.Lerp(flash, original, elapsed / duration);
+            yield return null;
+        }
+
+        bg.color = original;
     }
 }

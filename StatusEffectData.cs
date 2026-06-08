@@ -26,6 +26,7 @@ public class StatusEffectData : ScriptableObject
     public bool hasTicks = true;
     public float tickInterval = 1f;
     public int tickDamage = 5;
+    public int tickHeal = 0;
 
     [Header("Stat Modifiers")]
     public List<StatModifier> statModifiers;
