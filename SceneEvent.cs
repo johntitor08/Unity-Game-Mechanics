@@ -500,7 +500,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 charRt.anchoredPosition = new Vector2(-260f, 450f);
                 charRt.sizeDelta = new Vector2(700f, 1200f);
                 charRt.localScale = new Vector3(0.75f, 0.75f, 0.75f);
-                SetCharacter(23);
+                SetCharacter(24);
             }
             else if (index == 11)
             {
@@ -510,7 +510,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 charRt.anchoredPosition = new Vector2(375f, 375f);
                 charRt.sizeDelta = new Vector2(75f, 75f);
                 charRt.localScale = new Vector3(10f, 10f, 10f);
-                SetCharacter(26);
+                SetCharacter(27);
             }
             else
             {
@@ -522,11 +522,11 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 charRt.localScale = new Vector3(10f, 10f, 10f);
 
                 if (index == 8)
-                    SetCharacter(21);
+                    SetCharacter(22);
                 else if (index == 10)
-                    SetCharacter(25);
+                    SetCharacter(26);
                 else if (index == 12)
-                    SetCharacter(28);
+                    SetCharacter(29);
             }
         }
     }
@@ -821,7 +821,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             SetCharacter(14);
 
         if (node == scene9SecondNode && lineIndex == 0)
-            SetBackground(19);
+            SetCharacter(20);
     }
 
     public void ApplySceneProgress(SceneProgress targetProgress)
@@ -879,22 +879,22 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
             case SceneProgress.SceneMarket:
                 SetBackground(12);
-                SetCharacter(28);
+                SetCharacter(29);
                 break;
 
             case SceneProgress.SceneGym:
                 SetBackground(8);
-                SetCharacter(21);
+                SetCharacter(22);
                 break;
 
             case SceneProgress.SceneOffice:
                 SetBackground(9);
-                SetCharacter(23);
+                SetCharacter(24);
                 break;
 
             case SceneProgress.SceneChurch:
                 SetBackground(10);
-                SetCharacter(25);
+                SetCharacter(26);
                 break;
         }
     }
