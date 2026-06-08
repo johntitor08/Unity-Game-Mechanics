@@ -47,6 +47,10 @@ public class StatusEffectIcon : MonoBehaviour
             {
                 durationText.text = "∞";
             }
+            else if (effect.data.isRoundBased)
+            {
+                durationText.text = effect.remainingRounds.ToString();
+            }
             else
             {
                 durationText.text = Mathf.Ceil(effect.remainingDuration).ToString();
@@ -68,7 +72,7 @@ public class StatusEffectIcon : MonoBehaviour
 
         if (fillImage != null && !effect.data.isPermanent)
         {
-            float fillAmount = effect.remainingDuration / effect.data.duration;
+            float fillAmount = effect.data.isRoundBased ? (float)effect.remainingRounds / effect.data.durationRounds : effect.remainingDuration / effect.data.duration;
             fillImage.fillAmount = fillAmount;
         }
     }

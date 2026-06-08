@@ -65,6 +65,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     [Header("Dialogues")]
     public DialogueNode[] sceneStartDialogueNodes;
+    public DialogueNode scene9SecondNode;
 
     [Header("Enemies")]
     public EnemyData[] enemies;
@@ -744,7 +745,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         else
             HandleSceneTransition(endedNode);
 
-        if (Progress == SceneProgress.SceneMarket && sceneStartDialogueNodes != null && sceneStartDialogueNodes.Length > 8 && sceneStartDialogueNodes[8] != null && endedNode == sceneStartDialogueNodes[8] && MarketUI.Instance != null)
+        if (Progress == SceneProgress.SceneMarket && sceneStartDialogueNodes != null && sceneStartDialogueNodes.Length > 9 && sceneStartDialogueNodes[9] != null && endedNode == sceneStartDialogueNodes[9] && MarketUI.Instance != null)
             MarketUI.Instance.OpenMarket();
     }
 
@@ -818,6 +819,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (node == sceneStartDialogueNodes[3] && lineIndex == 0)
             SetCharacter(14);
+
+        if (node == scene9SecondNode && lineIndex == 0)
+            SetBackground(19);
     }
 
     public void ApplySceneProgress(SceneProgress targetProgress)
@@ -866,7 +870,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
             case SceneProgress.Scene9:
                 SetBackground(7);
-                SetCharacter(15);
                 break;
 
             case SceneProgress.SceneHome:
@@ -1291,7 +1294,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         Progress = SceneProgress.Scene9;
         SetBackground(7);
-        SetCharacter(15);
         TryStartDialogue(8);
     }
 }
