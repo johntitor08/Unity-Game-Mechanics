@@ -40,6 +40,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     private Action _currentDefeatHandler;
     private Vector2 _officeIconDefaultPos;
     public TMP_Text mapTitleText;
+    private Vector2 charRtAnchoredTransform;
+    private Vector2 charRtSizeDelta;
 
     public SceneProgress Progress
     {
@@ -66,6 +68,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     [Header("Dialogues")]
     public DialogueNode[] sceneStartDialogueNodes;
     public DialogueNode scene9SecondNode;
+    public DialogueNode scene9FifthNode;
 
     [Header("Enemies")]
     public EnemyData[] enemies;
@@ -821,7 +824,23 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             SetCharacter(14);
 
         if (node == scene9SecondNode && lineIndex == 0)
+        {
             SetCharacter(20);
+            SetActive(backgroundImage.gameObject, false);
+
+            if (charImage != null)
+            {
+                RectTransform rt = charImage.rectTransform;
+                charRtAnchoredTransform = rt.anchoredPosition;
+                charRtSizeDelta = rt.sizeDelta;
+                rt.anchoredPosition = new Vector2(0f, 500f);
+                rt.sizeDelta = new Vector2(100f, 100f);
+            }
+
+        }
+
+        if (node == scene9FifthNode && lineIndex == 0)
+            SetCharacter(38);
     }
 
     public void ApplySceneProgress(SceneProgress targetProgress)
