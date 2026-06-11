@@ -80,6 +80,8 @@ public static class QuestFlags
     public const string VossDefeatedClean = "voss_defeated_clean";
     public const string ScenarioCompleted = "scenario_completed";
 
+    public static string DayStarted(int day) => $"day{day}_started";
+
     public static void MigrateLegacyOriginStartFlags()
     {
         if (StoryFlags.Has(LegacyBoundArchivistStart) && !StoryFlags.Has(BoundArchivistStart))

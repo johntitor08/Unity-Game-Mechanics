@@ -81,6 +81,18 @@ public class ScenarioManager : MonoBehaviour
             completedScenarios.Add(id);
     }
 
+    public ScenarioData GetScenarioByID(string scenarioID)
+    {
+        if (string.IsNullOrEmpty(scenarioID) || availableScenarios == null)
+            return null;
+
+        foreach (var s in availableScenarios)
+            if (s != null && s.scenarioID == scenarioID)
+                return s;
+
+        return null;
+    }
+
     public bool CanStartScenario(ScenarioData scenario)
     {
         if (scenario == null || IsScenarioCompleted(scenario.scenarioID) || (ProfileManager.Instance != null && ProfileManager.Instance.profile.level < scenario.requiredLevel))
@@ -111,10 +123,8 @@ public class ScenarioManager : MonoBehaviour
         currentScenario = scenario;
         currentStepIndex = 0;
         isScenarioActive = true;
+        hasStoryStarted = true;
         OnScenarioStart?.Invoke(scenario);
-
-        if (!hasStoryStarted)
-            return;
 
         if (scenario.introDialogue != null && DialogueManager.Instance != null)
             DialogueManager.Instance.StartDialogue(scenario.introDialogue, StartNextStep);
@@ -212,7 +222,7 @@ public class ScenarioManager : MonoBehaviour
     {
         CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
         CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
-        Debug.LogWarning($"[ScenarioManager] Combat defeat during scenario '{currentScenario?.scenarioID}'. Aborting.");
+        Debug.LogWarning($"[ScenarioManager] Combat defeat during scenario '{(currentScenario != null ? currentScenario.scenarioID : null)}'. Aborting.");
         AbortScenario();
     }
 

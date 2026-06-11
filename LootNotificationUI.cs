@@ -43,6 +43,11 @@ public class LootNotificationUI : MonoBehaviour
         ShowNotification(message, Color.white, item.icon);
     }
 
+    public void ShowMessage(string message, Color color)
+    {
+        ShowNotification(message, color);
+    }
+
     void ShowNotification(string message, Color color, Sprite icon = null)
     {
         GameObject notification = GetNotification();

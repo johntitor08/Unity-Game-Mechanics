@@ -42,6 +42,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public TMP_Text mapTitleText;
     private Vector2 charRtAnchoredTransform;
     private Vector2 charRtSizeDelta;
+    public event System.Action<int> OnBackgroundChanged;
 
     public SceneProgress Progress
     {
@@ -94,6 +95,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public GameObject questPanel;
     public GameObject houseIconsPanel;
     public GameObject sleepingPanel;
+
+    [Header("Sleep Rules")]
+    [Tooltip("The bed only works from this phase onward, so sleeping is a decision rather than a free skip. Set to Morning to disable the restriction.")]
+    public TimePhase earliestSleepPhase = TimePhase.Evening;
 
     [Header("UI Icons")]
     public GameObject settingsIcon;
@@ -465,6 +470,11 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     {
         if (backgroundImage != null && index >= 0 && index < bgs.Length && bgs[index] != null)
             backgroundImage.sprite = bgs[index];
+
+        if (index == 0)
+            TryStartDayScenario();
+
+        OnBackgroundChanged?.Invoke(index);
 
         if (hoverEffects != null && hoverEffects.Length >= 6)
         {
@@ -1167,6 +1177,14 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (TimePhaseManager.Instance == null)
             return;
 
+        if (TimePhaseManager.Instance.currentPhase < earliestSleepPhase)
+        {
+            if (LootNotificationUI.Instance != null)
+                LootNotificationUI.Instance.ShowMessage("It's too early to sleep.", new Color(0.8f, 0.8f, 0.9f));
+
+            return;
+        }
+
         StartCoroutine(ShowSleepingPanelAfterDelay(3f));
 
         while (TimePhaseManager.Instance.currentPhase != TimePhase.Night)
@@ -1176,6 +1194,29 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (PlayerStats.Instance != null)
             PlayerStats.Instance.FullRestore();
+    }
+
+    private void TryStartDayScenario()
+    {
+        if (TimeUI.Instance == null || ScenarioManager.Instance == null)
+            return;
+
+        int day = TimeUI.Instance.GetCurrentDay();
+
+        if (day < 2)
+            return;
+
+        string startedFlag = QuestFlags.DayStarted(day);
+
+        if (StoryFlags.Has(startedFlag))
+            return;
+
+        ScenarioData scenario = ScenarioManager.Instance.GetScenarioByID($"ashenveil_day{day}");
+
+        if (scenario == null || !ScenarioManager.Instance.CanStartScenario(scenario))
+            return;
+
+        StoryFlags.Add(startedFlag);
     }
 
     IEnumerator ShowSleepingPanelAfterDelay(float delay)
