@@ -14,14 +14,21 @@ public class TimePhaseManager : MonoBehaviour
     public static TimePhaseManager Instance;
     private float phaseTimer = 0f;
     private CurrencyManager subscribedCurrency;
+    private ScenarioManager subscribedScenarios;
+    private int storyStepCounter = 0;
     public event System.Action<TimePhase> OnPhaseChanged;
 
     [Header("Time Settings")]
     public TimePhase currentPhase = TimePhase.Morning;
-    public bool autoProgress = true;
+    public bool autoProgress = false;
     [Min(0.01f)]
     public float phaseDuration = 300f;
     public float timeScale = 1f;
+
+    [Header("Story-Driven Time")]
+    public bool advanceOnScenarioSteps = true;
+    [Min(1)]
+    public int stepsPerPhase = 2;
 
     [Header("Visual Effects")]
     public bool changeScreenColor = true;
@@ -61,6 +68,7 @@ public class TimePhaseManager : MonoBehaviour
             previousPhaseButton.onClick.AddListener(GoPreviousPhase);
 
         EnsureCurrencySubscription();
+        EnsureScenarioSubscription();
 
         OnPhaseChanged?.Invoke(currentPhase);
         UpdateCameraColor(currentPhase);
@@ -71,6 +79,9 @@ public class TimePhaseManager : MonoBehaviour
     {
         if (subscribedCurrency == null)
             EnsureCurrencySubscription();
+
+        if (subscribedScenarios == null)
+            EnsureScenarioSubscription();
 
         if (!autoProgress)
             return;
@@ -88,6 +99,80 @@ public class TimePhaseManager : MonoBehaviour
     {
         if (subscribedCurrency != null)
             subscribedCurrency.OnCurrencyChanged -= OnCurrencyChanged;
+
+        if (subscribedScenarios != null)
+        {
+            subscribedScenarios.OnStepStart -= OnScenarioStepStart;
+            subscribedScenarios.OnStepComplete -= OnScenarioStepComplete;
+        }
+    }
+
+    void EnsureScenarioSubscription()
+    {
+        ScenarioManager current = ScenarioManager.Instance;
+
+        if (current == subscribedScenarios || current == null)
+            return;
+
+        if (subscribedScenarios != null)
+        {
+            subscribedScenarios.OnStepStart -= OnScenarioStepStart;
+            subscribedScenarios.OnStepComplete -= OnScenarioStepComplete;
+        }
+
+        subscribedScenarios = current;
+        subscribedScenarios.OnStepStart += OnScenarioStepStart;
+        subscribedScenarios.OnStepComplete += OnScenarioStepComplete;
+    }
+
+    void OnScenarioStepStart(ScenarioStep step)
+    {
+        if (!advanceOnScenarioSteps || step == null)
+            return;
+
+        TimePhase? named = PhaseFromStepName(step.stepName);
+
+        if (named.HasValue && named.Value > currentPhase)
+        {
+            storyStepCounter = 0;
+            SetPhase(named.Value);
+        }
+    }
+
+    void OnScenarioStepComplete(ScenarioStep step)
+    {
+        if (!advanceOnScenarioSteps || currentPhase == TimePhase.Night)
+            return;
+
+        storyStepCounter++;
+
+        if (storyStepCounter >= stepsPerPhase)
+        {
+            storyStepCounter = 0;
+            NextPhase();
+        }
+    }
+
+    static TimePhase? PhaseFromStepName(string stepName)
+    {
+        if (string.IsNullOrEmpty(stepName))
+            return null;
+
+        string n = stepName.ToLowerInvariant();
+
+        if (n.Contains("dawn") || n.Contains("morning"))
+            return TimePhase.Morning;
+
+        if (n.Contains("noon"))
+            return TimePhase.Noon;
+
+        if (n.Contains("evening") || n.Contains("dusk"))
+            return TimePhase.Evening;
+
+        if (n.Contains("night"))
+            return TimePhase.Night;
+
+        return null;
     }
 
     void EnsureCurrencySubscription()
@@ -122,6 +207,7 @@ public class TimePhaseManager : MonoBehaviour
 
         currentPhase = newPhase;
         phaseTimer = 0f;
+        storyStepCounter = 0;
         OnPhaseChanged?.Invoke(currentPhase);
         UpdateCameraColor(currentPhase);
         UpdatePhaseButtons();
@@ -141,6 +227,7 @@ public class TimePhaseManager : MonoBehaviour
         };
 
         phaseTimer = 0f;
+        storyStepCounter = 0;
 
         if (previousPhase == TimePhase.Night && currentPhase == TimePhase.Morning)
             TriggerNewDay();
@@ -164,6 +251,7 @@ public class TimePhaseManager : MonoBehaviour
         };
 
         phaseTimer = 0f;
+        storyStepCounter = 0;
         OnPhaseChanged?.Invoke(currentPhase);
         UpdateCameraColor(currentPhase);
         UpdatePhaseButtons();
@@ -210,7 +298,16 @@ public class TimePhaseManager : MonoBehaviour
         }
     }
 
-    public float GetPhaseProgress() => phaseDuration <= 0f ? 0f : Mathf.Clamp01(phaseTimer / phaseDuration);
+    public float GetPhaseProgress()
+    {
+        if (autoProgress)
+            return phaseDuration <= 0f ? 0f : Mathf.Clamp01(phaseTimer / phaseDuration);
+
+        if (advanceOnScenarioSteps)
+            return currentPhase == TimePhase.Night ? 1f : Mathf.Clamp01((float)storyStepCounter / stepsPerPhase);
+
+        return 0f;
+    }
 
     public float GetTimeRemaining() => Mathf.Max(0f, phaseDuration - phaseTimer);
 
