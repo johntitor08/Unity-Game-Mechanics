@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 public class OriginManager : MonoBehaviour
@@ -8,6 +9,9 @@ public class OriginManager : MonoBehaviour
     public const string OriginBoundArchivist = "bound_archivist";
     public const string OriginForeignEcho = "foreign_echo";
     public const string OriginSinnedGuardian = "sinned_guardian";
+    static readonly string[] DayScenarioIDs = { "ashenveil_day2", "ashenveil_day3", "ashenveil_day4" };
+    bool _originStoryPending;
+    Coroutine _pendingStoryCoroutine;
 
     [Header("All Origins")]
     public PlayerOriginData[] allOrigins;
@@ -32,7 +36,17 @@ public class OriginManager : MonoBehaviour
     void Start()
     {
         QuestFlags.MigrateLegacyOriginStartFlags();
+
+        if (ScenarioManager.Instance != null)
+            ScenarioManager.Instance.OnScenarioComplete += HandleScenarioComplete;
+
         TryRestoreFromFlags();
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this && ScenarioManager.Instance != null)
+            ScenarioManager.Instance.OnScenarioComplete -= HandleScenarioComplete;
     }
 
     public void SelectOrigin(PlayerOriginData origin)
@@ -46,12 +60,18 @@ public class OriginManager : MonoBehaviour
         CurrentOrigin = origin;
         OriginSelected = true;
         StoryFlags.Add(QuestFlags.OriginPrefix + origin.originID);
-        RunOriginOpeningScene(origin.originID);
-        ApplyOriginFlags(origin);
         ApplyStats(origin);
         GrantStartingItems(origin);
-        AshenveilQuestFactory.OnOriginApplied();
-        Debug.Log($"[OriginManager] Origin selected: {origin.displayName}");
+
+        if (AreDayScenariosCompleted())
+        {
+            StartOriginStory(origin);
+        }
+        else
+        {
+            _originStoryPending = true;
+            Debug.Log($"[OriginManager] Origin selected: {origin.displayName}. Story deferred until the day scenarios are completed.");
+        }
     }
 
     public void SelectOrigin(string originID)
@@ -92,12 +112,7 @@ public class OriginManager : MonoBehaviour
 
         CurrentOrigin = origin;
         OriginSelected = true;
-
-        if (!IsOriginOpeningComplete(savedOriginID))
-            RunOriginOpeningScene(savedOriginID);
-
-        ApplyOriginFlags(origin);
-        AshenveilQuestFactory.OnOriginApplied();
+        ResumeOrDeferOriginStory(origin);
         Debug.Log($"[OriginManager] Origin loaded from save: {origin.displayName}");
     }
 
@@ -110,15 +125,84 @@ public class OriginManager : MonoBehaviour
 
             CurrentOrigin = o;
             OriginSelected = true;
-
-            if (!IsOriginOpeningComplete(o.originID))
-                RunOriginOpeningScene(o.originID);
-
-            ApplyOriginFlags(o);
-            AshenveilQuestFactory.OnOriginApplied();
+            ResumeOrDeferOriginStory(o);
             Debug.Log($"[OriginManager] Origin restored from flags: {o.displayName}");
             return;
         }
+    }
+
+    void ResumeOrDeferOriginStory(PlayerOriginData origin)
+    {
+        if (HasOriginStoryStarted(origin))
+        {
+            if (!IsOriginOpeningComplete(origin.originID))
+                RunOriginOpeningScene(origin.originID);
+
+            ApplyOriginFlags(origin);
+            AshenveilQuestFactory.OnOriginApplied();
+            return;
+        }
+
+        _originStoryPending = true;
+        SchedulePendingStoryCheck();
+    }
+
+    void StartOriginStory(PlayerOriginData origin)
+    {
+        _originStoryPending = false;
+        RunOriginOpeningScene(origin.originID);
+        ApplyOriginFlags(origin);
+        AshenveilQuestFactory.OnOriginApplied();
+        Debug.Log($"[OriginManager] Origin story started: {origin.displayName}");
+    }
+
+    void HandleScenarioComplete(ScenarioData scenario)
+    {
+        if (_originStoryPending)
+            SchedulePendingStoryCheck();
+    }
+
+    void SchedulePendingStoryCheck()
+    {
+        if (_pendingStoryCoroutine == null)
+            _pendingStoryCoroutine = StartCoroutine(StartPendingOriginStoryWhenReady());
+    }
+
+    IEnumerator StartPendingOriginStoryWhenReady()
+    {
+        yield return null;
+
+        while ((ScenarioManager.Instance != null && ScenarioManager.Instance.IsScenarioActive()) || (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue()))
+            yield return null;
+
+        _pendingStoryCoroutine = null;
+
+        if (_originStoryPending && CurrentOrigin != null && AreDayScenariosCompleted())
+            StartOriginStory(CurrentOrigin);
+    }
+
+    static bool AreDayScenariosCompleted()
+    {
+        if (ScenarioManager.Instance == null)
+            return false;
+
+        foreach (var id in DayScenarioIDs)
+            if (!ScenarioManager.Instance.IsScenarioCompleted(id))
+                return false;
+
+        return true;
+    }
+
+    static bool HasOriginStoryStarted(PlayerOriginData origin)
+    {
+        if (origin == null || origin.flagsOnSelect == null)
+            return false;
+
+        foreach (var flag in origin.flagsOnSelect)
+            if (StoryFlags.Has(flag))
+                return true;
+
+        return false;
     }
 
     void ApplyOriginFlags(PlayerOriginData origin)

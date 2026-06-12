@@ -11,7 +11,7 @@ public class CombatAction
     [Header("Damage")]
     public int baseDamage = 10;
     public StatType scalingStat = StatType.Strength;
-    public float statScaling = 0.5f;
+    public float statScaling = 0.25f;
 
     [Header("Energy Cost")]
     public int energyCost = 10;
@@ -19,7 +19,7 @@ public class CombatAction
     [Header("Defensive")]
     public bool isDefensive = false;
     public int defenseBonus = 30;
-    public float defenseStatScaling = 0.5f;
+    public float defenseStatScaling = 0.25f;
     public int healAmount = 0;
 
     [Header("Special Effects")]

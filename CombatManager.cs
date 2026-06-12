@@ -42,17 +42,14 @@ public class CombatManager : MonoBehaviour
     public float critDamageMultiplier = 1.5f;
     public int maxDefenseBonus = 50;
     public int defenseDecayPerTurn = 2;
-    [Tooltip("Defense mitigation softcap divisor — higher = weaker defense")]
-    public float defenseSoftcap = 100f;
-    [Tooltip("Maximum damage reduction from defense (0–1)")]
+    public float defenseSoftcap = 150f;
     [Range(0f, 1f)]
     public float maxDamageReduction = 0.75f;
 
     [Header("Flee Settings")]
-    [Tooltip("Base flee success chance (0–1)")]
     [Range(0f, 1f)]
     public float baseFleeChance = 0.3f;
-    public float fleeSpeedScaling = 0.005f;
+    public float fleeSpeedScaling = 0.002f;
     public int fleeEnergyGain = 20;
     private Coroutine fleeCoroutine;
 

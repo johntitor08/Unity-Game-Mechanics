@@ -88,10 +88,12 @@ public class ProfileManager : MonoBehaviour
 
         if (PlayerStats.Instance != null)
         {
+            PlayerStats.Instance.ModifyMax(StatType.Health, 10);
+            PlayerStats.Instance.ModifyMax(StatType.Energy, 5);
             PlayerStats.Instance.Modify(StatType.Health, 10);
             PlayerStats.Instance.Modify(StatType.Energy, 5);
-            PlayerStats.Instance.Modify(StatType.Strength, 2);
-            PlayerStats.Instance.Modify(StatType.Intelligence, 2);
+            PlayerStats.Instance.Modify(StatType.Strength, 1);
+            PlayerStats.Instance.Modify(StatType.Intelligence, 1);
         }
 
         OnLevelUp?.Invoke(profile);
