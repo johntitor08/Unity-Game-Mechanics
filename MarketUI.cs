@@ -6,6 +6,9 @@ public class MarketUI : HotkeyPanelUI
     public GameObject marketPanel;
     private bool gameStarted = false;
 
+    [Header("Settings")]
+    public KeyCode toggleKey = KeyCode.S;
+
     void Awake()
     {
         if (Instance == null)
@@ -19,7 +22,7 @@ public class MarketUI : HotkeyPanelUI
         if (!gameStarted || SaveSystem.IsLoading || PanelInputBlocked())
             return;
 
-        if (Input.GetKeyDown(KeyCode.S) && marketPanel != null)
+        if (Input.GetKeyDown(toggleKey) && marketPanel != null)
         {
             if (marketPanel.activeSelf)
                 CloseAll();

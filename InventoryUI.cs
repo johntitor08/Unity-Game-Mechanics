@@ -12,6 +12,9 @@ public class InventoryUI : HotkeyPanelUI
     public Transform content;
     public ItemSlot slotPrefab;
 
+    [Header("Settings")]
+    public KeyCode toggleKey = KeyCode.I;
+
     void Awake()
     {
         if (Instance != null && Instance != this)
@@ -28,7 +31,7 @@ public class InventoryUI : HotkeyPanelUI
         if (!gameStarted || PanelInputBlocked())
             return;
 
-        if (Input.GetKeyDown(KeyCode.I) && panel != null)
+        if (Input.GetKeyDown(toggleKey) && panel != null)
             panel.SetActive(!panel.activeSelf);
     }
 
