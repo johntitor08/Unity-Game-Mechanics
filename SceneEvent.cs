@@ -54,6 +54,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 return;
 
             progress = value;
+            SyncTimePhaseToScene(value);
             SaveSystem.SaveGame();
         }
     }
@@ -1194,6 +1195,29 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (PlayerStats.Instance != null)
             PlayerStats.Instance.FullRestore();
+    }
+
+    private void SyncTimePhaseToScene(SceneProgress scene)
+    {
+        if (TimePhaseManager.Instance == null)
+            return;
+
+        TimePhase? target = scene switch
+        {
+            SceneProgress.Scene1 => TimePhase.Morning,
+            SceneProgress.Scene2 => TimePhase.Morning,
+            SceneProgress.Scene3 => TimePhase.Noon,
+            SceneProgress.Scene4 => TimePhase.Noon,
+            SceneProgress.Scene5 => TimePhase.Noon,
+            SceneProgress.Scene6 => TimePhase.Evening,
+            SceneProgress.Scene7 => TimePhase.Evening,
+            SceneProgress.Scene8 => TimePhase.Night,
+            SceneProgress.Scene9 => TimePhase.Night,
+            _ => null
+        };
+
+        if (target.HasValue && target.Value > TimePhaseManager.Instance.currentPhase)
+            TimePhaseManager.Instance.SetPhase(target.Value);
     }
 
     private void TryStartDayScenario()

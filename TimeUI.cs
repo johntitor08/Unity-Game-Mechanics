@@ -46,14 +46,24 @@ public class TimeUI : MonoBehaviour
             dayCounterText.gameObject.SetActive(showDayCounter);
 
         if (progressBar != null)
-            progressBar.gameObject.SetActive(showProgressBar);
+            progressBar.gameObject.SetActive(ShouldShowProgressBar());
     }
 
     void Update()
     {
-        if (showProgressBar && progressBar != null && TimePhaseManager.Instance != null)
+        if (progressBar == null)
+            return;
+
+        bool barActive = ShouldShowProgressBar();
+
+        if (progressBar.gameObject.activeSelf != barActive)
+            progressBar.gameObject.SetActive(barActive);
+
+        if (barActive)
             progressBar.value = TimePhaseManager.Instance.GetPhaseProgress();
     }
+
+    bool ShouldShowProgressBar() => showProgressBar && TimePhaseManager.Instance != null && TimePhaseManager.Instance.autoProgress;
 
     void OnDestroy()
     {

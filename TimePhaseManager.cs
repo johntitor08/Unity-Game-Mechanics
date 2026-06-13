@@ -69,7 +69,6 @@ public class TimePhaseManager : MonoBehaviour
 
         EnsureCurrencySubscription();
         EnsureScenarioSubscription();
-
         OnPhaseChanged?.Invoke(currentPhase);
         UpdateCameraColor(currentPhase);
         UpdatePhaseButtons();
@@ -239,7 +238,7 @@ public class TimePhaseManager : MonoBehaviour
 
     public void GoPreviousPhase()
     {
-        if (currentPhase == TimePhase.Morning && (CurrencyManager.Instance == null || !CurrencyManager.Instance.Spend(previousPhaseCostType, previousPhaseCost)))
+        if (currentPhase == TimePhase.Morning || CurrencyManager.Instance == null || !CurrencyManager.Instance.Spend(previousPhaseCostType, previousPhaseCost))
             return;
 
         currentPhase = currentPhase switch
