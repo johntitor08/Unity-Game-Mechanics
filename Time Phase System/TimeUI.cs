@@ -1,0 +1,190 @@
+using UnityEngine;
+using TMPro;
+using UnityEngine.UI;
+
+public class TimeUI : MonoBehaviour
+{
+    public static TimeUI Instance;
+    private int currentDay = 1;
+    private Coroutine textAnimationCoroutine;
+    private Coroutine iconAnimationCoroutine;
+
+    [Header("UI Elements")]
+    public TextMeshProUGUI phaseText;
+    public TextMeshProUGUI dayCounterText;
+    public Image phaseIcon;
+    public Slider progressBar;
+
+    [Header("Phase Icons")]
+    public Sprite morningIcon;
+    public Sprite noonIcon;
+    public Sprite eveningIcon;
+    public Sprite nightIcon;
+
+    [Header("Display Options")]
+    public bool showDayCounter = true;
+    public bool showProgressBar = true;
+    public bool animateTransitions = true;
+
+    void Awake()
+    {
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(gameObject);
+    }
+
+    void Start()
+    {
+        if (TimePhaseManager.Instance != null)
+        {
+            TimePhaseManager.Instance.OnPhaseChanged += UpdateTimeDisplay;
+            UpdateTimeDisplay(TimePhaseManager.Instance.currentPhase);
+        }
+
+        if (dayCounterText != null)
+            dayCounterText.gameObject.SetActive(showDayCounter);
+
+        if (progressBar != null)
+            progressBar.gameObject.SetActive(ShouldShowProgressBar());
+    }
+
+    void Update()
+    {
+        if (progressBar == null)
+            return;
+
+        bool barActive = ShouldShowProgressBar();
+
+        if (progressBar.gameObject.activeSelf != barActive)
+            progressBar.gameObject.SetActive(barActive);
+
+        if (barActive)
+            progressBar.value = TimePhaseManager.Instance.GetPhaseProgress();
+    }
+
+    bool ShouldShowProgressBar() => showProgressBar && TimePhaseManager.Instance != null && TimePhaseManager.Instance.autoProgress;
+
+    void OnDestroy()
+    {
+        if (TimePhaseManager.Instance != null)
+            TimePhaseManager.Instance.OnPhaseChanged -= UpdateTimeDisplay;
+    }
+
+    void UpdateTimeDisplay(TimePhase phase)
+    {
+        if (phaseText != null)
+        {
+            phaseText.text = GetPhaseName(phase);
+            if (animateTransitions) AnimateText();
+        }
+
+        if (phaseIcon != null)
+        {
+            phaseIcon.sprite = GetPhaseIcon(phase);
+            if (animateTransitions) AnimateIcon();
+        }
+
+        UpdateDayCounter();
+    }
+
+    void UpdateDayCounter()
+    {
+        if (dayCounterText != null && showDayCounter)
+            dayCounterText.text = "Day " + currentDay;
+    }
+
+    string GetPhaseName(TimePhase phase) => phase switch
+    {
+        TimePhase.Morning => "Morning",
+        TimePhase.Noon => "Noon",
+        TimePhase.Evening => "Evening",
+        TimePhase.Night => "Night",
+        _ => "Unknown"
+    };
+
+    Sprite GetPhaseIcon(TimePhase phase) => phase switch
+    {
+        TimePhase.Morning => morningIcon,
+        TimePhase.Noon => noonIcon,
+        TimePhase.Evening => eveningIcon,
+        TimePhase.Night => nightIcon,
+        _ => null
+    };
+
+    void AnimateText()
+    {
+        if (phaseText == null)
+            return;
+
+        if (textAnimationCoroutine != null)
+            StopCoroutine(textAnimationCoroutine);
+
+        textAnimationCoroutine = StartCoroutine(TextScaleAnimation());
+    }
+
+    void AnimateIcon()
+    {
+        if (phaseIcon == null)
+            return;
+
+        if (iconAnimationCoroutine != null)
+            StopCoroutine(iconAnimationCoroutine);
+
+        phaseIcon.transform.rotation = Quaternion.identity;
+        iconAnimationCoroutine = StartCoroutine(IconRotateAnimation());
+    }
+
+    System.Collections.IEnumerator TextScaleAnimation()
+    {
+        float duration = 0.3f;
+        float elapsed = 0f;
+        Vector3 startScale = Vector3.one * 1.2f;
+        Vector3 endScale = Vector3.one;
+        phaseText.transform.localScale = startScale;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / duration;
+            t = 1f - Mathf.Pow(1f - t, 3f);
+            phaseText.transform.localScale = Vector3.Lerp(startScale, endScale, t);
+            yield return null;
+        }
+
+        phaseText.transform.localScale = endScale;
+    }
+
+    System.Collections.IEnumerator IconRotateAnimation()
+    {
+        float duration = 0.5f;
+        float elapsed = 0f;
+        float startAngle = 360f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / duration;
+            t = 1f - Mathf.Pow(1f - t, 2f);
+            float angle = Mathf.Lerp(startAngle, 0f, t);
+            phaseIcon.transform.rotation = Quaternion.Euler(0f, 0f, angle);
+            yield return null;
+        }
+
+        phaseIcon.transform.rotation = Quaternion.identity;
+    }
+
+    public void SetDay(int day)
+    {
+        currentDay = day;
+        UpdateDayCounter();
+    }
+
+    public int GetCurrentDay() => currentDay;
+
+    public void IncrementDay()
+    {
+        currentDay++;
+        UpdateDayCounter();
+    }
+}

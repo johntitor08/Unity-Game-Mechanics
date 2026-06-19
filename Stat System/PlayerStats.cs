@@ -1,0 +1,286 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class PlayerStats : StatsBase
+{
+    public static PlayerStats Instance;
+    public event Action OnHealthChanged;
+    public event Action OnEnergyChanged;
+    public static event Action OnReady;
+    private float healthRemainder;
+    private float energyRemainder;
+    private float lastHealthDamageTime;
+    private float lastEnergyUseTime;
+    private float lastAttackTime;
+
+    [Header("Regeneration")]
+    public bool enableHealthRegen = true;
+    public float healthRegenRate = 0.05f;
+    public float healthRegenDelay = 5f;
+    public bool enableEnergyRegen = true;
+    public float energyRegenRate = 0.2f;
+    public float energyRegenDelay = 2f;
+
+    [Header("Save Debounce")]
+    public float regenSaveDebounceSeconds = 5f;
+    private float pendingSaveTime = -1f;
+    private bool hasPendingRegenSave = false;
+
+    [Header("Combat")]
+    public int baseDamage = 10;
+    public float attackCooldown = 1f;
+
+    protected override void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+        else
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        if (stats == null || stats.Count == 0)
+        {
+            stats = new List<Stat>
+            {
+                new(StatType.Health, 100, 0, 999),
+                new(StatType.MaxHealth, 100, 1, 999),
+                new(StatType.Energy, 100, 0, 999),
+                new(StatType.MaxEnergy, 100, 1, 999),
+                new(StatType.Strength, 10, 0, 999),
+                new(StatType.Intelligence, 10, 0, 999),
+                new(StatType.Charisma, 10, 0, 999),
+                new(StatType.Defense, 5, 0, 999),
+                new(StatType.Speed, 10, 0, 999),
+                new(StatType.Luck, 5, 0, 999)
+            };
+        }
+
+        base.Awake();
+        Set(StatType.Health, Get(StatType.MaxHealth), true);
+        Set(StatType.Energy, Get(StatType.MaxEnergy), true);
+        OnReady?.Invoke();
+    }
+
+    void Update()
+    {
+        HandleRegeneration();
+
+        if (hasPendingRegenSave && Time.time >= pendingSaveTime)
+        {
+            hasPendingRegenSave = false;
+            SaveSystem.SaveGame();
+        }
+    }
+
+    public override void Modify(StatType type, int amount, bool save = true)
+    {
+        if (amount < 0)
+        {
+            if (type == StatType.Health)
+                lastHealthDamageTime = Time.time;
+            else if (type == StatType.Energy)
+                lastEnergyUseTime = Time.time;
+        }
+
+        base.Modify(type, amount, save);
+
+        if (type == StatType.MaxHealth)
+        {
+            int newMax = Get(StatType.MaxHealth);
+
+            if (statDict.TryGetValue(StatType.Health, out var healthStat))
+            {
+                healthStat.maxValue = newMax;
+                healthStat.currentValue = Mathf.Clamp(healthStat.currentValue, healthStat.minValue, newMax);
+            }
+
+            OnHealthChanged?.Invoke();
+        }
+
+        if (type == StatType.MaxEnergy)
+        {
+            int newMax = Get(StatType.MaxEnergy);
+
+            if (statDict.TryGetValue(StatType.Energy, out var energyStat))
+            {
+                energyStat.maxValue = newMax;
+                energyStat.currentValue = Mathf.Clamp(energyStat.currentValue, energyStat.minValue, newMax);
+            }
+
+            OnEnergyChanged?.Invoke();
+        }
+
+        if (type == StatType.Health)
+            OnHealthChanged?.Invoke();
+        else if (type == StatType.Energy)
+            OnEnergyChanged?.Invoke();
+    }
+
+    public override void Set(StatType type, int value, bool save = true)
+    {
+        base.Set(type, value, save);
+
+        if (type == StatType.MaxHealth)
+        {
+            int newMax = Get(StatType.MaxHealth);
+
+            if (statDict.TryGetValue(StatType.Health, out var healthStat))
+            {
+                healthStat.maxValue = newMax;
+                healthStat.currentValue = Mathf.Clamp(healthStat.currentValue, healthStat.minValue, newMax);
+            }
+
+            OnHealthChanged?.Invoke();
+        }
+        else if (type == StatType.MaxEnergy)
+        {
+            int newMax = Get(StatType.MaxEnergy);
+
+            if (statDict.TryGetValue(StatType.Energy, out var energyStat))
+            {
+                energyStat.maxValue = newMax;
+                energyStat.currentValue = Mathf.Clamp(energyStat.currentValue, energyStat.minValue, newMax);
+            }
+
+            OnEnergyChanged?.Invoke();
+        }
+        else if (type == StatType.Health)
+            OnHealthChanged?.Invoke();
+        else if (type == StatType.Energy)
+            OnEnergyChanged?.Invoke();
+    }
+
+    public void Attack(EnemyStats target)
+    {
+        if (target == null || Time.time - lastAttackTime < attackCooldown)
+            return;
+
+        int damage = baseDamage + Get(StatType.Strength);
+        target.Modify(StatType.Health, -damage);
+        lastAttackTime = Time.time;
+    }
+
+    void HandleRegeneration()
+    {
+        float healthRegenMultiplier = 1f;
+        float energyRegenMultiplier = 1f;
+
+        if (PlayerBuffManager.Instance != null)
+            foreach (var buff in PlayerBuffManager.Instance.GetActiveBuffs())
+            {
+                if (buff.type == PlayerBuffManager.BuffType.HealthRegen)
+                    healthRegenMultiplier += buff.multiplier;
+                else if (buff.type == PlayerBuffManager.BuffType.EnergyRegen)
+                    energyRegenMultiplier += buff.multiplier;
+            }
+
+        if (enableHealthRegen && Time.time - lastHealthDamageTime >= healthRegenDelay)
+        {
+            int hp = Get(StatType.Health);
+            int maxHp = Get(StatType.MaxHealth);
+
+            if (hp < maxHp)
+            {
+                healthRemainder += healthRegenRate * healthRegenMultiplier * Time.deltaTime;
+
+                if (healthRemainder >= 1f)
+                {
+                    int regen = Mathf.FloorToInt(healthRemainder);
+                    Modify(StatType.Health, regen, false);
+                    healthRemainder -= regen;
+                    ScheduleRegenSave();
+                }
+            }
+        }
+
+        if (enableEnergyRegen && Time.time - lastEnergyUseTime >= energyRegenDelay)
+        {
+            int energy = Get(StatType.Energy);
+            int maxEnergy = Get(StatType.MaxEnergy);
+
+            if (energy < maxEnergy)
+            {
+                energyRemainder += energyRegenRate * energyRegenMultiplier * Time.deltaTime;
+
+                if (energyRemainder >= 1f)
+                {
+                    int regen = Mathf.FloorToInt(energyRemainder);
+                    Modify(StatType.Energy, regen, false);
+                    energyRemainder -= regen;
+                    ScheduleRegenSave();
+                }
+            }
+        }
+    }
+
+    public void FullRestore()
+    {
+        Set(StatType.Health, Get(StatType.MaxHealth), true);
+        Set(StatType.Energy, Get(StatType.MaxEnergy), true);
+    }
+
+    public void ModifyMax(StatType type, int amount)
+    {
+        StatType maxType = type switch
+        {
+            StatType.Health => StatType.MaxHealth,
+            StatType.Energy => StatType.MaxEnergy,
+            _ => type
+        };
+
+        Modify(maxType, amount, true);
+    }
+
+    public bool HasEnoughEnergy(int amount)
+    {
+        return Get(StatType.Energy) >= amount;
+    }
+
+    public bool IsAlive()
+    {
+        return Get(StatType.Health) > 0;
+    }
+
+    public float GetHealthPercentage() => Get(StatType.MaxHealth) <= 0 ? 0f : (float)Get(StatType.Health) / Get(StatType.MaxHealth);
+
+    public float GetEnergyPercentage() => Get(StatType.MaxEnergy) <= 0 ? 0f : (float)Get(StatType.Energy) / Get(StatType.MaxEnergy);
+
+    public float GetPowerScore()
+    {
+        float score = 0f;
+        score += Get(StatType.Strength) * 2.0f;
+        score += Get(StatType.Intelligence) * 1.8f;
+        score += Get(StatType.Defense) * 1.5f;
+        score += Get(StatType.MaxHealth) * 0.5f;
+        score += Get(StatType.Speed) * 1.2f;
+        score += Get(StatType.Luck) * 1.0f;
+        score += Get(StatType.Charisma) * 0.8f;
+
+        if (ProfileManager.Instance != null)
+            score += ProfileManager.Instance.profile.level * 5f;
+
+        return Mathf.Round(score);
+    }
+
+    void ScheduleRegenSave()
+    {
+        pendingSaveTime = Time.time + regenSaveDebounceSeconds;
+        hasPendingRegenSave = true;
+    }
+
+    protected override void SaveStats()
+    {
+        SaveSystem.SaveGame();
+    }
+
+    protected override void OnDie()
+    {
+        Debug.Log("Player died!");
+    }
+}

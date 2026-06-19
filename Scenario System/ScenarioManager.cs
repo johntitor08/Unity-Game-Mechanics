@@ -1,0 +1,405 @@
+using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+using System;
+
+[System.Serializable]
+public class ScenarioSaveData
+{
+    public List<string> completedScenarioIDs = new();
+}
+
+public class ScenarioManager : MonoBehaviour
+{
+    public static ScenarioManager Instance;
+    private static readonly WaitForSeconds WAIT_HALF_SEC = new(0.5f);
+    public event Action<ScenarioData> OnScenarioStart;
+    public event Action<ScenarioData> OnScenarioComplete;
+    public event Action<ScenarioData> OnScenarioAborted;
+    public event Action<ScenarioStep> OnStepStart;
+    public event Action<ScenarioStep> OnStepComplete;
+    private readonly HashSet<string> completedScenarios = new();
+    private Coroutine activeCoroutine;
+    private Transform cachedPlayer;
+    public bool hasStoryStarted = false;
+
+    [Header("Active Scenario")]
+    public ScenarioData currentScenario;
+    private int currentStepIndex;
+    private bool isScenarioActive;
+
+    [Header("Available Scenarios")]
+    public ScenarioData[] availableScenarios;
+
+    Transform PlayerTransform
+    {
+        get
+        {
+            if (cachedPlayer == null)
+            {
+                var go = GameObject.FindGameObjectWithTag("Player");
+
+                if (go != null)
+                    cachedPlayer = go.transform;
+            }
+
+            return cachedPlayer;
+        }
+    }
+
+    void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
+
+    public ScenarioSaveData GetSaveData()
+    {
+        var data = new ScenarioSaveData
+        {
+            completedScenarioIDs = new List<string>(completedScenarios)
+        };
+
+        return data;
+    }
+
+    public void LoadSaveData(ScenarioSaveData data)
+    {
+        completedScenarios.Clear();
+
+        if (data?.completedScenarioIDs == null)
+            return;
+
+        foreach (var id in data.completedScenarioIDs)
+            completedScenarios.Add(id);
+    }
+
+    public ScenarioData GetScenarioByID(string scenarioID)
+    {
+        if (string.IsNullOrEmpty(scenarioID) || availableScenarios == null)
+            return null;
+
+        foreach (var s in availableScenarios)
+            if (s != null && s.scenarioID == scenarioID)
+                return s;
+
+        return null;
+    }
+
+    public bool CanStartScenario(ScenarioData scenario)
+    {
+        if (scenario == null || IsScenarioCompleted(scenario.scenarioID) || (ProfileManager.Instance != null && ProfileManager.Instance.profile.level < scenario.requiredLevel))
+            return false;
+
+        if (scenario.requiredFlags != null)
+            foreach (var flag in scenario.requiredFlags)
+                if (!StoryFlags.Has(flag))
+                    return false;
+
+        if (scenario.prerequisiteScenarios != null)
+            foreach (var prereq in scenario.prerequisiteScenarios)
+                if (!IsScenarioCompleted(prereq.scenarioID))
+                    return false;
+
+        return true;
+    }
+
+    public void StartScenario(ScenarioData scenario)
+    {
+        if (!CanStartScenario(scenario))
+        {
+            Debug.LogWarning("Scenario cannot be started.");
+            return;
+        }
+
+        StopActiveCoroutine();
+        currentScenario = scenario;
+        currentStepIndex = 0;
+        isScenarioActive = true;
+        hasStoryStarted = true;
+        OnScenarioStart?.Invoke(scenario);
+
+        if (scenario.introDialogue != null && DialogueManager.Instance != null)
+            DialogueManager.Instance.StartDialogue(scenario.introDialogue, StartNextStep);
+        else
+            StartNextStep();
+    }
+
+    void StartNextStep()
+    {
+        if (!isScenarioActive || currentScenario == null)
+            return;
+
+        if (currentStepIndex >= currentScenario.steps.Length)
+        {
+            CompleteScenario();
+            return;
+        }
+
+        ScenarioStep step = currentScenario.steps[currentStepIndex];
+        OnStepStart?.Invoke(step);
+        step.onStepStart?.Invoke();
+
+        switch (step.type)
+        {
+            case ScenarioStepType.Dialogue:
+                ExecuteDialogueStep(step);
+                break;
+
+            case ScenarioStepType.Combat:
+                ExecuteCombatStep(step);
+                break;
+
+            case ScenarioStepType.CollectItem:
+                ExecuteCollectItemStep(step);
+                break;
+
+            case ScenarioStepType.GoToLocation:
+                ExecuteLocationStep(step);
+                break;
+
+            case ScenarioStepType.Wait:
+                ExecuteWaitStep(step);
+                break;
+
+            case ScenarioStepType.Custom:
+                ExecuteCustomStep(step);
+                break;
+        }
+    }
+
+    public void CompleteCurrentStep()
+    {
+        if (!isScenarioActive || currentScenario == null)
+            return;
+
+        ScenarioStep step = currentScenario.steps[currentStepIndex];
+        step.onStepComplete?.Invoke();
+        OnStepComplete?.Invoke(step);
+        currentStepIndex++;
+        StartNextStep();
+    }
+
+    void ExecuteDialogueStep(ScenarioStep step)
+    {
+        if (step.dialogue != null && DialogueManager.Instance != null)
+            DialogueManager.Instance.StartDialogue(step.dialogue, CompleteCurrentStep);
+        else
+            CompleteCurrentStep();
+    }
+
+    void ExecuteCombatStep(ScenarioStep step)
+    {
+        if (step.enemy != null && CombatManager.Instance != null)
+        {
+            CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
+            CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
+            CombatManager.Instance.OnCombatVictory += OnCombatVictory;
+            CombatManager.Instance.OnCombatDefeat += OnCombatDefeat;
+            CombatManager.Instance.StartCombat(step.enemy);
+        }
+        else
+        {
+            CompleteCurrentStep();
+        }
+    }
+
+    void OnCombatVictory(EnemyData defeated)
+    {
+        CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
+        CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
+        CompleteCurrentStep();
+    }
+
+    void OnCombatDefeat()
+    {
+        CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
+        CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
+        Debug.LogWarning($"[ScenarioManager] Combat defeat during scenario '{(currentScenario != null ? currentScenario.scenarioID : null)}'. Aborting.");
+        AbortScenario();
+    }
+
+    void ExecuteCollectItemStep(ScenarioStep step)
+    {
+        if (InventoryManager.Instance != null && InventoryManager.Instance.GetQuantity(step.requiredItem) >= step.requiredQuantity)
+        {
+            InventoryManager.Instance.RemoveItem(step.requiredItem, step.requiredQuantity);
+            CompleteCurrentStep();
+            return;
+        }
+
+        activeCoroutine = StartCoroutine(WaitForItem(step, currentStepIndex));
+    }
+
+    IEnumerator WaitForItem(ScenarioStep step, int stepIndex)
+    {
+        while (isScenarioActive && currentStepIndex == stepIndex)
+        {
+            if (InventoryManager.Instance != null && InventoryManager.Instance.GetQuantity(step.requiredItem) >= step.requiredQuantity)
+            {
+                InventoryManager.Instance.RemoveItem(step.requiredItem, step.requiredQuantity);
+                CompleteCurrentStep();
+                yield break;
+            }
+
+            yield return WAIT_HALF_SEC;
+        }
+    }
+
+    void ExecuteLocationStep(ScenarioStep step)
+    {
+        GameObject target = GameObject.FindGameObjectWithTag(step.targetLocationTag);
+
+        if (PlayerTransform != null && target != null)
+            activeCoroutine = StartCoroutine(WaitForLocation(target.transform, currentStepIndex));
+        else
+            CompleteCurrentStep();
+    }
+
+    IEnumerator WaitForLocation(Transform target, int stepIndex)
+    {
+        while (isScenarioActive && currentStepIndex == stepIndex)
+        {
+            if (PlayerTransform != null && Vector3.Distance(PlayerTransform.position, target.position) < 2f)
+            {
+                CompleteCurrentStep();
+                yield break;
+            }
+
+            yield return WAIT_HALF_SEC;
+        }
+    }
+
+    void ExecuteWaitStep(ScenarioStep step)
+    {
+        activeCoroutine = StartCoroutine(Wait(step.waitDuration, currentStepIndex));
+    }
+
+    IEnumerator Wait(float duration, int stepIndex)
+    {
+        yield return new WaitForSeconds(duration);
+
+        if (isScenarioActive && currentStepIndex == stepIndex)
+            CompleteCurrentStep();
+    }
+
+    void ExecuteCustomStep(ScenarioStep step)
+    {
+        step.onCustomStepEvent?.Invoke();
+        CompleteCurrentStep();
+    }
+
+    void CompleteScenario()
+    {
+        completedScenarios.Add(currentScenario.scenarioID);
+        GiveScenarioRewards();
+
+        if (currentScenario.flagsToSet != null)
+            foreach (var flag in currentScenario.flagsToSet)
+                StoryFlags.Add(flag);
+
+        if (currentScenario.outroDialogue != null && DialogueManager.Instance != null)
+            DialogueManager.Instance.StartDialogue(currentScenario.outroDialogue, FinalizeScenario);
+        else
+            FinalizeScenario();
+    }
+
+    public void FailScenario()
+    {
+        if (!isScenarioActive || !currentScenario.canFail)
+            return;
+
+        StopActiveCoroutine();
+
+        if (currentScenario.failureDialogue != null && DialogueManager.Instance != null)
+            DialogueManager.Instance.StartDialogue(currentScenario.failureDialogue, FinalizeScenario);
+        else
+            FinalizeScenario();
+    }
+
+    void FinalizeScenario()
+    {
+        if (CombatManager.Instance != null)
+        {
+            CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
+            CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
+        }
+
+        OnScenarioComplete?.Invoke(currentScenario);
+        currentScenario = null;
+        currentStepIndex = 0;
+        isScenarioActive = false;
+        StopActiveCoroutine();
+        SaveSystem.SaveGame();
+    }
+
+    void AbortScenario()
+    {
+        if (!isScenarioActive)
+            return;
+
+        StopActiveCoroutine();
+
+        if (CombatManager.Instance != null)
+        {
+            CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
+            CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
+        }
+
+        var aborted = currentScenario;
+        currentScenario = null;
+        currentStepIndex = 0;
+        isScenarioActive = false;
+        OnScenarioAborted?.Invoke(aborted);
+    }
+
+    void GiveScenarioRewards()
+    {
+        if (ProfileManager.Instance != null && currentScenario.experienceReward > 0)
+            ProfileManager.Instance.AddExperience(currentScenario.experienceReward);
+
+        if (currentScenario.currencyRewards != null)
+            foreach (var reward in currentScenario.currencyRewards)
+                reward.Grant();
+
+        if (currentScenario.itemRewards != null && InventoryManager.Instance != null)
+            foreach (var reward in currentScenario.itemRewards)
+                InventoryManager.Instance.AddItem(reward.item, reward.quantity);
+    }
+
+    void StopActiveCoroutine()
+    {
+        if (activeCoroutine != null)
+        {
+            StopCoroutine(activeCoroutine);
+            activeCoroutine = null;
+        }
+    }
+
+    public bool IsScenarioCompleted(string id) => completedScenarios.Contains(id);
+
+    public HashSet<string> GetCompletedScenarios() => new(completedScenarios);
+
+    public bool IsScenarioActive() => isScenarioActive && currentScenario != null;
+
+    public ScenarioData GetCurrentScenario() => currentScenario;
+
+    public int GetCurrentStepIndex() => currentStepIndex;
+
+    public void SetCompletedScenarios(HashSet<string> scenarios)
+    {
+        completedScenarios.Clear();
+
+        if (scenarios == null)
+            return;
+
+        foreach (var id in scenarios) completedScenarios.Add(id);
+    }
+}
