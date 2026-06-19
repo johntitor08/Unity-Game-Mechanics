@@ -8,6 +8,8 @@ public class SettingsManager : MonoBehaviour
 {
     public static SettingsManager Instance;
     private Resolution[] resolutions;
+    float _snapMaster, _snapMusic, _snapSfx, _snapDiff;
+    int _snapQuality, _snapLang;
 
     [Header("Panel")]
     public GameObject settingsPanel;
@@ -195,6 +197,9 @@ public class SettingsManager : MonoBehaviour
     {
         SetMixerVolume("Master", value);
 
+        if (GameAudioManager.Instance != null)
+            GameAudioManager.Instance.SetMasterVolume(value);
+
         if (masterVolumeText != null)
             masterVolumeText.text = Mathf.Round(value * 100) + "%";
     }
@@ -203,6 +208,9 @@ public class SettingsManager : MonoBehaviour
     {
         SetMixerVolume("Music", value);
 
+        if (GameAudioManager.Instance != null)
+            GameAudioManager.Instance.SetMusicVolume(value);
+
         if (musicVolumeText != null)
             musicVolumeText.text = Mathf.Round(value * 100) + "%";
     }
@@ -210,6 +218,9 @@ public class SettingsManager : MonoBehaviour
     void OnSFXVolumeChanged(float value)
     {
         SetMixerVolume("SFX", value);
+
+        if (GameAudioManager.Instance != null)
+            GameAudioManager.Instance.SetSfxVolume(value);
 
         if (sfxVolumeText != null)
             sfxVolumeText.text = Mathf.Round(value * 100) + "%";
@@ -272,6 +283,44 @@ public class SettingsManager : MonoBehaviour
             QualitySettings.vSyncCount = vsyncToggle.isOn ? 1 : 0;
 
         SaveSettings();
+        CaptureSnapshot();
+    }
+
+    public void CaptureSnapshot()
+    {
+        _snapMaster = masterVolumeSlider != null ? masterVolumeSlider.value : 1f;
+        _snapMusic = musicVolumeSlider != null ? musicVolumeSlider.value : 0.8f;
+        _snapSfx = sfxVolumeSlider != null ? sfxVolumeSlider.value : 1f;
+        _snapDiff = difficultySlider != null ? difficultySlider.value : 1f;
+        _snapQuality = qualityDropdown != null ? qualityDropdown.value : QualitySettings.GetQualityLevel();
+        _snapLang = languageDropdown != null ? languageDropdown.value : (int)LanguageManager.Current;
+    }
+
+    public void RestoreSnapshot()
+    {
+        if (masterVolumeSlider != null)
+            masterVolumeSlider.value = _snapMaster;
+
+        if (musicVolumeSlider != null)
+            musicVolumeSlider.value = _snapMusic;
+
+        if (sfxVolumeSlider != null)
+            sfxVolumeSlider.value = _snapSfx;
+
+        if (difficultySlider != null)
+            difficultySlider.value = _snapDiff;
+
+        if (qualityDropdown != null)
+        {
+            qualityDropdown.value = _snapQuality;
+            QualitySettings.SetQualityLevel(_snapQuality);
+        }
+
+        if (languageDropdown != null)
+        {
+            languageDropdown.value = _snapLang;
+            LanguageManager.SetLanguage(_snapLang == 0 ? GameLanguage.EN : GameLanguage.TR);
+        }
     }
 
     void ResetSettings()
@@ -342,6 +391,13 @@ public class SettingsManager : MonoBehaviour
         SetMixerVolume("Master", masterVolume);
         SetMixerVolume("Music", musicVolume);
         SetMixerVolume("SFX", sfxVolume);
+
+        if (GameAudioManager.Instance != null)
+        {
+            GameAudioManager.Instance.SetMasterVolume(masterVolume);
+            GameAudioManager.Instance.SetMusicVolume(musicVolume);
+            GameAudioManager.Instance.SetSfxVolume(sfxVolume);
+        }
 
         if (masterVolumeText != null)
             masterVolumeText.text = Mathf.Round(masterVolume * 100) + "%";
