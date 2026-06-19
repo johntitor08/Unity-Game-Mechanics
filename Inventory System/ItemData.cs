@@ -1,0 +1,80 @@
+using UnityEngine;
+using UnityEngine.Events;
+
+[CreateAssetMenu(fileName = "ItemData", menuName = "Inventory/ItemData")]
+public class ItemData : ScriptableObject
+{
+    [Header("Identity")]
+    public string itemID;
+    public string itemName;
+    public Sprite icon;
+    [TextArea]
+    public string description;
+
+    [Header("Type")]
+    public ItemType itemType = ItemType.Consumable;
+
+    [Header("Stacking")]
+    public bool stackable = true;
+    public int maxStack = 99;
+
+    [Header("Usage")]
+    public bool useable;
+    public UnityEvent onUse;
+
+    [Header("Reading")]
+    public bool readable;
+    [TextArea(3, 15)]
+    public string readText;
+
+    [Header("Economy")]
+    public int basePrice = 10;
+
+    [Header("Rarity")]
+    public Rarity rarity = Rarity.Common;
+
+    public virtual bool IsEquipment()
+    {
+        return itemType == ItemType.Equipment || this is EquipmentData;
+    }
+
+    public Color GetRarityColor()
+    {
+        return rarity switch
+        {
+            Rarity.Common => new Color(0.8f, 0.8f, 0.8f),
+            Rarity.Rare => new Color(0.2f, 0.5f, 1f),
+            Rarity.Epic => new Color(0.8f, 0.2f, 0.8f),
+            Rarity.Legendary => new Color(1f, 0.6f, 0f),
+            Rarity.Godly => new Color(1f, 0.15f, 0.15f),
+            _ => Color.white
+        };
+    }
+
+    public float GetRarityMultiplier()
+    {
+        return rarity switch
+        {
+            Rarity.Common => 1f,
+            Rarity.Rare => 1.5f,
+            Rarity.Epic => 2.5f,
+            Rarity.Legendary => 5f,
+            Rarity.Godly => 10f,
+            _ => 1f
+        };
+    }
+
+    public int GetSellPrice(float sellRatio = 0.5f)
+    {
+        return Mathf.RoundToInt(basePrice * GetRarityMultiplier() * sellRatio);
+    }
+}
+
+public enum Rarity
+{
+    Common,
+    Rare,
+    Epic,
+    Legendary,
+    Godly
+}
