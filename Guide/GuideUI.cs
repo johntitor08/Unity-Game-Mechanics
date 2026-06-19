@@ -92,7 +92,7 @@ public class GuideUI : MonoBehaviour
             SpawnListButton(e);
 
         if (list.Count > 0)
-            Select(list[0]);
+            ShowDetail(list[0]);
     }
 
     void SpawnListButton(GuideEntry e)
@@ -127,6 +127,11 @@ public class GuideUI : MonoBehaviour
             return;
         }
 
+        ShowDetail(e);
+    }
+
+    void ShowDetail(GuideEntry e)
+    {
         if (detailTitle != null)
         {
             detailTitle.text = e.title;
@@ -137,7 +142,9 @@ public class GuideUI : MonoBehaviour
         {
             string body = e.body;
 
-            if (e.category == GuideCategory.Character && AffinityManager.Instance != null)
+            if (e.category == GuideCategory.Book)
+                body += "\n\n(Click to open and read.)";
+            else if (e.category == GuideCategory.Character && AffinityManager.Instance != null)
                 body += $"\n\nAffinity: {AffinityManager.Instance.HeartBar(e.title)}  {AffinityManager.Instance.Get(e.title)}/{AffinityManager.Instance.maxAffinity}  ({AffinityManager.Instance.Tier(e.title)})";
 
             detailBody.text = body;
