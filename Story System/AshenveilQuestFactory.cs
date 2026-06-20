@@ -155,7 +155,7 @@ public class AshenveilQuestFactory : MonoBehaviour
 
         q.objectives = new[]
         {
-            Collect("q01_obj1", "Bahçeden 3 Taze Elma topla", assets != null ? assets.freshApple : null, 3),
+            Collect("q01_obj1", "Bahçeden 1 Taze Elma topla", assets != null ? assets.freshApple : null, 1),
             Collect("q01_obj2", "Mutfak rafından 1 Tarçın al", assets != null ? assets.cinnamon : null, 1),
             Interact("q01_obj3", "Ocakta çayı demle"),
             Interact("q01_obj4", "Fincanı Maren'e götür")
@@ -260,7 +260,7 @@ public class AshenveilQuestFactory : MonoBehaviour
         q.objectives = new[]
         {
             Interact("q07_obj1", "Eski kilise harabesine git"),
-            Kill("q07_obj2", "Harabedeki 4 Lanetli Bekçi'yi öldür", assets != null ? assets.cursedGuard : null, 4),
+            Kill("q07_obj2", "Harabedeki 3 Lanetli Bekçi'yi öldür", assets != null ? assets.cursedGuard : null, 3),
             Interact("q07_obj3", "Kasayı aç (Eskimiş Anahtar gerekli)"),
             Collect("q07_obj4", "Kasadaki belgeyi Corvin'e getir", assets != null ? assets.corvinsDocument : null, 1)
         };
@@ -352,7 +352,23 @@ public class AshenveilQuestFactory : MonoBehaviour
             Talk("q_sg01_obj9", "Return to Aslude with the discovery")
         };
 
-        q.itemRewards = assets != null && assets.corvinSeal != null ? new[] { assets.corvinSeal } : new ItemData[0]; q.itemRewardQuantities = new[] { 1 };
+        var sgRewards = new List<ItemData>();
+        var sgQty = new List<int>();
+
+        if (assets != null && assets.corvinSeal != null)
+        {
+            sgRewards.Add(assets.corvinSeal);
+            sgQty.Add(1);
+        }
+
+        if (assets != null && assets.corvinsTestimony != null)
+        {
+            sgRewards.Add(assets.corvinsTestimony);
+            sgQty.Add(1);
+        }
+
+        q.itemRewards = sgRewards.ToArray();
+        q.itemRewardQuantities = sgQty.ToArray();
         q.experienceReward = 420;
         return q;
     }
@@ -389,6 +405,8 @@ public class AshenveilQuestFactory : MonoBehaviour
             Interact("obj_identify_axios_anomaly", "Chamber zeminindeki kayıt kaynağını tespit et")
         };
 
+        q.itemRewards = assets != null && assets.axiosCrystal != null ? new[] { assets.axiosCrystal } : new ItemData[0];
+        q.itemRewardQuantities = assets != null && assets.axiosCrystal != null ? new[] { 1 } : new int[0];
         q.experienceReward = 360;
         return q;
     }
