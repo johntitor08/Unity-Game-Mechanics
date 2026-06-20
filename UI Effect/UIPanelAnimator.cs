@@ -27,9 +27,14 @@ public class UIPanelAnimator : MonoBehaviour
     void OnDisable()
     {
         _routine = null;
-
+        _closeRequested = false;
+        
         if (_cg != null)
+        {
             _cg.alpha = 1f;
+            _cg.blocksRaycasts = false;
+            _cg.interactable = false;
+        }
 
         if (_rt != null)
             _rt.localScale = Vector3.one;
@@ -47,6 +52,8 @@ public class UIPanelAnimator : MonoBehaviour
 
         StopRoutine();
         _cg.alpha = 0f;
+        _cg.blocksRaycasts = true;
+        _cg.interactable = true;
         _routine = StartCoroutine(Animate(0f, 1f, true, null));
     }
 
@@ -63,6 +70,7 @@ public class UIPanelAnimator : MonoBehaviour
 
         _closeRequested = true;
         StopRoutine();
+        _cg.interactable = false;
 
         _routine = StartCoroutine(Animate(_cg.alpha, 0f, false, () =>
         {
@@ -76,8 +84,6 @@ public class UIPanelAnimator : MonoBehaviour
         if (_rt == null)
             _rt = transform as RectTransform;
 
-        _cg.blocksRaycasts = true;
-        _cg.interactable = false;
         float t = 0f;
         float dur = Mathf.Max(0.0001f, duration);
 
