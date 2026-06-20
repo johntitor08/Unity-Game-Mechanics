@@ -101,6 +101,7 @@ public class AshenveilQuestFactory : MonoBehaviour
         q.canFail = canFail;
         q.trackObjectives = true;
         q.showOnMap = true;
+        q.icon = Resources.Load<Sprite>("QuestIcons/" + id);
         return q;
     }
 
@@ -124,7 +125,7 @@ public class AshenveilQuestFactory : MonoBehaviour
         isOptional = optional
     };
 
-    static QuestObjective Collect(string id, string desc, ItemData item, int count, bool consume = true) => new()
+    static QuestObjective Collect(string id, string desc, ItemData item, int count, bool consume = false) => new()
     {
         objectiveID = id,
         description = desc,
