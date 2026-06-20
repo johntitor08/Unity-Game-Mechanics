@@ -424,6 +424,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             MarketUI.Instance.CloseAll();
         else
             CloseAnimated(shopPanel);
+
+        if (GuideUI.Instance != null)
+            GuideUI.Instance.Close();
     }
 
     void TogglePanel(GameObject panel, string panelName)
