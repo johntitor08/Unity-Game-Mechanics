@@ -75,6 +75,15 @@ public class GuideUI : MonoBehaviour
 
     public void Open()
     {
+        if (panel != null && panel.activeSelf)
+        {
+            Close();
+            return;
+        }
+
+        if (SceneEvent.Instance != null)
+            SceneEvent.Instance.HideAllPanels();
+
         UIPanelAnimator.Show(panel);
         Show(GuideCategory.Book);
     }
