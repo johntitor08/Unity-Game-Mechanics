@@ -66,6 +66,15 @@ public class DialogueChoice
     public bool setFlag;
     public string flagToSet;
 
+    [Header("Affinity")]
+    public string affinityTarget;
+    public int affinityDelta;
+
+    [Header("Affinity Requirement")]
+    public bool requiresAffinity;
+    public string affinityCharacter;
+    public int requiredAffinity;
+
     [Header("Rewards")]
     public bool giveReward;
     public CurrencyReward[] currencyRewards;

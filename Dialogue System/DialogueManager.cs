@@ -337,8 +337,19 @@ public class DialogueManager : MonoBehaviour
         {
             var capturedChoice = choice;
             Button btn = Instantiate(choiceButtonPrefab, choicesContainer);
-            btn.GetComponentInChildren<TextMeshProUGUI>().text = capturedChoice.choiceText;
-            btn.onClick.AddListener(() => SelectChoice(capturedChoice));
+            var lbl = btn.GetComponentInChildren<TextMeshProUGUI>();
+            bool locked = capturedChoice.requiresAffinity && (AffinityManager.Instance == null || AffinityManager.Instance.Get(capturedChoice.affinityCharacter) < capturedChoice.requiredAffinity);
+
+            if (locked)
+            {
+                lbl.text = $"{capturedChoice.choiceText}  <color=#9A8C78>(needs {capturedChoice.affinityCharacter} {capturedChoice.requiredAffinity})</color>";
+                btn.interactable = false;
+            }
+            else
+            {
+                lbl.text = capturedChoice.choiceText;
+                btn.onClick.AddListener(() => SelectChoice(capturedChoice));
+            }
         }
 
         if (panelRect != null)
@@ -367,6 +378,9 @@ public class DialogueManager : MonoBehaviour
 
         if (choice.setFlag && !string.IsNullOrEmpty(choice.flagToSet))
             StoryFlags.Add(choice.flagToSet);
+
+        if (!string.IsNullOrEmpty(choice.affinityTarget) && choice.affinityDelta != 0 && AffinityManager.Instance != null)
+            AffinityManager.Instance.Add(choice.affinityTarget, choice.affinityDelta);
 
         currentNode.onExit?.Invoke();
         ApplyExitFlags(currentNode);
