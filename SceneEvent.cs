@@ -1302,9 +1302,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (TimePhaseManager.Instance.currentPhase < earliestSleepPhase)
         {
-            if (LootNotificationUI.Instance != null)
-                LootNotificationUI.Instance.ShowMessage("It's too early to sleep.", new Color(0.8f, 0.8f, 0.9f));
-
+            ShowForegroundMessage("It's too early to sleep.", 2f);
             return;
         }
 
@@ -1370,6 +1368,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetActive(sleepingPanel, true);
         yield return new WaitForSeconds(delay);
         SetActive(sleepingPanel, false);
+    }
+
+    public void ShowForegroundMessage(string message, float seconds)
+    {
+        if (ForegroundNotifier.Instance != null)
+            ForegroundNotifier.Instance.ShowMessage(message, seconds);
     }
 
     public void ShowGardenHole() => SetBackground(38);
