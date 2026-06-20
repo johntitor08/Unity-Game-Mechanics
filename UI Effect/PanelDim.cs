@@ -15,7 +15,15 @@ public class PanelDim : MonoBehaviour
             return;
 
         _dim.gameObject.SetActive(true);
-        _dim.transform.SetSiblingIndex(transform.GetSiblingIndex());
+
+        // Keep the dim directly behind this panel, deterministically. Using
+        // SetSiblingIndex(panelIndex) was fragile: moving the dim shifts the panel's
+        // own index, which on a reopen could leave the dim ABOVE the panel — a
+        // full-screen raycast blocker covering the whole screen. Instead raise the
+        // dim to the top, then raise the panel above it so the dim always lands
+        // immediately behind the panel regardless of prior order.
+        _dim.transform.SetAsLastSibling();
+        transform.SetAsLastSibling();
     }
 
     void OnDisable()
