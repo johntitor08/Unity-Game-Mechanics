@@ -86,7 +86,12 @@ public class GuideUI : MonoBehaviour
         _current = category;
         ClearList();
         ClearDetail();
-        var list = GuideManager.Instance != null ? GuideManager.Instance.GetEntries(category) : new List<GuideEntry>();
+        var all = GuideManager.Instance != null ? GuideManager.Instance.GetEntries(category) : new List<GuideEntry>();
+        var list = new List<GuideEntry>();
+
+        foreach (var e in all)
+            if (e.bookItem == null || HasItem(e.bookItem))
+                list.Add(e);
 
         foreach (var e in list)
             SpawnListButton(e);
@@ -94,6 +99,8 @@ public class GuideUI : MonoBehaviour
         if (list.Count > 0)
             ShowDetail(list[0]);
     }
+
+    static bool HasItem(ItemData item) => InventoryManager.Instance != null && InventoryManager.Instance.GetQuantity(item) > 0;
 
     void SpawnListButton(GuideEntry e)
     {
