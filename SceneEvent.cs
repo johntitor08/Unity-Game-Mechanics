@@ -44,6 +44,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     private Vector2 charRtSizeDelta;
     public event System.Action<int> OnBackgroundChanged;
     private Coroutine charFadeCoroutine;
+    public GameObject townNpc;
 
     public SceneProgress Progress
     {
@@ -63,6 +64,25 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     [Header("Backgrounds")]
     public Image backgroundImage;
     public Sprite[] bgs;
+    public NightBackground[] nightBackgrounds;
+    private int _lastBgIndex = -1;
+
+    [System.Serializable]
+    public struct NightBackground
+    {
+        public int index;
+        public Sprite sprite;
+    }
+
+    [System.Serializable]
+    public struct NamedBackground
+    {
+        public string name;
+        public Sprite sprite;
+    }
+
+    [Header("Quest Location Backgrounds")]
+    public NamedBackground[] questLocationBackgrounds;
 
     [Header("Characters")]
     public Image charImage;
@@ -484,14 +504,18 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     public void SetBackground(int index)
     {
+        _lastBgIndex = index;
+
         if (backgroundImage != null && index >= 0 && index < bgs.Length && bgs[index] != null)
-            backgroundImage.sprite = bgs[index];
+            backgroundImage.sprite = ResolveBg(index);
 
         if (DialogueManager.Instance != null && DialogueManager.Instance.backgroundImage != null && !DialogueManager.Instance.IsInDialogue())
         {
             DialogueManager.Instance.backgroundImage.enabled = false;
             DialogueManager.Instance.backgroundImage.sprite = null;
         }
+
+        SetActive(townNpc, index == 0);
 
         if (index == 0)
             TryStartDayScenario();
@@ -512,6 +536,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             SetActive(hoverEffects[9], index == 15);
             SetActive(items[1], index == 14);
             SetActive(items[2], index == 17);
+            SetActive(items[3], index == 17);
         }
 
         bool isHouse = index == 11 || index == 13 || index == 14 || index == 15 || index == 16 || index == 17 || index == 20 || index == 38 || index == 39 || index == 40;
@@ -568,6 +593,21 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                     SetCharacter(29);
             }
         }
+    }
+
+    private Sprite ResolveBg(int index)
+    {
+        if (index < 0 || bgs == null || index >= bgs.Length)
+            return null;
+
+        bool isNight = TimePhaseManager.Instance != null && TimePhaseManager.Instance.currentPhase == TimePhase.Night;
+
+        if (isNight && nightBackgrounds != null)
+            foreach (var nb in nightBackgrounds)
+                if (nb.index == index && nb.sprite != null)
+                    return nb.sprite;
+
+        return bgs[index];
     }
 
     public void SetMap(int index)
@@ -1098,6 +1138,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (hoverEffects[11] != null)
             hoverEffects[11].GetComponent<UIHoverRegion>().OnRegionClicked += CollectApple;
 
+        if (hoverEffects[12] != null)
+            hoverEffects[12].GetComponent<UIHoverRegion>().OnRegionClicked += CollectCinnamon;
+
         isHoverEffectsSubscribed = true;
     }
 
@@ -1153,6 +1196,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (hoverEffects[11] != null)
             hoverEffects[11].GetComponent<UIHoverRegion>().OnRegionClicked -= CollectApple;
 
+        if (hoverEffects[12] != null)
+            hoverEffects[12].GetComponent<UIHoverRegion>().OnRegionClicked -= CollectCinnamon;
+
         isHoverEffectsSubscribed = false;
     }
 
@@ -1189,6 +1235,14 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     {
         if (mapPanel != null && mapPanel.activeSelf)
             SetMap(currentMapIndex);
+
+        if (backgroundImage != null && _lastBgIndex >= 0)
+        {
+            Sprite resolved = ResolveBg(_lastBgIndex);
+
+            if (resolved != null)
+                backgroundImage.sprite = resolved;
+        }
     }
 
     IEnumerator FadeOutCharacter(float duration, DialogueNode endedNode = null)
@@ -1383,11 +1437,31 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     public void ShowPool() => SetBackground(39);
 
+    public void ShowQuestLocation(string bgName)
+    {
+        if (string.IsNullOrEmpty(bgName) || backgroundImage == null)
+            return;
+
+        Sprite spr = null;
+
+        if (questLocationBackgrounds != null)
+            foreach (var qb in questLocationBackgrounds)
+                if (qb.name == bgName) { spr = qb.sprite; break; }
+
+        if (spr == null)
+            return;
+
+        backgroundImage.sprite = spr;
+        CloseAnimated(mapPanel);
+    }
+
     public void CollectAppleTeaSeed() => CollectWorldItem(0);
 
     public void CollectHistoryBook() => CollectWorldItem(1);
 
     public void CollectApple() => CollectWorldItem(2);
+
+    public void CollectCinnamon() => CollectWorldItem(3);
 
     private void CollectWorldItem(int index)
     {

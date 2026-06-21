@@ -15,8 +15,17 @@ public class NPCRoutine : MonoBehaviour
         Apply(TimePhaseManager.Instance.currentPhase);
     }
 
+    void OnDestroy()
+    {
+        if (TimePhaseManager.Instance != null)
+            TimePhaseManager.Instance.OnPhaseChanged -= Apply;
+    }
+
     void Apply(TimePhase phase)
     {
+        if (dayForm == null || eveningForm == null || nightForm == null)
+            return;
+
         dayForm.SetActive(false);
         eveningForm.SetActive(false);
         nightForm.SetActive(false);
