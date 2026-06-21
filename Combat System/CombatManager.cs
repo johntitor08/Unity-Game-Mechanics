@@ -17,6 +17,7 @@ public class CombatManager : MonoBehaviour
     private PlayerBuffManager PlayerBuffs => PlayerBuffManager.Instance;
     private PlayerStats PlayerStats => PlayerStats.Instance;
     private EquipmentManager Equipment => EquipmentManager.Instance;
+    private StatusEffectManager PlayerEffects => PlayerStats != null ? PlayerStats.GetComponent<StatusEffectManager>() : null;
 
     [Header("Combat State")]
     public bool inCombat;
@@ -245,6 +246,25 @@ public class CombatManager : MonoBehaviour
         if (!inCombat || combatResolved)
             return;
 
+        if (PlayerEffects != null)
+            PlayerEffects.OnPlayerTurnStart();
+
+        if (enemyStats != null && enemyStats.TryGetComponent<StatusEffectManager>(out var efx))
+            efx.OnPlayerTurnStart();
+
+        if (!inCombat || combatResolved)
+            return;
+
+        if (PlayerEffects != null && !PlayerEffects.CanAct())
+        {
+            isPlayerTurn = false;
+            waitingForInput = false;
+            Log("You are frozen and cannot act!");
+            OnCombatStateChanged?.Invoke();
+            StartCoroutine(DelayedCall(turnDelay, StartEnemyTurn));
+            return;
+        }
+
         if (combatEnergyRegenPerTurn > 0 && PlayerStats != null)
             PlayerStats.Modify(StatType.Energy, combatEnergyRegenPerTurn);
 
@@ -393,6 +413,9 @@ public class CombatManager : MonoBehaviour
         if (PlayerBuffs != null)
             damageMultiplier = PlayerBuffs.GetDamageMultiplier();
 
+        if (PlayerEffects != null)
+            damageMultiplier *= PlayerEffects.GetDamageMultiplier();
+
         damage = CalculateFinalDamage(damage, GetEnemyTotalDefense(), action.ignoreDefense, action.armorPenetration, damageMultiplier);
         damage = ApplyEnemyDamageReduction(damage);
         return damage;
@@ -436,6 +459,44 @@ public class CombatManager : MonoBehaviour
 
         if (poisonEffect != null && UnityEngine.Random.value < poisonApplyChance)
             effects.ApplyEffect(poisonEffect);
+
+        TryApplyWeaponEffect(effects);
+    }
+
+    private void TryApplyWeaponEffect(StatusEffectManager effects)
+    {
+        if (EquipmentManager.Instance == null)
+            return;
+
+        var weapon = EquipmentManager.Instance.GetEquipped(EquipmentSlot.Weapon);
+
+        if (weapon == null || weapon.baseData == null || weapon.baseData.onHitEffect == null)
+            return;
+
+        if (UnityEngine.Random.value < weapon.baseData.onHitChance)
+            effects.ApplyEffect(weapon.baseData.onHitEffect);
+    }
+
+    private void TryEnemyAbility()
+    {
+        if (currentEnemy == null || currentEnemy.combatAbility == null || currentEnemy.abilityChance <= 0f || UnityEngine.Random.value >= currentEnemy.abilityChance)
+            return;
+
+        var ability = currentEnemy.combatAbility;
+
+        if (currentEnemy.abilityTargetsSelf)
+        {
+            if (enemyStats != null && enemyStats.TryGetComponent<StatusEffectManager>(out var efx))
+            {
+                efx.ApplyEffect(ability);
+                Log($"{currentEnemy.enemyName} uses {ability.effectName}!");
+            }
+        }
+        else if (PlayerEffects != null)
+        {
+            PlayerEffects.ApplyEffect(ability);
+            Log($"{currentEnemy.enemyName} afflicts you with {ability.effectName}!");
+        }
     }
 
     private bool CheckCriticalHit(CombatAction action)
@@ -470,6 +531,19 @@ public class CombatManager : MonoBehaviour
         if (!CanExecuteEnemyAction())
             return;
 
+        if (PlayerEffects != null)
+        {
+            PlayerEffects.OnEnemyTurnStart();
+
+            if (!PlayerStats.IsAlive())
+            {
+                if (!combatResolved)
+                    StartCoroutine(HandleDefeatAfterDelay(turnDelay));
+
+                return;
+            }
+        }
+
         if (enemyStats.TryGetComponent<StatusEffectManager>(out var effects))
         {
             effects.OnEnemyTurnStart();
@@ -490,6 +564,7 @@ public class CombatManager : MonoBehaviour
             }
         }
 
+        TryEnemyAbility();
         float enemyHpPercent = GetEnemyHealthPercent();
         float playerHpPercent = GetPlayerHealthPercent();
         ExecuteAIPattern(enemyHpPercent, playerHpPercent);
@@ -553,6 +628,7 @@ public class CombatManager : MonoBehaviour
             case EnemyAIPattern.Finisher:
                 FinisherDecision(playerHp);
                 break;
+
             default:
 
                 RandomDecision();
@@ -653,6 +729,12 @@ public class CombatManager : MonoBehaviour
 
         if (PlayerBuffs != null)
             damageReduction = PlayerBuffs.GetDamageReduction();
+
+        if (PlayerEffects != null)
+            damageReduction = Mathf.Clamp01(damageReduction + PlayerEffects.GetDamageReduction());
+
+        if (enemyStats != null && enemyStats.TryGetComponent<StatusEffectManager>(out var enemyFx))
+            baseDamage = Mathf.RoundToInt(baseDamage * enemyFx.GetDamageMultiplier());
 
         float difficultyMultiplier = 1f;
 
@@ -807,6 +889,9 @@ public class CombatManager : MonoBehaviour
     {
         if (enemyStats != null && enemyStats.TryGetComponent<StatusEffectManager>(out var effects))
             effects.RemoveAllEffects();
+
+        if (PlayerEffects != null)
+            PlayerEffects.RemoveAllEffects();
     }
 
     private void ClearAllBuffs()

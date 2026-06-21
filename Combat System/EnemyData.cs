@@ -31,6 +31,12 @@ public class EnemyData : ScriptableObject
     [Header("Equipment Drops")]
     public EquipmentLootTable equipmentLootTable;
 
+    [Header("Combat Ability")]
+    public StatusEffectData combatAbility;
+    [Range(0f, 1f)]
+    public float abilityChance = 0f;
+    public bool abilityTargetsSelf = true;
+
     [Header("AI Pattern")]
     public EnemyAIPattern aiPattern = EnemyAIPattern.Random;
 
