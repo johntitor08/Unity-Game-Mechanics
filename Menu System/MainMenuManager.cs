@@ -158,6 +158,7 @@ public class MainMenuManager : MonoBehaviour
         SetButtonPanel(false);
         ResetGameManagers();
         SaveSystem.DeleteSave();
+        SaveSystem.SavingEnabled = false;
         Time.timeScale = 1f;
         StartCoroutine(LoadSceneAsync(gameSceneName));
     }
