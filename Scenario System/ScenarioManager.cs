@@ -132,6 +132,26 @@ public class ScenarioManager : MonoBehaviour
             StartNextStep();
     }
 
+    public void ResumeScenario(string scenarioID, int stepIndex)
+    {
+        var scenario = GetScenarioByID(scenarioID);
+
+        if (scenario == null)
+        {
+            Debug.LogWarning($"[ScenarioManager] ResumeScenario: scenario '{scenarioID}' not found.");
+            return;
+        }
+
+        StopActiveCoroutine();
+        currentScenario = scenario;
+        int stepCount = scenario.steps != null ? scenario.steps.Length : 0;
+        currentStepIndex = Mathf.Clamp(stepIndex, 0, stepCount);
+        isScenarioActive = true;
+        hasStoryStarted = true;
+        OnScenarioStart?.Invoke(scenario);
+        StartNextStep();
+    }
+
     void StartNextStep()
     {
         if (!isScenarioActive || currentScenario == null)
