@@ -383,6 +383,7 @@ public class GameStartNameInput : MonoBehaviour
             return;
 
         hasStarted = true;
+        SaveSystem.SavingEnabled = true;
 
         if (ProfileManager.Instance != null)
         {
@@ -450,6 +451,8 @@ public class GameStartNameInput : MonoBehaviour
     {
         if (SaveSystem.HasSaveFile())
         {
+            SaveSystem.SavingEnabled = true;
+
             if (nameInputPanel != null)
                 nameInputPanel.SetActive(false);
 
