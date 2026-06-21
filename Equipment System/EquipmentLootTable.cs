@@ -11,7 +11,6 @@ public class EquipmentLootTable : ScriptableObject
         public EquipmentData equipment;
         [Range(0f, 1f)]
         public float baseDropChance = 0.5f;
-        [Tooltip("Bu drop i�in minimum luck de�eri")]
         public int minLuckRequired = 0;
     }
 
@@ -31,7 +30,6 @@ public class EquipmentLootTable : ScriptableObject
     public float equipmentDropChance = 0.3f;
 
     [Header("Luck Bonus")]
-    [Tooltip("Her luck puan� i�in ekstra �ans (%)")]
     public float luckBonusPerPoint = 0.5f;
 
     public List<EquipmentData> RollLoot(int playerLuck)
