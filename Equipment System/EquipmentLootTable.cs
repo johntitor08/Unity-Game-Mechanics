@@ -11,7 +11,7 @@ public class EquipmentLootTable : ScriptableObject
         public EquipmentData equipment;
         [Range(0f, 1f)]
         public float baseDropChance = 0.5f;
-        [Tooltip("Bu drop için minimum luck deðeri")]
+        [Tooltip("Bu drop iï¿½in minimum luck deï¿½eri")]
         public int minLuckRequired = 0;
     }
 
@@ -31,7 +31,7 @@ public class EquipmentLootTable : ScriptableObject
     public float equipmentDropChance = 0.3f;
 
     [Header("Luck Bonus")]
-    [Tooltip("Her luck puaný için ekstra þans (%)")]
+    [Tooltip("Her luck puanï¿½ iï¿½in ekstra ï¿½ans (%)")]
     public float luckBonusPerPoint = 0.5f;
 
     public List<EquipmentData> RollLoot(int playerLuck)
@@ -45,12 +45,15 @@ public class EquipmentLootTable : ScriptableObject
         }
 
         int dropCount = Random.Range(minDrops, maxDrops + 1);
+        int attempts = 0;
+        int maxAttempts = dropCount * 4;
 
-        for (int i = 0; i < dropCount; i++)
+        while (droppedItems.Count < dropCount && attempts < maxAttempts)
         {
+            attempts++;
             EquipmentData item = RollSingleItem(playerLuck);
 
-            if (item != null)
+            if (item != null && !droppedItems.Contains(item))
             {
                 droppedItems.Add(item);
             }

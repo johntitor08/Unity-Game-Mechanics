@@ -10,6 +10,11 @@ public class EquipmentData : ItemData
     public int damageBonus = 0;
     public int defenseBonus = 0;
 
+    [Header("On-Hit Status Effect")]
+    public StatusEffectData onHitEffect;
+    [Range(0f, 1f)]
+    public float onHitChance = 0f;
+
     [Header("Stat Bonuses")]
     public StatType primaryStat;
     public int primaryStatBonus = 0;
