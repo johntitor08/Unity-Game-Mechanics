@@ -215,7 +215,23 @@ public class ScenarioManager : MonoBehaviour
     {
         CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
         CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
-        CompleteCurrentStep();
+        activeCoroutine = StartCoroutine(CompleteAfterCombatCloses(currentStepIndex));
+    }
+
+    IEnumerator CompleteAfterCombatCloses(int stepIndex)
+    {
+        var cm = CombatManager.Instance;
+
+        while (cm != null && cm.inCombat)
+            yield return null;
+
+        var ui = CombatUI.Instance;
+
+        while (ui != null && ui.combatPanel != null && ui.combatPanel.activeSelf)
+            yield return null;
+
+        if (isScenarioActive && currentStepIndex == stepIndex)
+            CompleteCurrentStep();
     }
 
     void OnCombatDefeat()
