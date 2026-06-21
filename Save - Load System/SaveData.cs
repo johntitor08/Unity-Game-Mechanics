@@ -25,11 +25,14 @@ public class SaveData
     public List<int> shopStockAmounts = new();
     public List<StatType> statTypes = new();
     public List<int> statValues = new();
+    public List<string> activeQuestIDs = new();
     public List<QuestRuntimeState> activeQuests = new();
     public List<string> completedQuests = new();
     public List<string> trackedQuests = new();
     public List<string> questTimerKeys = new();
     public List<float> questTimerValues = new();
+    public List<string> selectedOptionalRewardQuestIDs = new();
+    public List<string> selectedOptionalRewardItemIDs = new();
     public string activeScenarioID = "";
     public int activeScenarioStep = 0;
     public List<string> completedScenarios = new();

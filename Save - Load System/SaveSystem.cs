@@ -6,6 +6,7 @@ public static class SaveSystem
 {
     public static SaveData CachedData;
     public static bool IsLoading { get; private set; }
+    public static bool SavingEnabled = false;
     private static int activeSlot = 0;
     private static string SavePath => GetSavePath(activeSlot);
 
@@ -71,7 +72,7 @@ public static class SaveSystem
 
     public static void SaveGame(bool isManual = false)
     {
-        if (IsLoading || (!isManual && SettingsManager.Instance != null && !SettingsManager.Instance.IsAutosaveEnabled()))
+        if (!SavingEnabled || IsLoading || (!isManual && SettingsManager.Instance != null && !SettingsManager.Instance.IsAutosaveEnabled()))
             return;
 
         SaveData data = new()
@@ -175,11 +176,14 @@ public static class SaveSystem
         if (QuestManager.Instance != null)
         {
             var questSave = QuestManager.Instance.GetSaveData();
+            data.activeQuestIDs = questSave.activeQuestIDs;
             data.activeQuests = questSave.runtimeStates;
             data.completedQuests = questSave.completedQuestIDs;
             data.trackedQuests = questSave.trackedQuestIDs;
             data.questTimerKeys = questSave.questTimerKeys;
             data.questTimerValues = questSave.questTimerValues;
+            data.selectedOptionalRewardQuestIDs = questSave.selectedOptionalRewardQuestIDs;
+            data.selectedOptionalRewardItemIDs = questSave.selectedOptionalRewardItemIDs;
         }
 
         if (PlayerStats.Instance != null)
@@ -202,6 +206,7 @@ public static class SaveSystem
         if (!HasSaveFile())
             return;
 
+        SavingEnabled = true;
         CachedData = JsonUtility.FromJson<SaveData>(File.ReadAllText(SavePath));
         IsLoading = true;
         SceneManager.sceneLoaded += OnSceneLoaded;
@@ -342,13 +347,27 @@ public static class SaveSystem
 
         if (QuestManager.Instance != null)
         {
+            var activeQuestIDs = data.activeQuestIDs ?? new();
+
+            if (activeQuestIDs.Count == 0 && data.activeQuests != null && data.activeQuests.Count > 0)
+            {
+                var completedSet = new System.Collections.Generic.HashSet<string>(data.completedQuests ?? new());
+
+                foreach (var state in data.activeQuests)
+                    if (state != null && !string.IsNullOrEmpty(state.questID) && !completedSet.Contains(state.questID))
+                        activeQuestIDs.Add(state.questID);
+            }
+
             var questSave = new QuestSaveData
             {
+                activeQuestIDs = activeQuestIDs,
                 runtimeStates = data.activeQuests,
                 completedQuestIDs = data.completedQuests,
                 trackedQuestIDs = data.trackedQuests,
                 questTimerKeys = data.questTimerKeys ?? new(),
-                questTimerValues = data.questTimerValues ?? new()
+                questTimerValues = data.questTimerValues ?? new(),
+                selectedOptionalRewardQuestIDs = data.selectedOptionalRewardQuestIDs ?? new(),
+                selectedOptionalRewardItemIDs = data.selectedOptionalRewardItemIDs ?? new()
             };
 
             if (questSave.runtimeStates != null)
@@ -364,6 +383,15 @@ public static class SaveSystem
 
         if (ProfileUI.Instance != null)
             ProfileUI.Instance.RefreshAll();
+
+        bool hasActiveScenario = ScenarioManager.Instance != null && !string.IsNullOrEmpty(data.activeScenarioID) && ScenarioManager.Instance.GetScenarioByID(data.activeScenarioID) != null;
+
+        if (hasActiveScenario)
+        {
+            IsLoading = false;
+            ScenarioManager.Instance.StartCoroutine(ResumeScenarioAfterLoad(data.activeScenarioID, data.activeScenarioStep));
+            return;
+        }
 
         int sceneDialogueIndex = data.sceneProgress;
 
@@ -390,5 +418,13 @@ public static class SaveSystem
 
         if (SceneEvent.Instance != null)
             yield return SceneEvent.Instance.StartCoroutine(SceneEvent.Instance.StartDialogueAfterLoad(sceneDialogueIndex));
+    }
+
+    static System.Collections.IEnumerator ResumeScenarioAfterLoad(string scenarioID, int stepIndex)
+    {
+        yield return null;
+
+        if (ScenarioManager.Instance != null)
+            ScenarioManager.Instance.ResumeScenario(scenarioID, stepIndex);
     }
 }
