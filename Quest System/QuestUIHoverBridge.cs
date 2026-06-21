@@ -35,6 +35,9 @@ public class QuestUIHoverBridge : MonoBehaviour, IPointerClickHandler
     [Header("Catalog")]
     public string catalogObjectiveID;
 
+    [Header("Location")]
+    public string backgroundName;
+
     void Awake()
     {
         ApplyCatalogEntry();
@@ -63,6 +66,9 @@ public class QuestUIHoverBridge : MonoBehaviour, IPointerClickHandler
     {
         if (QuestManager.Instance == null || (hasFired && triggerOnce) || (requireQuestActive && !string.IsNullOrEmpty(questID) && !QuestManager.Instance.IsQuestActive(questID)))
             return;
+
+        if (!string.IsNullOrEmpty(backgroundName) && SceneEvent.Instance != null)
+            SceneEvent.Instance.ShowQuestLocation(backgroundName);
 
         if (dialogue != null && DialogueManager.Instance != null && kind == TriggerKind.Talk)
         {
@@ -137,5 +143,6 @@ public class QuestUIHoverBridge : MonoBehaviour, IPointerClickHandler
         questTag = string.IsNullOrEmpty(entry.tag) ? entry.objectiveID : entry.tag;
         kind = entry.recommendedKind;
         progressAmount = entry.progressAmount;
+        backgroundName = AshenveilQuestTriggerCatalog.BackgroundFor(entry.suggestedSceneObjectName);
     }
 }
