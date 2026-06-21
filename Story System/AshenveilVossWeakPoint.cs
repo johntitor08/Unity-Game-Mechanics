@@ -11,8 +11,6 @@ public class AshenveilVossWeakPoint : MonoBehaviour
 
     void OnEnable()
     {
-        // CombatManager is DontDestroyOnLoad and may not exist yet at scene load,
-        // so wait for it instead of silently missing the subscription.
         _subscribeRoutine = StartCoroutine(SubscribeWhenReady());
     }
 
