@@ -26,4 +26,25 @@ public class AshenveilAssetRegistry : ScriptableObject
     public EnemyData shadowGuard;
     public EnemyData cursedGuard;
     public EnemyData vossBoss;
+
+    [System.Serializable]
+    public struct QuestIcon
+    {
+        public string questID;
+        public Sprite icon;
+    }
+
+    public QuestIcon[] questIcons;
+
+    public Sprite GetQuestIcon(string questID)
+    {
+        if (questIcons == null)
+            return null;
+
+        foreach (var qi in questIcons)
+            if (qi.questID == questID)
+                return qi.icon;
+
+        return null;
+    }
 }

@@ -150,6 +150,58 @@ public static class AshenveilQuestTriggerCatalog
 
     public static bool TryGet(string objectiveID, out Entry entry) => ByObjectiveId.TryGetValue(objectiveID, out entry);
 
+    public static string BackgroundFor(string sceneObjectName)
+    {
+        if (string.IsNullOrEmpty(sceneObjectName))
+            return "";
+
+        string n = sceneObjectName;
+
+        if (n.Contains("Garden"))
+            return "bg_apple_garden";
+
+        if (n.Contains("Kitchen") || n.Contains("Maren"))
+            return "bg_maren_kitchen";
+
+        if (n.Contains("House_Blacksmith"))
+            return "bg_blacksmith_home";
+
+        if (n.Contains("House_Baker"))
+            return "bg_baker_home";
+
+        if (n.Contains("House_Healer"))
+            return "bg_healer_home";
+
+        if (n.Contains("Outskirts") || n.Contains("Field"))
+            return "bg_village_fields";
+
+        if (n.Contains("Barn"))
+            return "bg_barn";
+
+        if (n.Contains("Mill"))
+            return "bg_village_mill";
+
+        if (n.Contains("Cave"))
+            return "bg_cave";
+
+        if (n.Contains("ChurchRuins"))
+            return "bg_church_ruins";
+
+        if (n.Contains("Warehouse"))
+            return "bg_voss_warehouse";
+
+        if (n.Contains("Voss_Stall"))
+            return "bg_voss_stall";
+
+        if (n.Contains("Gate") || n.Contains("ReturnPrisoner"))
+            return "bg_village_gate";
+
+        if (n.Contains("Corvin") || n.Contains("Villager") || n.Contains("Square") || n.Contains("Fountain") || n.Contains("Symbol") || n.Contains("Mysterious"))
+            return "bg_village_square";
+
+        return "";
+    }
+
     public static IEnumerable<Entry> GetForQuest(string questID)
     {
         foreach (var entry in All)

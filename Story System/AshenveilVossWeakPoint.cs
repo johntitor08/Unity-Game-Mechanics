@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 public class AshenveilVossWeakPoint : MonoBehaviour
@@ -5,16 +6,38 @@ public class AshenveilVossWeakPoint : MonoBehaviour
     [Header("Boss Reference")]
     public EnemyData vossData;
 
+    private bool _subscribed;
+    private Coroutine _subscribeRoutine;
+
     void OnEnable()
     {
-        if (CombatManager.Instance != null)
-            CombatManager.Instance.OnCombatStarted += OnCombatStarted;
+        // CombatManager is DontDestroyOnLoad and may not exist yet at scene load,
+        // so wait for it instead of silently missing the subscription.
+        _subscribeRoutine = StartCoroutine(SubscribeWhenReady());
     }
 
     void OnDisable()
     {
-        if (CombatManager.Instance != null)
+        if (_subscribeRoutine != null)
+        {
+            StopCoroutine(_subscribeRoutine);
+            _subscribeRoutine = null;
+        }
+
+        if (_subscribed && CombatManager.Instance != null)
             CombatManager.Instance.OnCombatStarted -= OnCombatStarted;
+
+        _subscribed = false;
+    }
+
+    IEnumerator SubscribeWhenReady()
+    {
+        while (CombatManager.Instance == null)
+            yield return null;
+
+        CombatManager.Instance.OnCombatStarted += OnCombatStarted;
+        _subscribed = true;
+        _subscribeRoutine = null;
     }
 
     void OnCombatStarted()

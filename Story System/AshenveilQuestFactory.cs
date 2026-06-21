@@ -85,7 +85,7 @@ public class AshenveilQuestFactory : MonoBehaviour
                 QuestManager.Instance.StartQuest(q);
     }
 
-    static QuestData Make(string id, string name, string desc, QuestType type, string[] requiredFlags = null, string[] flagsOnStart = null, string[] flagsOnComplete = null, bool hasTimeLimit = false, float timeLimitSeconds = 0f, bool canFail = false)
+    QuestData Make(string id, string name, string desc, QuestType type, string[] requiredFlags = null, string[] flagsOnStart = null, string[] flagsOnComplete = null, bool hasTimeLimit = false, float timeLimitSeconds = 0f, bool canFail = false)
     {
         var q = ScriptableObject.CreateInstance<QuestData>();
         q.questID = id;
@@ -101,7 +101,7 @@ public class AshenveilQuestFactory : MonoBehaviour
         q.canFail = canFail;
         q.trackObjectives = true;
         q.showOnMap = true;
-        q.icon = Resources.Load<Sprite>("QuestIcons/" + id);
+        q.icon = assets != null ? assets.GetQuestIcon(id) : null;
         return q;
     }
 
