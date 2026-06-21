@@ -51,10 +51,17 @@ public class UpgradeFusionButton : MonoBehaviour
             return;
         }
 
-        bool canUpgrade = FusionManager.Instance != null && FusionManager.Instance.CanUpgradeFuse(watchedItem);
-        upgradeButton.gameObject.SetActive(canUpgrade);
+        var fm = FusionManager.Instance;
+        bool show = fm != null && fm.OwnsUpgradeable(watchedItem);
+        upgradeButton.gameObject.SetActive(show);
 
-        if (!canUpgrade || upgradeButtonText == null)
+        if (!show)
+            return;
+
+        bool canAfford = fm.CanUpgradeFuse(watchedItem);
+        upgradeButton.interactable = canAfford;
+
+        if (upgradeButtonText == null)
             return;
 
         int bestLevel = 0;
@@ -75,7 +82,9 @@ public class UpgradeFusionButton : MonoBehaviour
                     bestLevel = Mathf.Max(bestLevel, inst.upgradeLevel);
         }
 
-        upgradeButtonText.text = $"Upgrade  +{bestLevel} → +{bestLevel + 1}";
+        var cost = fm.GetUpgradeCost(watchedItem, bestLevel);
+        string matText = cost.material != null ? $" + {cost.materialQty} {cost.material.itemName}" : "";
+        upgradeButtonText.text = $"Upgrade +{bestLevel}→+{bestLevel + 1}  ({cost.gold}g{matText})";
     }
 
     void OnUpgradeClicked()

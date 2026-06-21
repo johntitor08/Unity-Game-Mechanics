@@ -8,6 +8,12 @@ public class FusionManager : MonoBehaviour
     [Header("Recipes")]
     public List<FusionRecipe> recipes = new();
 
+    [Header("Upgrade Cost")]
+    public ItemData upgradeMaterialCommon;
+    public ItemData upgradeMaterialRare;
+    public ItemData upgradeMaterialEpic;
+    public int baseGoldPerLevel = 50;
+
     void Awake()
     {
         if (Instance != null)
@@ -67,18 +73,64 @@ public class FusionManager : MonoBehaviour
         return recipe.result;
     }
 
+    public struct UpgradeCost
+    {
+        public int gold;
+        public ItemData material;
+        public int materialQty;
+    }
+
+    public UpgradeCost GetUpgradeCost(EquipmentData data, int currentLevel)
+    {
+        ItemData mat = data.rarity switch
+        {
+            Rarity.Common => upgradeMaterialCommon,
+            Rarity.Rare => upgradeMaterialRare,
+            _ => upgradeMaterialEpic
+        };
+
+        int rarityFactor = data.rarity switch
+        {
+            Rarity.Common => 1,
+            Rarity.Rare => 2,
+            Rarity.Epic => 3,
+            Rarity.Legendary => 5,
+            _ => 6
+        };
+
+        return new UpgradeCost
+        {
+            gold = baseGoldPerLevel * (currentLevel + 1) * rarityFactor,
+            material = mat,
+            materialQty = currentLevel + 1
+        };
+    }
+
     public bool CanUpgradeFuse(EquipmentData data)
     {
         if (data == null)
             return false;
 
-        int total = CountAllCopies(data);
-
-        if (total < 2)
+        if (CountAllCopies(data) < 1)
             return false;
 
         int maxLevel = GetHighestLevel(data);
-        return maxLevel + 1 <= data.maxUpgradeLevel;
+
+        if (maxLevel + 1 > data.maxUpgradeLevel)
+            return false;
+
+        var cost = GetUpgradeCost(data, maxLevel);
+        bool hasGold = CurrencyManager.Instance != null && CurrencyManager.Instance.Has(CurrencyType.Gold, cost.gold);
+        bool hasMaterial = cost.material == null || (InventoryManager.Instance != null && InventoryManager.Instance.GetQuantity(cost.material) >= cost.materialQty);
+        return hasGold && hasMaterial;
+    }
+
+    public bool OwnsUpgradeable(EquipmentData data)
+    {
+        if (data == null || CountAllCopies(data) < 1)
+            return false;
+
+        return GetHighestLevel(data) + 1 <= data.maxUpgradeLevel;
     }
 
     public EquipmentInstance UpgradeFuse(EquipmentData data)
@@ -86,47 +138,30 @@ public class FusionManager : MonoBehaviour
         if (!CanUpgradeFuse(data))
             return null;
 
-        var (copies, equippedInst) = GatherCopies(data);
+        int currentLevel = GetHighestLevel(data);
+        var cost = GetUpgradeCost(data, currentLevel);
 
-        copies.Sort((a, b) =>
-        {
-            if (a.upgradeLevel != b.upgradeLevel)
-                return b.upgradeLevel - a.upgradeLevel;
+        if (CurrencyManager.Instance != null)
+            CurrencyManager.Instance.Spend(CurrencyType.Gold, cost.gold);
 
-            bool aEq = ReferenceEquals(a, equippedInst);
-            bool bEq = ReferenceEquals(b, equippedInst);
+        if (cost.material != null && cost.materialQty > 0 && InventoryManager.Instance != null)
+            InventoryManager.Instance.RemoveItem(cost.material, cost.materialQty);
 
-            if (aEq && !bEq)
-                return -1;
+        var em = EquipmentManager.Instance;
+        var equipped = em != null ? em.GetEquipped(data.slot) : null;
+        bool equippedIsBest = equipped != null && equipped.baseData.itemID == data.itemID && equipped.upgradeLevel == currentLevel;
 
-            if (bEq && !aEq)
-                return 1;
-
-            return 0;
-        });
-
-        var keep = copies[0];
-        var consume = copies[1];
-        int resultLevel = keep.upgradeLevel + 1;
-        bool consumeIsEquipped = ReferenceEquals(consume, equippedInst);
-
-        if (consumeIsEquipped)
-            EquipmentManager.Instance.Unequip(data.slot, returnToInventory: false, save: false);
-        else
-            InventoryManager.Instance.RemoveUpgradedItem(data, consume.upgradeLevel, 1);
-
-        bool keepIsEquipped = ReferenceEquals(keep, equippedInst);
         EquipmentInstance result;
 
-        if (keepIsEquipped)
+        if (equippedIsBest)
         {
-            EquipmentManager.Instance.UpgradeEquipped(data.slot);
-            result = EquipmentManager.Instance.GetEquipped(data.slot);
+            em.UpgradeEquipped(data.slot);
+            result = em.GetEquipped(data.slot);
         }
         else
         {
-            InventoryManager.Instance.RemoveUpgradedItem(data, keep.upgradeLevel, 1);
-            result = new EquipmentInstance(data, resultLevel);
+            InventoryManager.Instance.RemoveUpgradedItem(data, currentLevel, 1);
+            result = new EquipmentInstance(data, currentLevel + 1);
             InventoryManager.Instance.AddInstance(result, 1);
         }
 
@@ -174,37 +209,5 @@ public class FusionManager : MonoBehaviour
         }
 
         return maxLevel;
-    }
-
-    private (List<EquipmentInstance> copies, EquipmentInstance equipped) GatherCopies(EquipmentData data)
-    {
-        var copies = new List<EquipmentInstance>();
-        EquipmentInstance equippedInst = null;
-        var em = EquipmentManager.Instance;
-
-        if (em != null)
-        {
-            var inst = em.GetEquipped(data.slot);
-
-            if (inst != null && inst.baseData.itemID == data.itemID)
-            {
-                equippedInst = inst;
-                copies.Add(inst);
-            }
-        }
-
-        if (InventoryManager.Instance != null)
-        {
-            foreach (var (inst, qty) in InventoryManager.Instance.GetEquipmentInstances())
-            {
-                if (inst.baseData.itemID != data.itemID)
-                    continue;
-
-                for (int i = 0; i < qty; i++)
-                    copies.Add(new EquipmentInstance(data, inst.upgradeLevel));
-            }
-        }
-
-        return (copies, equippedInst);
     }
 }
