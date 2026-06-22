@@ -19,8 +19,6 @@ public static class StoryFlags
 
         if (savedFlags != null)
             flags.UnionWith(savedFlags);
-
-        QuestFlags.MigrateLegacyOriginStartFlags();
     }
 
     public static void Reset() => flags.Clear();
