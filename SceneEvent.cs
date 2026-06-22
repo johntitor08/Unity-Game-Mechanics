@@ -793,6 +793,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     void HandleDialogueStart(DialogueNode node)
     {
+        if (node != null && node.backgroundImage != null)
+            SetActive(townNpc, false);
+
         if (timePanelAnimator != null)
             timePanelAnimator.SetTrigger(timePanelCloseTrigger);
 
