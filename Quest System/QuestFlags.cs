@@ -1,8 +1,6 @@
 public static class QuestFlags
 {
     public const string OriginPrefix = "origin:";
-    public const string LegacyBoundArchivistStart = "archivist_start";
-    public const string LegacyForeignEchoStart = "echo_start";
     public const string AshenveilEntered = "ashenveil_entered";
     public const string BoundArchivistStart = "bound_archivist_start";
     public const string BoundArchivistOpeningComplete = "bound_archivist_opening_complete";
@@ -81,13 +79,4 @@ public static class QuestFlags
     public const string ScenarioCompleted = "scenario_completed";
 
     public static string DayStarted(int day) => $"day{day}_started";
-
-    public static void MigrateLegacyOriginStartFlags()
-    {
-        if (StoryFlags.Has(LegacyBoundArchivistStart) && !StoryFlags.Has(BoundArchivistStart))
-            StoryFlags.Add(BoundArchivistStart);
-
-        if (StoryFlags.Has(LegacyForeignEchoStart) && !StoryFlags.Has(ForeignEchoStart))
-            StoryFlags.Add(ForeignEchoStart);
-    }
 }
