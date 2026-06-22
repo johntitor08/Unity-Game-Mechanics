@@ -530,7 +530,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             SetActive(hoverEffects[3], index == 11);
             SetActive(hoverEffects[4], index == 9);
             SetActive(hoverEffects[5], index == 8);
-            SetActive(hoverEffects[6], index == 13);
+            SetActive(hoverEffects[6], index == 13 && !IsNight());
+            SetActive(hoverEffects[13], index == 13 && IsNight());
             SetActive(hoverEffects[7], index == 15 && !IsNight());
             SetActive(items[0], index == 38);
             SetActive(hoverEffects[9], index == 15 && !IsNight());
@@ -1141,6 +1142,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (hoverEffects[12] != null)
             hoverEffects[12].GetComponent<UIHoverRegion>().OnRegionClicked += CollectCinnamon;
 
+        if (hoverEffects[13] != null && hoverEffects[13].TryGetComponent<UIHoverRegion>(out var bedNightHover))
+            bedNightHover.OnRegionClicked += SkipToNextDay;
+
         isHoverEffectsSubscribed = true;
     }
 
@@ -1199,6 +1203,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (hoverEffects[12] != null)
             hoverEffects[12].GetComponent<UIHoverRegion>().OnRegionClicked -= CollectCinnamon;
 
+        if (hoverEffects[13] != null && hoverEffects[13].TryGetComponent<UIHoverRegion>(out var bedNightHover))
+            bedNightHover.OnRegionClicked -= SkipToNextDay;
+
         isHoverEffectsSubscribed = false;
     }
 
@@ -1250,6 +1257,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         {
             SetActive(hoverEffects[7], !IsNight());
             SetActive(hoverEffects[9], !IsNight());
+        }
+
+        if (_lastBgIndex == 13 && hoverEffects != null && hoverEffects.Length >= 7)
+        {
+            SetActive(hoverEffects[6], !IsNight());
+            SetActive(hoverEffects[13], IsNight());
         }
     }
 
