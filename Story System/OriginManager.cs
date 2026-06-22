@@ -35,8 +35,6 @@ public class OriginManager : MonoBehaviour
 
     void Start()
     {
-        QuestFlags.MigrateLegacyOriginStartFlags();
-
         if (ScenarioManager.Instance != null)
             ScenarioManager.Instance.OnScenarioComplete += HandleScenarioComplete;
 
@@ -59,6 +57,7 @@ public class OriginManager : MonoBehaviour
 
         CurrentOrigin = origin;
         OriginSelected = true;
+        SaveSystem.SavingEnabled = true;
         StoryFlags.Add(QuestFlags.OriginPrefix + origin.originID);
         ApplyStats(origin);
         GrantStartingItems(origin);
@@ -164,8 +163,7 @@ public class OriginManager : MonoBehaviour
 
     void SchedulePendingStoryCheck()
     {
-        if (_pendingStoryCoroutine == null)
-            _pendingStoryCoroutine = StartCoroutine(StartPendingOriginStoryWhenReady());
+        _pendingStoryCoroutine ??= StartCoroutine(StartPendingOriginStoryWhenReady());
     }
 
     IEnumerator StartPendingOriginStoryWhenReady()

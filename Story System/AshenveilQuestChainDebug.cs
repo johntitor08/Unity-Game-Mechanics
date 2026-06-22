@@ -6,7 +6,7 @@ public class AshenveilQuestChainDebug : MonoBehaviour
     public string questID = AshenveilQuestIds.Q01;
     QuestManager QM => QuestManager.Instance;
 
-    [Header("Prerequisites (optional)")]
+    [Header("Prerequisites")]
     public bool setRequiredFlagsBeforeStart = true;
 
     [Header("Output")]
