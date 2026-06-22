@@ -531,9 +531,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             SetActive(hoverEffects[4], index == 9);
             SetActive(hoverEffects[5], index == 8);
             SetActive(hoverEffects[6], index == 13);
-            SetActive(hoverEffects[7], index == 15);
+            SetActive(hoverEffects[7], index == 15 && !IsNight());
             SetActive(items[0], index == 38);
-            SetActive(hoverEffects[9], index == 15);
+            SetActive(hoverEffects[9], index == 15 && !IsNight());
             SetActive(items[1], index == 14);
             SetActive(items[2], index == 17);
             SetActive(items[3], index == 17);
@@ -1231,6 +1231,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             btn.interactable = interactable;
     }
 
+    private bool IsNight() => TimePhaseManager.Instance != null && TimePhaseManager.Instance.currentPhase == TimePhase.Night;
+
     private void OnPhaseChanged(TimePhase _)
     {
         if (mapPanel != null && mapPanel.activeSelf)
@@ -1242,6 +1244,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
             if (resolved != null)
                 backgroundImage.sprite = resolved;
+        }
+
+        if (_lastBgIndex == 15 && hoverEffects != null && hoverEffects.Length >= 10)
+        {
+            SetActive(hoverEffects[7], !IsNight());
+            SetActive(hoverEffects[9], !IsNight());
         }
     }
 
