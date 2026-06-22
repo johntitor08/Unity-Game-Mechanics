@@ -14,6 +14,13 @@ public enum DialogueState
     Closing
 }
 
+[System.Serializable]
+public class SpeakerPortraitEntry
+{
+    public string speakerName;
+    public Sprite portrait;
+}
+
 [RequireComponent(typeof(IDialoguePanelAnimator))]
 public class DialogueManager : MonoBehaviour
 {
@@ -45,6 +52,11 @@ public class DialogueManager : MonoBehaviour
     public GameObject choicesPanel;
     public Transform choicesContainer;
     public Button choiceButtonPrefab;
+
+    [Header("Speaker Portraits")]
+    public bool enableSpeakerPortraits = false;
+    public SpeakerPortraitEntry[] portraitsByName;
+    private System.Collections.Generic.Dictionary<string, Sprite> _portraitMap;
 
     [Header("Typewriter")]
     public Typewriter typewriter;
@@ -115,6 +127,30 @@ public class DialogueManager : MonoBehaviour
         choicesPanel = fresh.choicesPanel;
         choicesContainer = fresh.choicesContainer;
         choiceButtonPrefab = fresh.choiceButtonPrefab;
+        enableSpeakerPortraits = fresh.enableSpeakerPortraits;
+
+        if (fresh.portraitsByName != null && fresh.portraitsByName.Length > 0)
+        {
+            portraitsByName = fresh.portraitsByName;
+            _portraitMap = null;
+        }
+    }
+
+    Sprite LookupPortrait(string name)
+    {
+        if (string.IsNullOrEmpty(name) || portraitsByName == null)
+            return null;
+
+        if (_portraitMap == null)
+        {
+            _portraitMap = new System.Collections.Generic.Dictionary<string, Sprite>(System.StringComparer.OrdinalIgnoreCase);
+
+            foreach (var e in portraitsByName)
+                if (e != null && !string.IsNullOrEmpty(e.speakerName) && e.portrait != null)
+                    _portraitMap[e.speakerName.Trim()] = e.portrait;
+        }
+
+        return _portraitMap.TryGetValue(name.Trim(), out var s) ? s : null;
     }
 
     bool IsPanelAnimatorAlive()
@@ -179,9 +215,11 @@ public class DialogueManager : MonoBehaviour
 
         if (speakerPortrait != null)
         {
-            speakerPortrait.sprite = currentNode.speakerPortrait;
-            speakerPortrait.enabled = currentNode.speakerPortrait != null;
+            Sprite portrait = enableSpeakerPortraits ? (currentNode.speakerPortrait != null ? currentNode.speakerPortrait : LookupPortrait(currentNode.speakerName)) : null;
+            speakerPortrait.sprite = portrait;
+            speakerPortrait.enabled = true;
             speakerPortrait.preserveAspect = true;
+            speakerPortrait.gameObject.SetActive(portrait != null);
         }
 
         if (backgroundImage != null)
