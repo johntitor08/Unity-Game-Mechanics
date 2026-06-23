@@ -27,25 +27,27 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 {
     public static SceneEvent Instance { get; private set; }
     private SceneProgress progress = SceneProgress.Scene1;
-    private int currentMapIndex = 0;
-    private int _validMapCursor = 0;
+    private int currentMapIndex;
+    private int _validMapCursor;
     private static readonly int[] validMapIndices = { 6, 8, 13 };
-    public ItemDatabase itemDatabase;
     private bool isDialogueSubscribed;
     private bool isHoverEffectsSubscribed;
-    public GameObject[] hoverEffects;
-    public GameObject[] items;
-    private readonly List<System.Action> _hoverHideActions = new();
+    private readonly List<Action> _hoverHideActions = new();
     private Action<EnemyData> _currentVictoryHandler;
     private Action _currentDefeatHandler;
+    private int _lastBgIndex = -1;
+    private int _lastCharIndex = -1;
+    private float _items1DefaultY;
     private Vector2 _officeIconDefaultPos;
-    public TMP_Text mapTitleText;
     private Vector2 charRtAnchoredTransform;
     private Vector2 charRtSizeDelta;
-    public event System.Action<int> OnBackgroundChanged;
     private Coroutine charFadeCoroutine;
+    public event Action<int> OnBackgroundChanged;
+    public ItemDatabase itemDatabase;
+    public TMP_Text mapTitleText;
     public GameObject townNpc;
-    private float _items1DefaultY;
+    public GameObject[] hoverEffects;
+    public GameObject[] items;
 
     public SceneProgress Progress
     {
@@ -62,18 +64,52 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         }
     }
 
-    [Header("Backgrounds")]
-    public Image backgroundImage;
-    public Sprite[] bgs;
-    public NightBackground[] nightBackgrounds;
-    public NightBackground[] eveningBackgrounds;
-    private int _lastBgIndex = -1;
+    [System.Serializable]
+    public struct BackgroundEntry
+    {
+        public string name;
+        public Sprite morning;
+        public Sprite noon;
+        public Sprite evening;
+        public Sprite night;
+
+        public Sprite Resolve(TimePhase phase)
+        {
+            Sprite s = phase switch
+            {
+                TimePhase.Morning => morning,
+                TimePhase.Noon => noon,
+                TimePhase.Evening => evening,
+                TimePhase.Night => night,
+                _ => morning
+            };
+
+            return s != null ? s : morning;
+        }
+    }
 
     [System.Serializable]
-    public struct NightBackground
+    public struct CharacterEntry
     {
-        public int index;
-        public Sprite sprite;
+        public string name;
+        public Sprite morning;
+        public Sprite noon;
+        public Sprite evening;
+        public Sprite night;
+
+        public Sprite Resolve(TimePhase phase)
+        {
+            Sprite s = phase switch
+            {
+                TimePhase.Morning => morning,
+                TimePhase.Noon => noon,
+                TimePhase.Evening => evening,
+                TimePhase.Night => night,
+                _ => morning
+            };
+
+            return s != null ? s : morning;
+        }
     }
 
     [System.Serializable]
@@ -83,12 +119,16 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         public Sprite sprite;
     }
 
+    [Header("Backgrounds")]
+    public Image backgroundImage;
+    public BackgroundEntry[] backgrounds;
+
     [Header("Quest Location Backgrounds")]
     public NamedBackground[] questLocationBackgrounds;
 
     [Header("Characters")]
     public Image charImage;
-    public Sprite[] chars;
+    public CharacterEntry[] characters;
 
     [Header("Dialogue Character Layout")]
     public Vector2 dialogueCharacterPosition = new(0f, 0f);
@@ -501,20 +541,28 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     public void SetCharacter(int index)
     {
+        _lastCharIndex = index;
+
         if (charImage == null)
             return;
 
         charImage.preserveAspect = true;
 
-        if (index >= 0 && index < chars.Length && chars[index] != null)
-            charImage.sprite = chars[index];
+        if (index >= 0 && index < characters.Length)
+        {
+            TimePhase phase = TimePhaseManager.Instance != null ? TimePhaseManager.Instance.currentPhase : TimePhase.Morning;
+            Sprite s = characters[index].Resolve(phase);
+
+            if (s != null)
+                charImage.sprite = s;
+        }
     }
 
     public void SetBackground(int index)
     {
         _lastBgIndex = index;
 
-        if (backgroundImage != null && index >= 0 && index < bgs.Length && bgs[index] != null)
+        if (backgroundImage != null && index >= 0 && index < backgrounds.Length)
             backgroundImage.sprite = ResolveBg(index);
 
         if (DialogueManager.Instance != null && DialogueManager.Instance.backgroundImage != null && !DialogueManager.Instance.IsInDialogue())
@@ -612,22 +660,11 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     private Sprite ResolveBg(int index)
     {
-        if (index < 0 || bgs == null || index >= bgs.Length)
+        if (index < 0 || backgrounds == null || index >= backgrounds.Length)
             return null;
 
         TimePhase phase = TimePhaseManager.Instance != null ? TimePhaseManager.Instance.currentPhase : TimePhase.Morning;
-
-        if (phase == TimePhase.Night && nightBackgrounds != null)
-            foreach (var nb in nightBackgrounds)
-                if (nb.index == index && nb.sprite != null)
-                    return nb.sprite;
-
-        if (phase == TimePhase.Evening && eveningBackgrounds != null)
-            foreach (var eb in eveningBackgrounds)
-                if (eb.index == index && eb.sprite != null)
-                    return eb.sprite;
-
-        return bgs[index];
+        return backgrounds[index].Resolve(phase);
     }
 
     public void SetMap(int index)
@@ -1022,7 +1059,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 rt.anchoredPosition = new Vector2(0f, 500f);
                 rt.sizeDelta = new Vector2(100f, 100f);
             }
-
         }
 
         if (node == scene9FifthNode && lineIndex == 0)
@@ -1279,6 +1315,15 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 backgroundImage.sprite = resolved;
         }
 
+        if (charImage != null && charImage.gameObject.activeSelf && _lastCharIndex >= 0 && characters != null && _lastCharIndex < characters.Length)
+        {
+            TimePhase phase = TimePhaseManager.Instance != null ? TimePhaseManager.Instance.currentPhase : TimePhase.Morning;
+            Sprite s = characters[_lastCharIndex].Resolve(phase);
+
+            if (s != null)
+                charImage.sprite = s;
+        }
+
         if (_lastBgIndex == 15 && hoverEffects != null && hoverEffects.Length >= 10)
         {
             SetActive(hoverEffects[7], !IsNight());
@@ -1502,7 +1547,11 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (questLocationBackgrounds != null)
             foreach (var qb in questLocationBackgrounds)
-                if (qb.name == bgName) { spr = qb.sprite; break; }
+                if (qb.name == bgName)
+                {
+                    spr = qb.sprite;
+                    break;
+                }
 
         if (spr == null)
             return;
