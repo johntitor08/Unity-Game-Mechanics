@@ -45,6 +45,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public event System.Action<int> OnBackgroundChanged;
     private Coroutine charFadeCoroutine;
     public GameObject townNpc;
+    private float _items1DefaultY;
 
     public SceneProgress Progress
     {
@@ -188,6 +189,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (officeIcon != null)
             _officeIconDefaultPos = officeIcon.GetComponent<RectTransform>().anchoredPosition;
+
+        if (items != null && items.Length > 1 && items[1] != null)
+        {
+            if (items[1].TryGetComponent<RectTransform>(out var rt))
+                _items1DefaultY = rt.anchoredPosition.y;
+        }
     }
 
     void Start()
@@ -539,6 +546,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             SetActive(items[1], index == 14);
             SetActive(items[2], index == 17);
             SetActive(items[3], index == 17);
+        }
+
+        if (index == 14 && items[1] != null && items[1].TryGetComponent<RectTransform>(out var item1Rt))
+        {
+            var p = item1Rt.anchoredPosition;
+            item1Rt.anchoredPosition = new Vector2(p.x, _items1DefaultY + (IsNight() || IsEvening() ? 25f : 0f));
         }
 
         bool isHouse = index == 11 || index == 13 || index == 14 || index == 15 || index == 16 || index == 17 || index == 20 || index == 38 || index == 39 || index == 40;
@@ -1247,6 +1260,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             btn.interactable = interactable;
     }
 
+    private bool IsEvening() => TimePhaseManager.Instance != null && TimePhaseManager.Instance.currentPhase == TimePhase.Evening;
+
     private bool IsNight() => TimePhaseManager.Instance != null && TimePhaseManager.Instance.currentPhase == TimePhase.Night;
 
     private bool IsMorningOrNoon() => TimePhaseManager.Instance != null && (TimePhaseManager.Instance.currentPhase == TimePhase.Morning || TimePhaseManager.Instance.currentPhase == TimePhase.Noon);
@@ -1276,9 +1291,14 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             SetActive(hoverEffects[13], IsNight());
         }
 
-        // Town door (hoverEffects[0]) is open only in the morning/noon.
         if (_lastBgIndex == 0 && hoverEffects != null && hoverEffects.Length >= 1 && hoverEffects[0] != null)
             SetActive(hoverEffects[0], Progress == SceneProgress.Scene1 && IsMorningOrNoon());
+
+        if (_lastBgIndex == 14 && items != null && items.Length > 1 && items[1] != null && items[1].TryGetComponent<RectTransform>(out var item1PhaseRt))
+        {
+            var p = item1PhaseRt.anchoredPosition;
+            item1PhaseRt.anchoredPosition = new Vector2(p.x, _items1DefaultY + (IsNight() || IsEvening() ? 25f : 0f));
+        }
     }
 
     IEnumerator FadeOutCharacter(float duration, DialogueNode endedNode = null)
