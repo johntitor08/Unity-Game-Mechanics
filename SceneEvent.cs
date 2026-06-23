@@ -65,6 +65,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public Image backgroundImage;
     public Sprite[] bgs;
     public NightBackground[] nightBackgrounds;
+    public NightBackground[] eveningBackgrounds;
     private int _lastBgIndex = -1;
 
     [System.Serializable]
@@ -524,7 +525,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (hoverEffects != null && hoverEffects.Length >= 6)
         {
-            SetActive(hoverEffects[0], index == 0 && Progress == SceneProgress.Scene1);
+            SetActive(hoverEffects[0], index == 0 && Progress == SceneProgress.Scene1 && IsMorningOrNoon());
             SetActive(hoverEffects[1], index == 12);
             SetActive(hoverEffects[2], index == 10);
             SetActive(hoverEffects[3], index == 11);
@@ -601,12 +602,17 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (index < 0 || bgs == null || index >= bgs.Length)
             return null;
 
-        bool isNight = TimePhaseManager.Instance != null && TimePhaseManager.Instance.currentPhase == TimePhase.Night;
+        TimePhase phase = TimePhaseManager.Instance != null ? TimePhaseManager.Instance.currentPhase : TimePhase.Morning;
 
-        if (isNight && nightBackgrounds != null)
+        if (phase == TimePhase.Night && nightBackgrounds != null)
             foreach (var nb in nightBackgrounds)
                 if (nb.index == index && nb.sprite != null)
                     return nb.sprite;
+
+        if (phase == TimePhase.Evening && eveningBackgrounds != null)
+            foreach (var eb in eveningBackgrounds)
+                if (eb.index == index && eb.sprite != null)
+                    return eb.sprite;
 
         return bgs[index];
     }
@@ -1243,6 +1249,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     private bool IsNight() => TimePhaseManager.Instance != null && TimePhaseManager.Instance.currentPhase == TimePhase.Night;
 
+    private bool IsMorningOrNoon() => TimePhaseManager.Instance != null && (TimePhaseManager.Instance.currentPhase == TimePhase.Morning || TimePhaseManager.Instance.currentPhase == TimePhase.Noon);
+
     private void OnPhaseChanged(TimePhase _)
     {
         if (mapPanel != null && mapPanel.activeSelf)
@@ -1267,6 +1275,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             SetActive(hoverEffects[6], !IsNight());
             SetActive(hoverEffects[13], IsNight());
         }
+
+        // Town door (hoverEffects[0]) is open only in the morning/noon.
+        if (_lastBgIndex == 0 && hoverEffects != null && hoverEffects.Length >= 1 && hoverEffects[0] != null)
+            SetActive(hoverEffects[0], Progress == SceneProgress.Scene1 && IsMorningOrNoon());
     }
 
     IEnumerator FadeOutCharacter(float duration, DialogueNode endedNode = null)
