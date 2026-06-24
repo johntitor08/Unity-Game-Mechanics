@@ -258,8 +258,30 @@ public class ScenarioManager : MonoBehaviour
     {
         CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
         CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
-        Debug.LogWarning($"[ScenarioManager] Combat defeat during scenario '{(currentScenario != null ? currentScenario.scenarioID : null)}'. Aborting.");
-        AbortScenario();
+        Debug.Log($"[ScenarioManager] Combat defeat during scenario '{(currentScenario != null ? currentScenario.scenarioID : null)}'. Restarting scenario from the beginning.");
+        activeCoroutine = StartCoroutine(RestartScenarioAfterCombatCloses());
+    }
+
+    IEnumerator RestartScenarioAfterCombatCloses()
+    {
+        var cm = CombatManager.Instance;
+
+        while (cm != null && cm.inCombat)
+            yield return null;
+
+        var ui = CombatUI.Instance;
+
+        while (ui != null && ui.combatPanel != null && ui.combatPanel.activeSelf)
+            yield return null;
+
+        if (PlayerStats.Instance != null)
+            PlayerStats.Instance.FullRestore();
+
+        if (isScenarioActive && currentScenario != null)
+        {
+            currentStepIndex = 0;
+            StartNextStep();
+        }
     }
 
     void ExecuteCollectItemStep(ScenarioStep step)
