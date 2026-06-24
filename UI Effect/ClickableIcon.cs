@@ -31,6 +31,7 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     private Image iconImage;
     private Color originalColor;
     private bool isHovering = false;
+    private int _lastClickEffectFrame = -1;
 
     void Awake()
     {
@@ -83,11 +84,14 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
             iconImage.color = originalColor;
     }
 
-    public void OnPointerClick(PointerEventData eventData)
+    public void OnPointerClick(PointerEventData eventData) => PlayClickEffect();
+
+    public void PlayClickEffect()
     {
-        if (!isActiveAndEnabled || !enableClickEffect)
+        if (!isActiveAndEnabled || !enableClickEffect || Time.frameCount == _lastClickEffectFrame)
             return;
 
+        _lastClickEffectFrame = Time.frameCount;
         StopAllCoroutines();
         StartCoroutine(ClickEffect());
         PlaySound(clickSound);
