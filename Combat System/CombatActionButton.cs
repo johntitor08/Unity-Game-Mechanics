@@ -40,7 +40,7 @@ public class CombatActionButton : MonoBehaviour
             return;
 
         if (TryGetComponent<ClickableIcon>(out var clickIcon))
-            clickIcon.PlayClickEffect();
+            clickIcon.PlayClickEffect(true);
 
         if (button != null)
             button.interactable = false;
