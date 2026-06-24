@@ -39,6 +39,9 @@ public class CombatActionButton : MonoBehaviour
         if (CombatManager.Instance == null)
             return;
 
+        if (TryGetComponent<ClickableIcon>(out var clickIcon))
+            clickIcon.PlayClickEffect();
+
         if (button != null)
             button.interactable = false;
 

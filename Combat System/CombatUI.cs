@@ -269,7 +269,7 @@ public class CombatUI : MonoBehaviour
             if (action.isFlee)
             {
                 int chance = Mathf.RoundToInt(CombatManager.Instance.GetFleeChance() * 100);
-                action.actionName = $"Kaç ({chance}%)";
+                action.actionName = $"Run ({chance}%)";
             }
 
             if (i < actionButtons.Count)
