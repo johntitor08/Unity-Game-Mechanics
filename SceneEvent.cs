@@ -1056,15 +1056,27 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     void HandleDialogueEnd(DialogueNode endedNode)
     {
-        if (endedNode == null || !endedNode.isFinalNode)
+        bool isFinal = endedNode != null && endedNode.isFinalNode;
+
+        if (charImage != null && charImage.gameObject.activeSelf)
+        {
+            if (charFadeCoroutine != null)
+            {
+                StopCoroutine(charFadeCoroutine);
+                charFadeCoroutine = null;
+            }
+
+            charFadeCoroutine = StartCoroutine(FadeOutCharacter(0.5f, isFinal ? endedNode : null));
+        }
+        else if (isFinal)
+        {
+            HandleSceneTransition(endedNode);
+        }
+
+        if (!isFinal)
             return;
 
         ShowHudPanels();
-
-        if (charImage != null)
-            charFadeCoroutine = StartCoroutine(FadeOutCharacter(0.5f, endedNode));
-        else
-            HandleSceneTransition(endedNode);
 
         if (Progress == SceneProgress.SceneMarket && sceneStartDialogueNodes != null && sceneStartDialogueNodes.Length > 9 && sceneStartDialogueNodes[9] != null && endedNode == sceneStartDialogueNodes[9] && MarketUI.Instance != null)
             MarketUI.Instance.OpenMarket();
@@ -1075,13 +1087,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (charImage == null)
             return;
 
-        if (charFadeCoroutine != null)
-        {
-            StopCoroutine(charFadeCoroutine);
-            charFadeCoroutine = null;
-        }
-
         _sceneWantsCharacter = false;
+
+        if (charFadeCoroutine != null)
+            return;
 
         if (DialogueManager.Instance == null || !DialogueManager.Instance.IsInDialogue())
             charImage.gameObject.SetActive(false);
