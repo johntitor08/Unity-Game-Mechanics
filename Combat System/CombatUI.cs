@@ -112,6 +112,7 @@ public class CombatUI : MonoBehaviour
         logLines.Clear();
         UpdateUI();
         SetupActionButtons();
+        Canvas.ForceUpdateCanvases();
     }
 
     void OnCombatEnded()

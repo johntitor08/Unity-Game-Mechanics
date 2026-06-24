@@ -266,7 +266,7 @@ public class CombatManager : MonoBehaviour
         }
 
         if (combatEnergyRegenPerTurn > 0 && PlayerStats != null)
-            PlayerStats.Modify(StatType.Energy, combatEnergyRegenPerTurn);
+            PlayerStats.Modify(StatType.Energy, combatEnergyRegenPerTurn, false);
 
         isPlayerTurn = true;
         waitingForInput = true;
@@ -319,7 +319,7 @@ public class CombatManager : MonoBehaviour
     private void ApplyHealing(int amount)
     {
         if (amount > 0)
-            PlayerStats.Modify(StatType.Health, amount);
+            PlayerStats.Modify(StatType.Health, amount, false);
     }
 
     private void HandleOffensiveAction(CombatAction action)
@@ -446,7 +446,7 @@ public class CombatManager : MonoBehaviour
 
     private void ConsumePlayerEnergy(int cost)
     {
-        PlayerStats.Modify(StatType.Energy, -cost);
+        PlayerStats.Modify(StatType.Energy, -cost, false);
     }
 
     private void TryApplyOnHitEffects(EnemyStats target)
@@ -709,7 +709,7 @@ public class CombatManager : MonoBehaviour
     {
         int totalDefense = CalculatePlayerTotalDefense();
         int damage = CalculateEnemyDamageToPlayer(baseDamage, totalDefense);
-        PlayerStats.Modify(StatType.Health, -damage);
+        PlayerStats.Modify(StatType.Health, -damage, false);
         Log($"{currentEnemy.enemyName} deals {damage} damage.");
     }
 
