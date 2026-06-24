@@ -288,8 +288,12 @@ public class QuestUI : HotkeyPanelUI
         if (sr == null || contentParent == null)
             return;
 
+        if (contentParent is RectTransform crt)
+            LayoutRebuilder.ForceRebuildLayoutImmediate(crt);
+
         float contentHeight = contentParent is RectTransform rt ? rt.rect.height : 0f;
-        bool needsScroll = contentHeight > threshold;
+        float viewportHeight = sr.viewport != null ? sr.viewport.rect.height : threshold;
+        bool needsScroll = contentHeight > viewportHeight + 1f;
         sr.horizontal = false;
         sr.vertical = needsScroll;
         sr.verticalScrollbar = needsScroll ? sr.verticalScrollbar : null;

@@ -267,11 +267,11 @@ public class QuestTrackerUI : MonoBehaviour
         if (parentScrollRect == null)
             return;
 
-        float contentHeight = trackedQuestsContainer is RectTransform rt ? rt.rect.height : 0f;
-        bool needsScroll = contentHeight > maxParentHeight;
+        if (trackedQuestsContainer is RectTransform crt)
+            LayoutRebuilder.ForceRebuildLayoutImmediate(crt);
+
         parentScrollRect.horizontal = false;
-        parentScrollRect.vertical = needsScroll;
-        parentScrollRect.verticalScrollbar = needsScroll ? parentScrollRect.verticalScrollbar : null;
+        parentScrollRect.vertical = true;
         parentScrollRect.verticalNormalizedPosition = 1f;
     }
 }
