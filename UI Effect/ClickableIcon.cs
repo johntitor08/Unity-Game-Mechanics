@@ -86,14 +86,14 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     public void OnPointerClick(PointerEventData eventData) => PlayClickEffect();
 
-    public void PlayClickEffect()
+    public void PlayClickEffect(bool returnToNormal = false)
     {
         if (!isActiveAndEnabled || !enableClickEffect || Time.frameCount == _lastClickEffectFrame)
             return;
 
         _lastClickEffectFrame = Time.frameCount;
         StopAllCoroutines();
-        StartCoroutine(ClickEffect());
+        StartCoroutine(ClickEffect(returnToNormal));
         PlaySound(clickSound);
     }
 
@@ -116,12 +116,12 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         transform.localScale = endScale;
     }
 
-    System.Collections.IEnumerator ClickEffect()
+    System.Collections.IEnumerator ClickEffect(bool returnToNormal = false)
     {
         if (gameObject == null)
             yield break;
 
-        bool wasHovering = isHovering;
+        bool wasHovering = isHovering && !returnToNormal;
         Vector3 startScale = transform.localScale;
         Vector3 clickedScale = originalScale * clickScale;
         float elapsed = 0f;
