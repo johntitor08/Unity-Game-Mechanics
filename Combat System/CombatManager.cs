@@ -113,19 +113,10 @@ public class CombatManager : MonoBehaviour
         }
         else
         {
-            if (enemyStats != null)
-                Instance.enemyStats = enemyStats;
-
-            if (buffUIParent != null)
-                Instance.buffUIParent = buffUIParent;
-
-            if (buffUIPrefab != null)
-                Instance.buffUIPrefab = buffUIPrefab;
-
+            SceneSingletonAdopt.Adopt(Instance, this);
             Instance.inCombat = false;
             Instance.combatResolved = false;
             Instance.currentEnemy = null;
-
             Destroy(gameObject);
         }
     }
