@@ -443,6 +443,12 @@ public class QuestManager : MonoBehaviour
                     if (updatedState.isCompleted && objective.consumeItems)
                         InventoryManager.Instance.RemoveItem(objective.targetItem, objective.itemCount);
                 }
+                else if (newProgress < state.currentProgress)
+                {
+                    state.currentProgress = newProgress;
+                    OnObjectiveUpdated?.Invoke(quest, objective);
+                    SaveSystem.SaveGame();
+                }
             }
         }
     }
