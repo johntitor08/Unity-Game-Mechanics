@@ -46,6 +46,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     private Vector2 charRtAnchoredTransform;
     private Vector2 charRtSizeDelta;
     private Coroutine charFadeCoroutine;
+    private bool _charFadingOut;
     public event Action<int> OnBackgroundChanged;
     public ItemDatabase itemDatabase;
     public TMP_Text mapTitleText;
@@ -905,6 +906,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             iconPanelAnimator.SetTrigger(iconPanelCloseTrigger);
 
         SetActive(settingsIconPanel, false);
+        HideAllPanels();
+        SetActive(houseIconsPanel, false);
 
         if (charImage != null)
         {
@@ -923,10 +926,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 if (_lastBgIndex >= 0 && _lastBgIndex <= 7)
                     ApplySceneCharacterLayout();
 
-                Color c = charImage.color;
-                charImage.color = new Color(c.r, c.g, c.b, 1f);
-                charImage.gameObject.SetActive(true);
                 charImage.preserveAspect = true;
+                charImage.gameObject.SetActive(true);
+                charFadeCoroutine = StartCoroutine(FadeInCurrentCharacter());
             }
 
             else
@@ -966,6 +968,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     IEnumerator FadeInCharacter(Sprite newSprite)
     {
+        _charFadingOut = false;
         const float inDur = 0.28f;
         Color baseColor = charImage.color;
         charImage.gameObject.SetActive(true);
@@ -984,11 +987,29 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         charFadeCoroutine = null;
     }
 
+    IEnumerator FadeInCurrentCharacter()
+    {
+        _charFadingOut = false;
+        const float inDur = 0.28f;
+        Color baseColor = charImage.color;
+
+        for (float t = 0f; t < inDur; t += Time.deltaTime)
+        {
+            float a = Mathf.Lerp(0f, 1f, t / inDur);
+            charImage.color = new Color(baseColor.r, baseColor.g, baseColor.b, a);
+            yield return null;
+        }
+
+        charImage.color = new Color(baseColor.r, baseColor.g, baseColor.b, 1f);
+        charFadeCoroutine = null;
+    }
+
     IEnumerator FadeOutCharacter(float duration, DialogueNode endedNode = null)
     {
         if (charImage == null)
             yield break;
 
+        _charFadingOut = true;
         Color startColor = charImage.color;
         float elapsed = 0f;
 
@@ -1004,6 +1025,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         charImage.gameObject.SetActive(false);
         charImage.color = new Color(startColor.r, startColor.g, startColor.b, 1f);
         charFadeCoroutine = null;
+        _charFadingOut = false;
 
         if (endedNode != null)
             HandleSceneTransition(endedNode);
@@ -1089,8 +1111,15 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         _sceneWantsCharacter = false;
 
-        if (charFadeCoroutine != null)
+        if (charFadeCoroutine != null && _charFadingOut)
             return;
+
+        if (charFadeCoroutine != null)
+        {
+            StopCoroutine(charFadeCoroutine);
+            charFadeCoroutine = null;
+            _charFadingOut = false;
+        }
 
         if (DialogueManager.Instance == null || !DialogueManager.Instance.IsInDialogue())
             charImage.gameObject.SetActive(false);
