@@ -43,4 +43,29 @@ public class ItemDatabase : ScriptableObject
 
         Initialize();
     }
+
+    [ContextMenu("Populate From All ItemData")]
+    public void PopulateFromProject()
+    {
+        items.Clear();
+        var seen = new HashSet<string>();
+
+        foreach (var guid in UnityEditor.AssetDatabase.FindAssets("t:ItemData"))
+        {
+            var path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+            var item = UnityEditor.AssetDatabase.LoadAssetAtPath<ItemData>(path);
+
+            if (item == null || string.IsNullOrEmpty(item.itemID))
+                continue;
+
+            if (seen.Add(item.itemID))
+                items.Add(item);
+            else
+                Debug.LogError($"Duplicate itemID '{item.itemID}' at {path} — skipped.");
+        }
+
+        UnityEditor.EditorUtility.SetDirty(this);
+        UnityEditor.AssetDatabase.SaveAssets();
+        Debug.Log($"[ItemDatabase] Populated {items.Count} items from the project.");
+    }
 }
