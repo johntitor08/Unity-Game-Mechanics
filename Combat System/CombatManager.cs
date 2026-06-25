@@ -17,7 +17,20 @@ public class CombatManager : MonoBehaviour
     private PlayerBuffManager PlayerBuffs => PlayerBuffManager.Instance;
     private PlayerStats PlayerStats => PlayerStats.Instance;
     private EquipmentManager Equipment => EquipmentManager.Instance;
-    private StatusEffectManager PlayerEffects => PlayerStats != null ? PlayerStats.GetComponent<StatusEffectManager>() : null;
+    private StatusEffectManager _playerEffects;
+    private WaitForSeconds _waitTurn;
+    private WaitForSeconds _waitEnemyAction;
+
+    private StatusEffectManager PlayerEffects
+    {
+        get
+        {
+            if (_playerEffects == null && PlayerStats != null)
+                _playerEffects = PlayerStats.GetComponent<StatusEffectManager>();
+
+            return _playerEffects;
+        }
+    }
 
     [Header("Combat State")]
     public bool inCombat;
@@ -797,14 +810,14 @@ public class CombatManager : MonoBehaviour
     IEnumerator HandleFleeAfterDelay(float delay)
     {
         OnCombatEnded?.Invoke();
-        yield return new WaitForSeconds(delay);
+        yield return WaitFor(delay);
         EndCombatInternal();
     }
 
     IEnumerator HandleVictoryAfterDelay(float delay)
     {
         Log($"Defeated {currentEnemy.enemyName}!");
-        yield return new WaitForSeconds(delay);
+        yield return WaitFor(delay);
         GrantVictoryRewards();
         DropEnemyLoot();
         var defeated = currentEnemy;
@@ -816,13 +829,20 @@ public class CombatManager : MonoBehaviour
 
     IEnumerator HandleDefeatAfterDelay(float delay)
     {
-        yield return new WaitForSeconds(delay);
+        yield return WaitFor(delay);
         Log("You have been defeated and lost some gold.");
         ApplyDefeatPenalties();
         int gold = CurrencyManager.Instance != null ? CurrencyManager.Instance.Get(CurrencyType.Gold) : 0;
         Log($"Remaining gold: {gold}");
         OnCombatDefeat?.Invoke();
         OnCombatEnded?.Invoke();
+
+        if (PlayerStats != null && !PlayerStats.IsAlive())
+            PlayerStats.Set(StatType.Health, 1, true);
+
+        if (ProfileUI.Instance != null)
+            ProfileUI.Instance.RefreshAll();
+
         yield return _waitForSeconds2;
         EndCombatInternal();
     }
@@ -1000,9 +1020,20 @@ public class CombatManager : MonoBehaviour
             unlockedActions.Add(action);
     }
 
+    private WaitForSeconds WaitFor(float delay)
+    {
+        if (Mathf.Approximately(delay, turnDelay))
+            return _waitTurn ??= new WaitForSeconds(turnDelay);
+
+        if (Mathf.Approximately(delay, enemyActionDelay))
+            return _waitEnemyAction ??= new WaitForSeconds(enemyActionDelay);
+
+        return new WaitForSeconds(delay);
+    }
+
     private IEnumerator DelayedCall(float delay, System.Action action)
     {
-        yield return new WaitForSeconds(delay);
+        yield return WaitFor(delay);
 
         if (inCombat && !combatResolved)
             action?.Invoke();
