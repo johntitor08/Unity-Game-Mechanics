@@ -50,6 +50,7 @@ public class CurrencyManager : MonoBehaviour
         }
         else
         {
+            SceneSingletonAdopt.Adopt(Instance, this);
             Destroy(gameObject);
             return;
         }
