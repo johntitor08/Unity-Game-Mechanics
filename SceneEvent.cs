@@ -1810,6 +1810,15 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             ForegroundNotifier.Instance.ShowMessage(message, seconds);
     }
 
+    public void StartMapCombat(EnemyData enemy)
+    {
+        if (enemy == null || CombatManager.Instance == null || CombatManager.Instance.inCombat)
+            return;
+
+        HideAllPanels();
+        CombatManager.Instance.StartCombat(enemy);
+    }
+
     public void ShowGardenHole() => SetBackground(38);
 
     public void ShowPool() => SetBackground(39);
