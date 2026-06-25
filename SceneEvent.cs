@@ -140,7 +140,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SleepToNextDay,
         ShowGardenHole,
         ShowPool,
-        CollectItem
+        CollectItem,
+        OpenStove
     }
 
     [System.Serializable]
@@ -160,7 +161,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         public string name;
         public GameObject item;
         public int[] visibleOnBackgrounds;
-        public bool raiseAtNight;
     }
 
     [System.Serializable]
@@ -302,7 +302,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
             for (int i = 0; i < worldItems.Length; i++)
             {
-                if (worldItems[i].raiseAtNight && worldItems[i].item != null && worldItems[i].item.TryGetComponent<RectTransform>(out var rt))
+                if (WorldItemRaisesAtNight(worldItems[i].name) && worldItems[i].item != null && worldItems[i].item.TryGetComponent<RectTransform>(out var rt))
                     _itemDefaultY[i] = rt.anchoredPosition.y;
             }
         }
@@ -685,7 +685,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 charRt.anchorMin = new Vector2(0.5f, 0);
                 charRt.anchorMax = new Vector2(0.5f, 0);
                 charRt.pivot = new Vector2(0.5f, 0.5f);
-                charRt.anchoredPosition = new Vector2(375f, 375f);
+                charRt.anchoredPosition = new Vector2(0f, 375f);
                 charRt.sizeDelta = new Vector2(75f, 75f);
                 charRt.localScale = new Vector3(10f, 10f, 10f);
                 SetCharacter(27);
@@ -1346,7 +1346,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
             case SceneProgress.SceneHome:
                 SetBackground(11);
-                SetCharacter(26);
+                SetCharacter(27);
                 break;
 
             case SceneProgress.SceneMarket:
@@ -1452,6 +1452,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             case HoverAction.CollectItem:
                 CollectWorldItem(entry.worldItemIndex);
                 break;
+
+            case HoverAction.OpenStove:
+                OpenStove(entry.worldItemIndex);
+                break;
         }
     }
 
@@ -1489,7 +1493,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             if (entry.visibleOnBackgrounds != null && entry.visibleOnBackgrounds.Length > 0)
                 SetActive(entry.item, System.Array.IndexOf(entry.visibleOnBackgrounds, bgIndex) >= 0);
 
-            if (entry.raiseAtNight && entry.item.activeSelf && _itemDefaultY != null && i < _itemDefaultY.Length && entry.item.TryGetComponent<RectTransform>(out var rt))
+            if (WorldItemRaisesAtNight(entry.name) && entry.item.activeSelf && _itemDefaultY != null && i < _itemDefaultY.Length && entry.item.TryGetComponent<RectTransform>(out var rt))
             {
                 Vector2 p = rt.anchoredPosition;
                 rt.anchoredPosition = new Vector2(p.x, _itemDefaultY[i] + (IsNight() || IsEvening() ? 25f : 0f));
@@ -1841,6 +1845,13 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         else
             Destroy(worldItems[index].item);
     }
+
+    public void OpenStove(int index)
+    {
+        SetBackground(index > 0 ? index : 17);
+    }
+
+    static bool WorldItemRaisesAtNight(string itemName) => itemName == "HistoryBook";
 
     private void OnDoorClicked()
     {
