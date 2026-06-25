@@ -48,6 +48,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     private Vector2 charRtSizeDelta;
     private Coroutine charFadeCoroutine;
     private bool _charFadingOut;
+    private bool _charImageFromDialogue;
     public event Action<int> OnBackgroundChanged;
     public ItemDatabase itemDatabase;
     public TMP_Text mapTitleText;
@@ -625,6 +626,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             {
                 charImage.sprite = s;
                 _sceneWantsCharacter = true;
+                _charImageFromDialogue = false;
 
                 if (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue())
                     charImage.gameObject.SetActive(true);
@@ -987,7 +989,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             charFadeCoroutine = null;
         }
 
-        if (visible && charImage.sprite != sprite)
+        if (visible && charImage.sprite != sprite && _charImageFromDialogue)
             charFadeCoroutine = StartCoroutine(SwapCharacter(sprite));
         else
             charFadeCoroutine = StartCoroutine(FadeInCharacter(sprite));
@@ -995,6 +997,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     IEnumerator SwapCharacter(Sprite newSprite)
     {
+        _charImageFromDialogue = true;
         _charFadingOut = true;
         Color col = charImage.color;
         float startA = col.a;
@@ -1023,6 +1026,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     IEnumerator FadeInCharacter(Sprite newSprite)
     {
         _charFadingOut = false;
+        _charImageFromDialogue = true;
         const float inDur = 0.28f;
         Color baseColor = charImage.color;
         charImage.gameObject.SetActive(true);
