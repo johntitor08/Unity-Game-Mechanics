@@ -964,8 +964,19 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (charImage == null || sprite == null)
             return;
 
-        if (charImage.gameObject.activeSelf && charImage.sprite == sprite && charImage.color.a > 0.99f)
+        bool visible = charImage.gameObject.activeSelf && charImage.color.a > 0.05f;
+
+        if (visible && charImage.sprite == sprite)
         {
+            if (charFadeCoroutine != null)
+            {
+                StopCoroutine(charFadeCoroutine);
+                charFadeCoroutine = null;
+            }
+
+            _charFadingOut = false;
+            Color c = charImage.color;
+            charImage.color = new Color(c.r, c.g, c.b, 1f);
             ApplyDialogueCharacterLayout();
             return;
         }
@@ -976,7 +987,37 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             charFadeCoroutine = null;
         }
 
-        charFadeCoroutine = StartCoroutine(FadeInCharacter(sprite));
+        if (visible && charImage.sprite != sprite)
+            charFadeCoroutine = StartCoroutine(SwapCharacter(sprite));
+        else
+            charFadeCoroutine = StartCoroutine(FadeInCharacter(sprite));
+    }
+
+    IEnumerator SwapCharacter(Sprite newSprite)
+    {
+        _charFadingOut = true;
+        Color col = charImage.color;
+        float startA = col.a;
+
+        for (float e = 0f; e < 0.3f; e += Time.deltaTime)
+        {
+            charImage.color = new Color(col.r, col.g, col.b, Mathf.Lerp(startA, 0f, e / 0.3f));
+            yield return null;
+        }
+
+        _charFadingOut = false;
+        charImage.sprite = newSprite;
+        ApplyDialogueCharacterLayout();
+        charImage.color = new Color(col.r, col.g, col.b, 0f);
+
+        for (float e = 0f; e < 0.28f; e += Time.deltaTime)
+        {
+            charImage.color = new Color(col.r, col.g, col.b, Mathf.Lerp(0f, 1f, e / 0.28f));
+            yield return null;
+        }
+
+        charImage.color = new Color(col.r, col.g, col.b, 1f);
+        charFadeCoroutine = null;
     }
 
     IEnumerator FadeInCharacter(Sprite newSprite)
