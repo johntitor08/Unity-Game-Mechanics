@@ -204,6 +204,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public DialogueNode[] sceneStartDialogueNodes;
     public DialogueNode scene9SecondNode;
     public DialogueNode scene9FifthNode;
+    public DialogueNode finaleCutsceneNode;
 
     [Header("Enemies")]
     public EnemyData[] enemies;
@@ -720,6 +721,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         DialogueManager.Instance.backgroundImage.enabled = false;
         DialogueManager.Instance.backgroundImage.sprite = null;
+
+        if (backgroundImage != null && backgroundImage.color != Color.white)
+            backgroundImage.color = Color.white;
     }
 
     public void SetMap(int index)
@@ -909,6 +913,40 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetActive(settingsIconPanel, false);
         HideAllPanels();
         SetActive(houseIconsPanel, false);
+        bool isFinaleCutscene = node != null && node.name.StartsWith("Finale_");
+
+        if (DialogueManager.Instance != null && DialogueManager.Instance.backgroundImage != null)
+            DialogueManager.Instance.backgroundImage.preserveAspect = isFinaleCutscene;
+
+        if (backgroundImage != null)
+        {
+            if (isFinaleCutscene)
+            {
+                backgroundImage.enabled = true;
+                backgroundImage.color = Color.black;
+            }
+            else if (backgroundImage.color != Color.white)
+            {
+                backgroundImage.color = Color.white;
+            }
+        }
+
+        if (isFinaleCutscene)
+        {
+            if (charFadeCoroutine != null)
+            {
+                StopCoroutine(charFadeCoroutine);
+                charFadeCoroutine = null;
+            }
+
+            _charFadingOut = false;
+            _sceneCharacterActive = false;
+
+            if (charImage != null)
+                charImage.gameObject.SetActive(false);
+
+            return;
+        }
 
         if (charImage != null)
         {
@@ -1772,10 +1810,48 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         ScenarioData scenario = GetNextDayScenario();
 
         if (scenario == null)
+        {
+            TryPlayFinaleCutscene();
             return;
+        }
 
         dayScenarioPending = false;
         ScenarioManager.Instance.StartScenario(scenario);
+    }
+
+    private void TryPlayFinaleCutscene()
+    {
+        const string finaleFlag = "ashenveil_finale_shown";
+
+        if (finaleCutsceneNode == null || DialogueManager.Instance == null || StoryFlags.Has(finaleFlag) || !AllDayScenariosCompleted())
+            return;
+
+        dayScenarioPending = false;
+        StoryFlags.Add(finaleFlag);
+        DialogueManager.Instance.StartDialogue(finaleCutsceneNode);
+    }
+
+    private bool AllDayScenariosCompleted()
+    {
+        ScenarioManager sm = ScenarioManager.Instance;
+
+        if (sm == null || sm.availableScenarios == null)
+            return false;
+
+        bool anyDayScenario = false;
+
+        foreach (ScenarioData scenario in sm.availableScenarios)
+        {
+            if (scenario == null || string.IsNullOrEmpty(scenario.scenarioID) || !scenario.scenarioID.StartsWith("ashenveil_day"))
+                continue;
+
+            anyDayScenario = true;
+
+            if (!sm.IsScenarioCompleted(scenario.scenarioID))
+                return false;
+        }
+
+        return anyDayScenario;
     }
 
     private ScenarioData GetNextDayScenario()
