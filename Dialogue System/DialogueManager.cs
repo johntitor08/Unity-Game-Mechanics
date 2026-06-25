@@ -118,22 +118,9 @@ public class DialogueManager : MonoBehaviour
         if (fresh == null)
             return;
 
-        dialoguePanel = fresh.dialoguePanel;
-        speakerNameText = fresh.speakerNameText;
-        dialogueText = fresh.dialogueText;
-        speakerPortrait = fresh.speakerPortrait;
-        backgroundImage = fresh.backgroundImage;
-        continueButton = fresh.continueButton;
-        choicesPanel = fresh.choicesPanel;
-        choicesContainer = fresh.choicesContainer;
-        choiceButtonPrefab = fresh.choiceButtonPrefab;
+        SceneSingletonAdopt.Adopt(this, fresh);
         enableSpeakerPortraits = fresh.enableSpeakerPortraits;
-
-        if (fresh.portraitsByName != null && fresh.portraitsByName.Length > 0)
-        {
-            portraitsByName = fresh.portraitsByName;
-            _portraitMap = null;
-        }
+        _portraitMap = null;
     }
 
     Sprite LookupPortrait(string name)
