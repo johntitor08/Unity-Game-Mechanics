@@ -33,6 +33,7 @@ public class GameAudioManager : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
+            SceneSingletonAdopt.Adopt(Instance, this);
             Destroy(gameObject);
             return;
         }
