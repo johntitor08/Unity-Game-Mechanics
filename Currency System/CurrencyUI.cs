@@ -64,6 +64,11 @@ public class CurrencyUI : MonoBehaviour
         Unsubscribe();
     }
 
+    void OnDestroy()
+    {
+        Unsubscribe();
+    }
+
     private void Subscribe()
     {
         if (CurrencyManager.Instance == null)
@@ -90,6 +95,9 @@ public class CurrencyUI : MonoBehaviour
 
     void OnCurrencyChanged(CurrencyType type, int oldAmount, int newAmount)
     {
+        if (this == null)
+            return;
+
         UpdateDisplay(type, newAmount);
 
         if (displayDict.TryGetValue(type, out var display) && display.animateOnChange)
