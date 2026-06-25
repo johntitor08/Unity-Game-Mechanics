@@ -16,6 +16,7 @@ public class SaveData
     public int currentDay = 1;
     public float phaseProgress = 0f;
     public bool resumeDialogueOnLoad;
+    public bool dayScenarioPending;
     public List<string> inventoryKeys = new();
     public List<int> inventoryCounts = new();
     public List<EquippedItemSave> equippedItems = new();

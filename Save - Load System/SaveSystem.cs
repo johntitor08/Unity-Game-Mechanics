@@ -96,7 +96,10 @@ public static class SaveSystem
             data.originID = OriginManager.Instance.GetSaveID();
 
         if (SceneEvent.Instance != null)
+        {
             data.sceneProgress = (int)SceneEvent.Instance.Progress;
+            data.dayScenarioPending = SceneEvent.Instance.DayScenarioPending;
+        }
 
         if (TimePhaseManager.Instance != null)
         {
@@ -254,6 +257,7 @@ public static class SaveSystem
 
         if (SceneEvent.Instance != null)
         {
+            SceneEvent.Instance.DayScenarioPending = data.dayScenarioPending;
             SceneEvent.Instance.UnsubscribeDialogue();
             SceneEvent.Instance.SubscribeDialogue();
             SceneEvent.Instance.ApplySceneProgress((SceneProgress)data.sceneProgress);
