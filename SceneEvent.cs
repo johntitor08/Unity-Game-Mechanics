@@ -641,11 +641,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (backgroundImage != null && index >= 0 && index < backgrounds.Length)
             backgroundImage.sprite = ResolveBg(index);
 
-        if (DialogueManager.Instance != null && DialogueManager.Instance.backgroundImage != null && !DialogueManager.Instance.IsInDialogue())
-        {
-            DialogueManager.Instance.backgroundImage.enabled = false;
-            DialogueManager.Instance.backgroundImage.sprite = null;
-        }
+        ClearDialogueBackgroundIfExploring();
 
         SetActive(townNpc, index == 0);
 
@@ -716,6 +712,19 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         TimePhase phase = TimePhaseManager.Instance != null ? TimePhaseManager.Instance.currentPhase : TimePhase.Morning;
         return backgrounds[index].Resolve(phase);
+    }
+
+    // The dialogue system draws its own background ON TOP of this one (same BackgroundCanvas, higher
+    // sibling index). A cutscene's last node can leave that image enabled, statically covering the
+    // phase-aware scene background — so on every return to explore (background/phase change, HUD show)
+    // hide it so the time-of-day swap is actually visible.
+    private void ClearDialogueBackgroundIfExploring()
+    {
+        if (DialogueManager.Instance == null || DialogueManager.Instance.backgroundImage == null || DialogueManager.Instance.IsInDialogue())
+            return;
+
+        DialogueManager.Instance.backgroundImage.enabled = false;
+        DialogueManager.Instance.backgroundImage.sprite = null;
     }
 
     public void SetMap(int index)
@@ -1147,6 +1156,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             iconPanelAnimator.SetTrigger(iconPanelOpenTrigger);
 
         ApplyHouseIconVisibility(IsHouseBackground(_lastBgIndex));
+        ClearDialogueBackgroundIfExploring();
     }
 
     void HandleDialogueEnd(DialogueNode endedNode)
@@ -1572,7 +1582,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 backgroundImage.sprite = resolved;
         }
 
-        if (_lastBgIndex == 11 && charImage != null && DialogueManager.Instance != null && !DialogueManager.Instance.IsInDialogue())
+        ClearDialogueBackgroundIfExploring(); // reveal the phase-aware bg if a stale cutscene background is covering it
+
+        if (_lastBgIndex == 11 && _sceneCharacterActive && charImage != null && DialogueManager.Instance != null && !DialogueManager.Instance.IsInDialogue())
         {
             bool showHomeChar = !IsNight() && !IsEvening();
             SetActive(charImage.gameObject, showHomeChar);
@@ -1581,7 +1593,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 SetCharacter(27);
         }
 
-        if (charImage != null && charImage.gameObject.activeSelf && _lastCharIndex >= 0 && characters != null && _lastCharIndex < characters.Length)
+        if (_sceneCharacterActive && charImage != null && charImage.gameObject.activeSelf && _lastCharIndex >= 0 && characters != null && _lastCharIndex < characters.Length)
         {
             TimePhase phase = TimePhaseManager.Instance != null ? TimePhaseManager.Instance.currentPhase : TimePhase.Morning;
             Sprite s = characters[_lastCharIndex].Resolve(phase);
