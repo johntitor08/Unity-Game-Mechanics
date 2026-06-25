@@ -51,6 +51,9 @@ public class TimePhaseManager : MonoBehaviour
         }
         else
         {
+            SceneSingletonAdopt.Adopt(Instance, this);
+            Instance.mainCamera = Camera.main;
+            Instance.RewirePhaseButtons();
             Destroy(gameObject);
             return;
         }
@@ -59,14 +62,24 @@ public class TimePhaseManager : MonoBehaviour
             mainCamera = Camera.main;
     }
 
-    void Start()
+    public void RewirePhaseButtons()
     {
         if (nextPhaseButton != null)
+        {
+            nextPhaseButton.onClick.RemoveListener(GoNextPhase);
             nextPhaseButton.onClick.AddListener(GoNextPhase);
+        }
 
         if (previousPhaseButton != null)
+        {
+            previousPhaseButton.onClick.RemoveListener(GoPreviousPhase);
             previousPhaseButton.onClick.AddListener(GoPreviousPhase);
+        }
+    }
 
+    void Start()
+    {
+        RewirePhaseButtons();
         EnsureCurrencySubscription();
         EnsureScenarioSubscription();
         OnPhaseChanged?.Invoke(currentPhase);
