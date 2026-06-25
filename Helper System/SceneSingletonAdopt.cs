@@ -11,11 +11,13 @@ public static class SceneSingletonAdopt
         if (persistent == null || fresh == null || ReferenceEquals(persistent, fresh))
             return;
 
+        Transform freshRoot = fresh.transform.root;
+
         foreach (var f in fresh.GetType().GetFields(Fields))
         {
             if (typeof(Object).IsAssignableFrom(f.FieldType))
             {
-                if (f.GetValue(fresh) is Object v && v != null)
+                if (f.GetValue(fresh) is Object v && v != null && !BelongsToHierarchy(v, freshRoot))
                     f.SetValue(persistent, v);
 
                 continue;
@@ -37,5 +39,14 @@ public static class SceneSingletonAdopt
                     f.SetValue(persistent, list);
             }
         }
+    }
+
+    static bool BelongsToHierarchy(Object value, Transform root)
+    {
+        if (root == null)
+            return false;
+
+        Transform t = value is Component c ? c.transform : (value is GameObject g ? g.transform : null);
+        return t != null && t.IsChildOf(root);
     }
 }
