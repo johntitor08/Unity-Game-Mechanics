@@ -426,15 +426,11 @@ public class QuestManager : MonoBehaviour
                     continue;
 
                 var state = GetObjectiveState(quest.questID, objective.objectiveID);
-
-                if (state.isCompleted)
-                    continue;
-
                 int currentCount = InventoryManager.Instance.GetQuantity(objective.targetItem);
                 int required = objective.GetRequiredCount();
                 int newProgress = Mathf.Min(currentCount, required);
 
-                if (newProgress > state.currentProgress)
+                if (!state.isCompleted && newProgress > state.currentProgress)
                 {
                     int delta = newProgress - state.currentProgress;
                     UpdateObjectiveProgress(quest.questID, objective.objectiveID, delta);
@@ -443,9 +439,13 @@ public class QuestManager : MonoBehaviour
                     if (updatedState.isCompleted && objective.consumeItems)
                         InventoryManager.Instance.RemoveItem(objective.targetItem, objective.itemCount);
                 }
-                else if (newProgress < state.currentProgress)
+                else if (newProgress < state.currentProgress && !objective.consumeItems)
                 {
                     state.currentProgress = newProgress;
+
+                    if (state.isCompleted && newProgress < required)
+                        state.isCompleted = false;
+
                     OnObjectiveUpdated?.Invoke(quest, objective);
                     SaveSystem.SaveGame();
                 }
