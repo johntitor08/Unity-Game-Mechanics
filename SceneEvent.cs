@@ -25,6 +25,7 @@ public enum SceneProgress
 
 public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 {
+    private static readonly WaitForSecondsRealtime _waitForSecondsRealtime0_12 = new(0.12f);
     public static SceneEvent Instance { get; private set; }
     private SceneProgress progress = SceneProgress.Scene1;
     private int currentMapIndex;
@@ -652,13 +653,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         OnBackgroundChanged?.Invoke(index);
         ApplyHoverVisibility(index);
         ApplyItemVisibility(index);
-        bool isHouse = index == 11 || index == 13 || index == 14 || index == 15 || index == 16 || index == 17 || index == 20 || index == 38 || index == 39 || index == 40;
-        SetActive(houseIconsPanel, isHouse);
-
-        if (roomIcons != null)
-            foreach (var room in roomIcons)
-                SetActive(room.icon, isHouse);
-
+        ApplyHouseIconVisibility(IsHouseBackground(index));
         bool showChar = index >= 8 && index <= 12;
 
         if (index == 11 && (IsNight() || IsEvening()))
@@ -917,6 +912,14 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 charFadeCoroutine = null;
             }
 
+            _charFadingOut = false;
+
+            if (charImage.gameObject.activeSelf)
+            {
+                Color cc = charImage.color;
+                charImage.color = new Color(cc.r, cc.g, cc.b, 1f);
+            }
+
             if (node != null && node.characterImage != null)
             {
                 ShowCharacterFaded(node.characterImage);
@@ -927,8 +930,18 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                     ApplySceneCharacterLayout();
 
                 charImage.preserveAspect = true;
+                bool alreadyVisible = charImage.gameObject.activeSelf && charImage.color.a > 0.99f;
                 charImage.gameObject.SetActive(true);
-                charFadeCoroutine = StartCoroutine(FadeInCurrentCharacter());
+
+                if (alreadyVisible)
+                {
+                    Color c = charImage.color;
+                    charImage.color = new Color(c.r, c.g, c.b, 1f);
+                }
+                else
+                {
+                    charFadeCoroutine = StartCoroutine(FadeInCurrentCharacter());
+                }
             }
 
             else
@@ -1063,6 +1076,17 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     bool IsInDialogue() => DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue();
 
+    static bool IsHouseBackground(int index) => index == 11 || index == 13 || index == 14 || index == 15 || index == 16 || index == 17 || index == 20 || index == 38 || index == 39 || index == 40;
+
+    void ApplyHouseIconVisibility(bool isHouse)
+    {
+        SetActive(houseIconsPanel, isHouse);
+
+        if (roomIcons != null)
+            foreach (var room in roomIcons)
+                SetActive(room.icon, isHouse);
+    }
+
     public void ShowHudPanels()
     {
         SetActive(settingsIconPanel, true);
@@ -1074,6 +1098,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (iconPanelAnimator != null)
             iconPanelAnimator.SetTrigger(iconPanelOpenTrigger);
+
+        ApplyHouseIconVisibility(IsHouseBackground(_lastBgIndex));
     }
 
     void HandleDialogueEnd(DialogueNode endedNode)
@@ -1088,7 +1114,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 charFadeCoroutine = null;
             }
 
-            charFadeCoroutine = StartCoroutine(FadeOutCharacter(0.5f, isFinal ? endedNode : null));
+            charFadeCoroutine = StartCoroutine(DeferredFadeOut(0.5f, isFinal ? endedNode : null));
         }
         else if (isFinal)
         {
@@ -1102,6 +1128,13 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (Progress == SceneProgress.SceneMarket && sceneStartDialogueNodes != null && sceneStartDialogueNodes.Length > 9 && sceneStartDialogueNodes[9] != null && endedNode == sceneStartDialogueNodes[9] && MarketUI.Instance != null)
             MarketUI.Instance.OpenMarket();
+    }
+
+    IEnumerator DeferredFadeOut(float duration, DialogueNode endedNode)
+    {
+        _charFadingOut = true;
+        yield return _waitForSecondsRealtime0_12;
+        yield return FadeOutCharacter(duration, endedNode);
     }
 
     void OnScenarioCompleted(ScenarioData scenario)
