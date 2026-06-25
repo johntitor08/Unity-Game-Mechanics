@@ -642,7 +642,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             backgroundImage.sprite = ResolveBg(index);
 
         ClearDialogueBackgroundIfExploring();
-
         SetActive(townNpc, index == 0);
 
         if (index == 0)
@@ -714,10 +713,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         return backgrounds[index].Resolve(phase);
     }
 
-    // The dialogue system draws its own background ON TOP of this one (same BackgroundCanvas, higher
-    // sibling index). A cutscene's last node can leave that image enabled, statically covering the
-    // phase-aware scene background — so on every return to explore (background/phase change, HUD show)
-    // hide it so the time-of-day swap is actually visible.
     private void ClearDialogueBackgroundIfExploring()
     {
         if (DialogueManager.Instance == null || DialogueManager.Instance.backgroundImage == null || DialogueManager.Instance.IsInDialogue())
@@ -1582,7 +1577,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 backgroundImage.sprite = resolved;
         }
 
-        ClearDialogueBackgroundIfExploring(); // reveal the phase-aware bg if a stale cutscene background is covering it
+        ClearDialogueBackgroundIfExploring();
 
         if (_lastBgIndex == 11 && _sceneCharacterActive && charImage != null && DialogueManager.Instance != null && !DialogueManager.Instance.IsInDialogue())
         {
