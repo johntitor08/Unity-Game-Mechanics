@@ -39,7 +39,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     private int _lastBgIndex = -1;
     private int _lastCharIndex = -1;
     private bool dayScenarioPending;
-    private bool _sceneWantsCharacter;
+    private bool _sceneCharacterActive;
     private bool _doorClicked;
     private TimePhase _lastObservedPhase = TimePhase.Morning;
     private float[] _itemDefaultY;
@@ -625,7 +625,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             if (s != null)
             {
                 charImage.sprite = s;
-                _sceneWantsCharacter = true;
+                _sceneCharacterActive = true;
                 _charImageFromDialogue = false;
 
                 if (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue())
@@ -661,7 +661,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (index == 11 && (IsNight() || IsEvening()))
             showChar = false;
 
-        _sceneWantsCharacter = showChar;
+        _sceneCharacterActive = showChar;
 
         if (!DialogueManager.Instance.IsInDialogue())
             SetActive(charImage.gameObject, showChar);
@@ -685,7 +685,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 charRt.anchorMin = new Vector2(0.5f, 0);
                 charRt.anchorMax = new Vector2(0.5f, 0);
                 charRt.pivot = new Vector2(0.5f, 0.5f);
-                charRt.anchoredPosition = new Vector2(0f, 375f);
+                charRt.anchoredPosition = new Vector2(375f, 375f);
                 charRt.sizeDelta = new Vector2(75f, 75f);
                 charRt.localScale = new Vector3(10f, 10f, 10f);
                 SetCharacter(27);
@@ -926,7 +926,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             {
                 ShowCharacterFaded(node.characterImage);
             }
-            else if (_sceneWantsCharacter)
+            else if (_sceneCharacterActive)
             {
                 if (_lastBgIndex >= 0 && _lastBgIndex <= 7)
                     ApplySceneCharacterLayout();
@@ -989,7 +989,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             charFadeCoroutine = null;
         }
 
-        if (visible && charImage.sprite != sprite && _charImageFromDialogue)
+        if (visible && charImage.sprite != sprite)
             charFadeCoroutine = StartCoroutine(SwapCharacter(sprite));
         else
             charFadeCoroutine = StartCoroutine(FadeInCharacter(sprite));
@@ -998,6 +998,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     IEnumerator SwapCharacter(Sprite newSprite)
     {
         _charImageFromDialogue = true;
+        _sceneCharacterActive = false;
         _charFadingOut = true;
         Color col = charImage.color;
         float startA = col.a;
@@ -1027,6 +1028,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     {
         _charFadingOut = false;
         _charImageFromDialogue = true;
+        _sceneCharacterActive = false;
         const float inDur = 0.28f;
         Color baseColor = charImage.color;
         charImage.gameObject.SetActive(true);
@@ -1187,7 +1189,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (charImage == null)
             return;
 
-        _sceneWantsCharacter = false;
+        _sceneCharacterActive = false;
 
         if (charFadeCoroutine != null && _charFadingOut)
             return;
