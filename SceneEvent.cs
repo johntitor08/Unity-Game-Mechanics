@@ -49,6 +49,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     private Coroutine charFadeCoroutine;
     private bool _charFadingOut;
     private bool _charImageFromDialogue;
+    private Sprite _dialogueBgCurrent;
+    private Sprite _dialogueBgPending;
     public event Action<int> OnBackgroundChanged;
     public ItemDatabase itemDatabase;
     public TMP_Text mapTitleText;
@@ -721,6 +723,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         DialogueManager.Instance.backgroundImage.enabled = false;
         DialogueManager.Instance.backgroundImage.sprite = null;
+        _dialogueBgCurrent = null;
+        _dialogueBgPending = null;
 
         if (backgroundImage != null && backgroundImage.color != Color.white)
             backgroundImage.color = Color.white;
@@ -966,6 +970,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
             if (node != null && node.characterImage != null)
             {
+                _dialogueBgPending = node.backgroundImage;
                 ShowCharacterFaded(node.characterImage);
             }
             else if (_sceneCharacterActive)
@@ -1000,6 +1005,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (charImage == null || node == null || node.characterImage == null)
             return;
 
+        _dialogueBgPending = node.backgroundImage;
         ShowCharacterFaded(node.characterImage);
     }
 
@@ -1009,6 +1015,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             return;
 
         bool visible = charImage.gameObject.activeSelf && charImage.color.a > 0.05f;
+        bool deferBg = visible && charImage.sprite != sprite && _dialogueBgPending != null && _dialogueBgCurrent != null && _dialogueBgPending != _dialogueBgCurrent;
 
         if (visible && charImage.sprite == sprite)
         {
@@ -1022,6 +1029,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             Color c = charImage.color;
             charImage.color = new Color(c.r, c.g, c.b, 1f);
             ApplyDialogueCharacterLayout();
+
+            if (_dialogueBgPending != null)
+                _dialogueBgCurrent = _dialogueBgPending;
+
             return;
         }
 
@@ -1032,9 +1043,19 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         }
 
         if (visible && charImage.sprite != sprite)
+        {
+            if (deferBg && DialogueManager.Instance != null && DialogueManager.Instance.backgroundImage != null)
+                DialogueManager.Instance.backgroundImage.sprite = _dialogueBgCurrent;
+
             charFadeCoroutine = StartCoroutine(SwapCharacter(sprite));
+        }
         else
+        {
+            if (_dialogueBgPending != null)
+                _dialogueBgCurrent = _dialogueBgPending;
+
             charFadeCoroutine = StartCoroutine(FadeInCharacter(sprite));
+        }
     }
 
     IEnumerator SwapCharacter(Sprite newSprite)
@@ -1054,6 +1075,16 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         _charFadingOut = false;
         charImage.sprite = newSprite;
         ApplyDialogueCharacterLayout();
+
+        if (_dialogueBgPending != null && DialogueManager.Instance != null && DialogueManager.Instance.backgroundImage != null)
+        {
+            DialogueManager.Instance.backgroundImage.sprite = _dialogueBgPending;
+            DialogueManager.Instance.backgroundImage.enabled = true;
+        }
+
+        if (_dialogueBgPending != null)
+            _dialogueBgCurrent = _dialogueBgPending;
+
         charImage.color = new Color(col.r, col.g, col.b, 0f);
 
         for (float e = 0f; e < 0.28f; e += Time.deltaTime)
