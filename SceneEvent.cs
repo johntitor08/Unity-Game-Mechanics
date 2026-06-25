@@ -39,6 +39,13 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     private int _lastBgIndex = -1;
     private int _lastCharIndex = -1;
     private bool dayScenarioPending;
+
+    public bool DayScenarioPending
+    {
+        get => dayScenarioPending;
+        set => dayScenarioPending = value;
+    }
+
     private bool _sceneCharacterActive;
     private bool _doorClicked;
     private TimePhase _lastObservedPhase = TimePhase.Morning;
@@ -1974,6 +1981,29 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public void OpenStove(int index)
     {
         SetBackground(index > 0 ? index : 17);
+        TryBrewTeaAtStove();
+    }
+
+    private void TryBrewTeaAtStove()
+    {
+        const string questID = "q01_bir_fincan_huzur";
+        const string brewObjectiveID = "q01_obj3";
+
+        if (QuestManager.Instance == null || !QuestManager.Instance.IsQuestActive(questID))
+            return;
+
+        var objective = QuestManager.Instance.GetObjectiveState(questID, brewObjectiveID);
+
+        if (objective == null || objective.isCompleted)
+            return;
+
+        QuestManager.Instance.UpdateObjectiveProgress(questID, brewObjectiveID, 1);
+        ItemData tea = ItemDatabase.Instance != null ? ItemDatabase.Instance.GetByID("apple_tea") : null;
+
+        if (tea != null && InventoryManager.Instance != null)
+            InventoryManager.Instance.AddItem(tea);
+
+        ShowForegroundMessage("Çay demlendi — bir fincan elma çayı aldın.", 3f);
     }
 
     static bool WorldItemRaisesAtNight(string itemName) => itemName == "HistoryBook";
