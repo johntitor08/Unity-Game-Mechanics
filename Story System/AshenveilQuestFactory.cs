@@ -162,8 +162,8 @@ public class AshenveilQuestFactory : MonoBehaviour
             Interact("q01_obj4", "Fincanı Maren'e götür")
         };
 
-        q.itemRewards = assets != null ? new[] { assets.appleTea } : new ItemData[0];
-        q.itemRewardQuantities = new[] { 1 };
+        q.itemRewards = assets != null ? new ItemData[] { assets.appleTea, assets.marenNecklace } : new ItemData[0];
+        q.itemRewardQuantities = new[] { 1, 1 };
         q.experienceReward = 50;
         return q;
     }
@@ -181,8 +181,8 @@ public class AshenveilQuestFactory : MonoBehaviour
             Talk("q02_obj5", "İhtiyar Corvin ile konuş")
         };
 
-        q.itemRewards = assets != null ? new[] { assets.rustedKey } : new ItemData[0];
-        q.itemRewardQuantities = new[] { 1 };
+        q.itemRewards = assets != null ? new ItemData[] { assets.rustedKey, assets.blacksmithApron } : new ItemData[0];
+        q.itemRewardQuantities = new[] { 1, 1 };
         q.experienceReward = 80;
         return q;
     }
@@ -198,8 +198,8 @@ public class AshenveilQuestFactory : MonoBehaviour
             Interact("q03_obj3", "Ahırın arkasındaki kutuyu bul")
         };
 
-        q.itemRewards = assets != null ? new[] { assets.missingContract } : new ItemData[0];
-        q.itemRewardQuantities = new[] { 1 };
+        q.itemRewards = assets != null ? new ItemData[] { assets.missingContract, assets.villageCoat } : new ItemData[0];
+        q.itemRewardQuantities = new[] { 1, 1 };
         q.experienceReward = 60;
         return q;
     }
