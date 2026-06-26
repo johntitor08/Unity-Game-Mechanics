@@ -312,7 +312,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
             for (int i = 0; i < worldItems.Length; i++)
             {
-                if (WorldItemRaisesAtNight(worldItems[i].name) && worldItems[i].item != null && worldItems[i].item.TryGetComponent<RectTransform>(out var rt))
+                if (worldItems[i].name == "HistoryBook" && worldItems[i].item != null && worldItems[i].item.TryGetComponent<RectTransform>(out var rt))
                     _itemDefaultY[i] = rt.anchoredPosition.y;
             }
         }
@@ -651,7 +651,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (backgroundImage != null && index >= 0 && index < backgrounds.Length)
             backgroundImage.sprite = ResolveBg(index);
 
-        ClearDialogueBackgroundIfExploring();
+        ClearDialogueBackground();
         SetActive(townNpc, index == 0);
 
         if (index == 0)
@@ -723,7 +723,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         return backgrounds[index].Resolve(phase);
     }
 
-    private void ClearDialogueBackgroundIfExploring()
+    private void ClearDialogueBackground()
     {
         if (DialogueManager.Instance == null || DialogueManager.Instance.backgroundImage == null || DialogueManager.Instance.IsInDialogue())
             return;
@@ -1168,7 +1168,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         _charFadingOut = false;
 
         if (endedNode != null)
+        {
             HandleSceneTransition(endedNode);
+            ClearDialogueBackground();
+        }
     }
 
     void ApplyDialogueCharacterLayout()
@@ -1227,7 +1230,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             iconPanelAnimator.SetTrigger(iconPanelOpenTrigger);
 
         ApplyHouseIconVisibility(IsHouseBackground(_lastBgIndex));
-        ClearDialogueBackgroundIfExploring();
+
+        if (!_charFadingOut)
+            ClearDialogueBackground();
     }
 
     void HandleDialogueEnd(DialogueNode endedNode)
@@ -1576,7 +1581,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             if (entry.visibleOnBackgrounds != null && entry.visibleOnBackgrounds.Length > 0)
                 SetActive(entry.item, System.Array.IndexOf(entry.visibleOnBackgrounds, bgIndex) >= 0);
 
-            if (WorldItemRaisesAtNight(entry.name) && entry.item.activeSelf && _itemDefaultY != null && i < _itemDefaultY.Length && entry.item.TryGetComponent<RectTransform>(out var rt))
+            if (entry.name == "HistoryBook" && entry.item.activeSelf && _itemDefaultY != null && i < _itemDefaultY.Length && entry.item.TryGetComponent<RectTransform>(out var rt))
             {
                 Vector2 p = rt.anchoredPosition;
                 rt.anchoredPosition = new Vector2(p.x, _itemDefaultY[i] + (IsNight() || IsEvening() ? 25f : 0f));
@@ -1653,7 +1658,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 backgroundImage.sprite = resolved;
         }
 
-        ClearDialogueBackgroundIfExploring();
+        ClearDialogueBackground();
 
         if (_lastBgIndex == 11 && _sceneCharacterActive && charImage != null && DialogueManager.Instance != null && !DialogueManager.Instance.IsInDialogue())
         {
@@ -1957,6 +1962,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         backgroundImage.sprite = spr;
         CloseAnimated(mapPanel);
+
+        if (bgName == "bg_templeborn_archives")
+            DeliverTeaToMaren();
     }
 
     public void CollectAppleTeaSeed() => CollectWorldItem(WorldItemIndex.AppleTeaSeed);
@@ -2006,7 +2014,31 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         ShowForegroundMessage("Çay demlendi — bir fincan elma çayı aldın.", 3f);
     }
 
-    static bool WorldItemRaisesAtNight(string itemName) => itemName == "HistoryBook";
+    public void DeliverTeaToMaren()
+    {
+        const string questID = "q01_bir_fincan_huzur";
+        const string deliverObjectiveID = "q01_obj4";
+
+        if (QuestManager.Instance == null || !QuestManager.Instance.IsQuestActive(questID))
+            return;
+
+        var objective = QuestManager.Instance.GetObjectiveState(questID, deliverObjectiveID);
+
+        if (objective == null || objective.isCompleted)
+            return;
+
+        ItemData tea = ItemDatabase.Instance != null ? ItemDatabase.Instance.GetByID("apple_tea") : null;
+
+        if (tea == null || InventoryManager.Instance == null || InventoryManager.Instance.GetTotalQuantity("apple_tea") <= 0)
+        {
+            ShowForegroundMessage("Önce ocakta çayı demlemelisin.", 2.5f);
+            return;
+        }
+
+        InventoryManager.Instance.RemoveItem(tea);
+        QuestManager.Instance.UpdateObjectiveProgress(questID, deliverObjectiveID, 1);
+        ShowForegroundMessage("Fincanı Maren'e verdin.", 3f);
+    }
 
     private void OnDoorClicked()
     {
