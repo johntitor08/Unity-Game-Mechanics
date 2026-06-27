@@ -14,6 +14,7 @@ public class CombatManager : MonoBehaviour
     public event Action<bool> OnTurnChanged;
     public event Action<EnemyData> OnCombatVictory;
     public event Action OnCombatDefeat;
+    public event Action OnCombatFled;
     private PlayerBuffManager PlayerBuffs => PlayerBuffManager.Instance;
     private PlayerStats PlayerStats => PlayerStats.Instance;
     private EquipmentManager Equipment => EquipmentManager.Instance;
@@ -647,7 +648,6 @@ public class CombatManager : MonoBehaviour
                 break;
 
             default:
-
                 RandomDecision();
                 break;
         }
@@ -809,6 +809,7 @@ public class CombatManager : MonoBehaviour
 
     IEnumerator HandleFleeAfterDelay(float delay)
     {
+        OnCombatFled?.Invoke();
         OnCombatEnded?.Invoke();
         yield return WaitFor(delay);
         EndCombatInternal();
