@@ -214,6 +214,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public DialogueNode scene9SecondNode;
     public DialogueNode scene9FifthNode;
     public DialogueNode finaleCutsceneNode;
+    public DialogueNode marenDeliveryNode;
 
     [Header("Enemies")]
     public EnemyData[] enemies;
@@ -363,7 +364,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             TimePhaseManager.Instance.OnPhaseChanged += OnPhaseChanged;
 
         if (ScenarioManager.Instance != null)
+        {
+            ScenarioManager.Instance.OnScenarioStart += OnScenarioStarted;
             ScenarioManager.Instance.OnScenarioComplete += OnScenarioCompleted;
+        }
     }
 
     void OnDisable()
@@ -375,7 +379,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             TimePhaseManager.Instance.OnPhaseChanged -= OnPhaseChanged;
 
         if (ScenarioManager.Instance != null)
+        {
+            ScenarioManager.Instance.OnScenarioStart -= OnScenarioStarted;
             ScenarioManager.Instance.OnScenarioComplete -= OnScenarioCompleted;
+        }
     }
 
     void SetupIconButtons()
@@ -1270,6 +1277,26 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         yield return FadeOutCharacter(duration, endedNode);
     }
 
+    void OnScenarioStarted(ScenarioData scenario)
+    {
+        if (charFadeCoroutine != null)
+        {
+            StopCoroutine(charFadeCoroutine);
+            charFadeCoroutine = null;
+        }
+
+        _charFadingOut = false;
+        _sceneCharacterActive = false;
+        _charImageFromDialogue = false;
+
+        if (charImage != null)
+        {
+            Color cc = charImage.color;
+            charImage.color = new Color(cc.r, cc.g, cc.b, 1f);
+            charImage.gameObject.SetActive(false);
+        }
+    }
+
     void OnScenarioCompleted(ScenarioData scenario)
     {
         if (charImage == null)
@@ -2036,7 +2063,21 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         }
 
         InventoryManager.Instance.RemoveItem(tea);
-        QuestManager.Instance.UpdateObjectiveProgress(questID, deliverObjectiveID, 1);
+
+        if (marenDeliveryNode != null && DialogueManager.Instance != null && !DialogueManager.Instance.IsInDialogue())
+        {
+            DialogueManager.Instance.StartDialogue(marenDeliveryNode, () => CompleteMarenDelivery(questID, deliverObjectiveID));
+            return;
+        }
+
+        CompleteMarenDelivery(questID, deliverObjectiveID);
+    }
+
+    void CompleteMarenDelivery(string questID, string deliverObjectiveID)
+    {
+        if (QuestManager.Instance != null)
+            QuestManager.Instance.UpdateObjectiveProgress(questID, deliverObjectiveID, 1);
+
         ShowForegroundMessage("Fincanı Maren'e verdin.", 3f);
     }
 
