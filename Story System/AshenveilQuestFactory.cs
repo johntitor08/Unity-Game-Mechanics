@@ -100,6 +100,7 @@ public class AshenveilQuestFactory : MonoBehaviour
         q.timeLimitSeconds = timeLimitSeconds;
         q.canFail = canFail;
         q.trackObjectives = true;
+        q.autoCompleteWhenObjectivesComplete = true;
         q.showOnMap = true;
         q.icon = assets != null ? assets.GetQuestIcon(id) : null;
         return q;
@@ -152,33 +153,33 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest1()
     {
-        var q = Make("q01_bir_fincan_huzur", "Bir Fincan Huzur", "Maren seni sabah erkenden çağırdı.", QuestType.Side, flagsOnComplete: new[] { QuestFlags.MarenTeaServed });
+        var q = Make("q01_bir_fincan_huzur", "A Cup of Peace", "Maren called for you early in the morning.", QuestType.Side, flagsOnComplete: new[] { QuestFlags.MarenTeaServed });
 
         q.objectives = new[]
         {
-            Collect("q01_obj1", "Bahçeden 1 Taze Elma topla", assets != null ? assets.freshApple : null, 1),
-            Collect("q01_obj2", "Mutfak rafından 1 Tarçın al", assets != null ? assets.cinnamon : null, 1),
-            Interact("q01_obj3", "Ocakta çayı demle"),
-            Interact("q01_obj4", "Fincanı Maren'e götür")
+            Collect("q01_obj1", "Pick 1 Fresh Apple from the garden", assets != null ? assets.freshApple : null, 1),
+            Collect("q01_obj2", "Take 1 Cinnamon from the kitchen shelf", assets != null ? assets.cinnamon : null, 1),
+            Interact("q01_obj3", "Brew the tea at the stove"),
+            Interact("q01_obj4", "Take the cup to Maren")
         };
 
-        q.itemRewards = assets != null ? new ItemData[] { assets.appleTea, assets.marenNecklace } : new ItemData[0];
-        q.itemRewardQuantities = new[] { 1, 1 };
+        q.itemRewards = assets != null ? new ItemData[] { assets.marenNecklace } : new ItemData[0];
+        q.itemRewardQuantities = new[] { 1 };
         q.experienceReward = 50;
         return q;
     }
 
     QuestData BuildQuest2()
     {
-        var q = Make("q02_hala_duman", "Hâlâ Duman", "Üç evin boşaldığını Maren anlattı.", QuestType.Side, flagsOnComplete: new[] { QuestFlags.StillSmokeDone });
+        var q = Make("q02_hala_duman", "Still Smoke", "Maren told you that three houses have been emptied.", QuestType.Side, flagsOnComplete: new[] { QuestFlags.StillSmokeDone });
 
         q.objectives = new[]
         {
-            Collect("q02_obj1", "Demircinin evini ara (Yırtık Sözleşme)", assets != null ? assets.tornContract : null, 1),
-            Collect("q02_obj2", "Fırıncının evini ara (Yırtık Sözleşme)", assets != null ? assets.tornContract : null, 1),
-            Collect("q02_obj3", "Şifacının evini ara (Yırtık Sözleşme)", assets != null ? assets.tornContract : null, 1),
-            Kill("q02_obj4", "Köy dışındaki 2 Gölge Lurker'ı öldür", assets != null ? assets.shadowLurker : null, 2),
-            Talk("q02_obj5", "İhtiyar Corvin ile konuş")
+            Collect("q02_obj1", "Search the blacksmith's house (Torn Contract)", assets != null ? assets.tornContract : null, 1),
+            Collect("q02_obj2", "Search the baker's house (Torn Contract)", assets != null ? assets.tornContract : null, 1),
+            Collect("q02_obj3", "Search the healer's house (Torn Contract)", assets != null ? assets.tornContract : null, 1),
+            Kill("q02_obj4", "Kill 2 Shadow Lurkers outside the village", assets != null ? assets.shadowLurker : null, 2),
+            Talk("q02_obj5", "Speak with old Corvin")
         };
 
         q.itemRewards = assets != null ? new ItemData[] { assets.rustedKey, assets.blacksmithApron } : new ItemData[0];
@@ -189,13 +190,13 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest3()
     {
-        var q = Make("q03_kirik_muhur", "Kırık Mühür", "Şifacının evindeki sözleşme eksik.", QuestType.Side, flagsOnComplete: new[] { QuestFlags.MissingContractFound });
+        var q = Make("q03_kirik_muhur", "Broken Seal", "The contract in the healer's house is missing a piece.", QuestType.Side, flagsOnComplete: new[] { QuestFlags.MissingContractFound });
 
         q.objectives = new[]
         {
-            Talk("q03_obj1", "Köyde 3 farklı NPC ile konuş", talkCount: 3),
-            Interact("q03_obj2", "Köy meydanında gizli izi takip et"),
-            Interact("q03_obj3", "Ahırın arkasındaki kutuyu bul")
+            Talk("q03_obj1", "Talk to 3 different NPCs in the village", talkCount: 3),
+            Interact("q03_obj2", "Follow the hidden trail in the village square"),
+            Interact("q03_obj3", "Find the box behind the barn")
         };
 
         q.itemRewards = assets != null ? new ItemData[] { assets.missingContract, assets.villageCoat } : new ItemData[0];
@@ -206,13 +207,13 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest4()
     {
-        var q = Make("q04_yasli_adamin_itirafi", "Yaşlı Adam'ın İtirafı", "Corvin, akşam seni bekliyor.", QuestType.Main, requiredFlags: new[] { QuestFlags.StillSmokeDone }, flagsOnComplete: new[] { QuestFlags.ElderTruthKnown, QuestFlags.VossContractPlayerAware });
+        var q = Make("q04_yasli_adamin_itirafi", "The Old Man's Confession", "Corvin is waiting for you in the evening.", QuestType.Main, requiredFlags: new[] { QuestFlags.StillSmokeDone }, flagsOnComplete: new[] { QuestFlags.ElderTruthKnown, QuestFlags.VossContractPlayerAware });
 
         q.objectives = new[]
         {
-            Talk("q04_obj1", "Corvin'i dinle"),
-            Interact("q04_obj2", "Eski meydan çeşmesini bul"),
-            Interact("q04_obj3", "Çeşmenin altındaki gizli belgeyi al")
+            Talk("q04_obj1", "Listen to Corvin"),
+            Interact("q04_obj2", "Find the old square fountain"),
+            Interact("q04_obj3", "Take the hidden document beneath the fountain")
         };
 
         q.itemRewards = assets != null ? new[] { assets.vossDiary } : new ItemData[0];
@@ -223,15 +224,15 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest5()
     {
-        var q = Make("q05_acik_el", "Açık El", "Defterdeki ilk isim değirmende. Esiri bul ve kurtar.", QuestType.Main, requiredFlags: new[] { QuestFlags.ElderTruthKnown }, flagsOnComplete: new[] { QuestFlags.FirstPrisonerRescued }, hasTimeLimit: true, timeLimitSeconds: TwoDaySeconds(), canFail: true);
+        var q = Make("q05_acik_el", "Open Hand", "The first name in the ledger is at the mill. Find and rescue the captive.", QuestType.Main, requiredFlags: new[] { QuestFlags.ElderTruthKnown }, flagsOnComplete: new[] { QuestFlags.FirstPrisonerRescued }, hasTimeLimit: true, timeLimitSeconds: TwoDaySeconds(), canFail: true);
 
         q.objectives = new[]
         {
-            Interact("q05_obj1", "Köy değirmenini araştır"),
-            Interact("q05_obj2", "Değirmencinin anlattığı mağaraya git"),
-            Kill("q05_obj3", "Mağaradaki 3 Gölge Bekçisi'ni öldür", assets != null ? assets.shadowGuard : null, 3),
-            Interact("q05_obj4", "Mağaradaki esiri kurtar"),
-            Interact("q05_obj5", "Esiri köye geri götür")
+            Interact("q05_obj1", "Investigate the village mill"),
+            Interact("q05_obj2", "Go to the cave the miller spoke of"),
+            Kill("q05_obj3", "Kill the 3 Shadow Guards in the cave", assets != null ? assets.shadowGuard : null, 3),
+            Interact("q05_obj4", "Rescue the captive in the cave"),
+            Interact("q05_obj5", "Take the captive back to the village")
         };
 
         q.experienceReward = 200;
@@ -240,12 +241,12 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest6()
     {
-        var q = Make("q06_tarif_defteri", "Tarif Defteri", "Kurtarılan esir, Maren'e eski bir tarif vermek istiyor.", QuestType.Side, requiredFlags: new[] { QuestFlags.FirstPrisonerRescued }, flagsOnComplete: new[] { QuestFlags.MarenRecipeGiven });
+        var q = Make("q06_tarif_defteri", "The Recipe Book", "The rescued captive wants to give Maren an old recipe.", QuestType.Side, requiredFlags: new[] { QuestFlags.FirstPrisonerRescued }, flagsOnComplete: new[] { QuestFlags.MarenRecipeGiven });
 
         q.objectives = new[]
         {
-            Collect("q06_obj1", "Tarlada Tarif Sayfası'nı bul", assets != null ? assets.recipePage : null, 1),
-            Talk("q06_obj2", "Tarifi Maren'e götür")
+            Collect("q06_obj1", "Find the Recipe Page in the field", assets != null ? assets.recipePage : null, 1),
+            Talk("q06_obj2", "Take the recipe to Maren")
         };
 
         q.itemRewards = assets != null ? new[] { assets.applePie } : new ItemData[0];
@@ -256,14 +257,14 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest7()
     {
-        var q = Make("q07_corvinin_borcu", "Corvin'in Borcu", "Eksik sözleşmeyi bulduktan sonra Corvin seni çağırdı.", QuestType.Side, requiredFlags: new[] { QuestFlags.MissingContractFound }, flagsOnComplete: new[] { QuestFlags.CorvinDebtSettled });
+        var q = Make("q07_corvinin_borcu", "Corvin's Debt", "After finding the missing contract, Corvin called for you.", QuestType.Side, requiredFlags: new[] { QuestFlags.MissingContractFound }, flagsOnComplete: new[] { QuestFlags.CorvinDebtSettled });
 
         q.objectives = new[]
         {
-            Interact("q07_obj1", "Eski kilise harabesine git"),
-            Kill("q07_obj2", "Harabedeki 3 Lanetli Bekçi'yi öldür", assets != null ? assets.cursedGuard : null, 3),
-            Interact("q07_obj3", "Kasayı aç (Eskimiş Anahtar gerekli)"),
-            Collect("q07_obj4", "Kasadaki belgeyi Corvin'e getir", assets != null ? assets.corvinsDocument : null, 1)
+            Interact("q07_obj1", "Go to the old church ruins"),
+            Kill("q07_obj2", "Kill the 3 Cursed Guards in the ruins", assets != null ? assets.cursedGuard : null, 3),
+            Interact("q07_obj3", "Open the chest (Rusted Key required)"),
+            Collect("q07_obj4", "Bring the document from the chest to Corvin", assets != null ? assets.corvinsDocument : null, 1)
         };
 
         q.itemRewards = assets != null ? new[] { assets.corvinSeal } : new ItemData[0];
@@ -274,13 +275,13 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest8()
     {
-        var q = Make("q08_defterdeki_sesler", "Defterdeki Sesler", "Voss'un defterini taşıyan birine akşam yabancı biri yaklaştı.", QuestType.Side, requiredFlags: new[] { QuestFlags.VossContractPlayerAware }, flagsOnComplete: new[] { QuestFlags.VossWeakPointKnown });
+        var q = Make("q08_defterdeki_sesler", "Voices in the Ledger", "In the evening, a stranger approached the one carrying Voss's ledger.", QuestType.Side, requiredFlags: new[] { QuestFlags.VossContractPlayerAware }, flagsOnComplete: new[] { QuestFlags.VossWeakPointKnown });
 
         q.objectives = new[]
         {
-            Talk("q08_obj1", "Gizemli NPC ile konuş"),
-            Interact("q08_obj2", "Anlattığı sembolü köyde bul"),
-            Interact("q08_obj3", "Corvin'in Mührü'nü sembolün üzerine bas", optional: true)
+            Talk("q08_obj1", "Speak with the mysterious NPC"),
+            Interact("q08_obj2", "Find the symbol they described in the village"),
+            Interact("q08_obj3", "Press Corvin's Seal onto the symbol", optional: true)
         };
 
         q.experienceReward = 100;
@@ -289,14 +290,14 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest9()
     {
-        var q = Make("q09_bekleyis", "Bekleyiş", "Gece köy girişinde Voss'u bekle.", QuestType.Main, requiredFlags: new[] { QuestFlags.ElderTruthKnown }, flagsOnComplete: new[] { QuestFlags.Q09VossWarehouseFound });
+        var q = Make("q09_bekleyis", "The Wait", "Wait for Voss at the village entrance at night.", QuestType.Main, requiredFlags: new[] { QuestFlags.ElderTruthKnown }, flagsOnComplete: new[] { QuestFlags.Q09VossWarehouseFound });
 
         q.objectives = new[]
         {
-            Interact("q09_obj1", "Köy girişinde Voss'u bekle"),
-            Interact("q09_obj2", "Voss'un tezgahından bir şey satın alma", optional: true),
-            Interact("q09_obj3", "Voss'u takip et"),
-            Interact("q09_obj4", "Voss'un gizli deposunu bul")
+            Interact("q09_obj1", "Wait for Voss at the village entrance"),
+            Interact("q09_obj2", "Don't buy anything from Voss's stall", optional: true),
+            Interact("q09_obj3", "Follow Voss"),
+            Interact("q09_obj4", "Find Voss's hidden warehouse")
         };
 
         q.experienceReward = 120;
@@ -305,14 +306,14 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest10()
     {
-        var q = Make("q10_acik_hesap", "Açık Hesap", "Voss'un deposuna girdin. Muhafızları bertaraf et, esirleri kurtar, Voss ile yüzleş.", QuestType.Main, requiredFlags: new[] { QuestFlags.ElderTruthKnown, QuestFlags.Q09VossWarehouseFound });
+        var q = Make("q10_acik_hesap", "Open Account", "You've entered Voss's warehouse. Take out the guards, free the captives, and confront Voss.", QuestType.Main, requiredFlags: new[] { QuestFlags.ElderTruthKnown, QuestFlags.Q09VossWarehouseFound });
 
         q.objectives = new[]
         {
-            Kill("q10_obj1", "Depodaki 3 Gölge Muhafızı'nı öldür", assets != null ? assets.shadowGuard : null, 3),
-            Interact("q10_obj2", "Kafeslerdeki esirleri serbest bırak"),
-            Talk("q10_obj3", "Voss ile yüzleş"),
-            Kill("q10_obj4", "Voss'u öldür (boss)", assets != null ? assets.vossBoss : null, 1)
+            Kill("q10_obj1", "Kill the 3 Shadow Guards in the warehouse", assets != null ? assets.shadowGuard : null, 3),
+            Interact("q10_obj2", "Free the captives in the cages"),
+            Talk("q10_obj3", "Confront Voss"),
+            Kill("q10_obj4", "Kill Voss (boss)", assets != null ? assets.vossBoss : null, 1)
         };
 
         q.experienceReward = 500;
@@ -321,13 +322,13 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest11()
     {
-        var q = Make("q11_fincan_basinda", "Fincan Başında", "Sabah Maren kapında bekliyor.", QuestType.Side, requiredFlags: new[] { QuestFlags.VossDefeatedClean }, flagsOnComplete: new[] { QuestFlags.ScenarioCompleted });
+        var q = Make("q11_fincan_basinda", "Over a Cup", "In the morning, Maren is waiting at your door.", QuestType.Side, requiredFlags: new[] { QuestFlags.VossDefeatedClean }, flagsOnComplete: new[] { QuestFlags.ScenarioCompleted });
 
         q.objectives = new[]
         {
-            Talk("q11_obj1", "Maren ile konuş"),
-            Interact("q11_obj2", "Beraber bahçeye git"),
-            Interact("q11_obj3", "Son bir fincan elma çayı iç")
+            Talk("q11_obj1", "Talk with Maren"),
+            Interact("q11_obj2", "Go to the garden together"),
+            Interact("q11_obj3", "Drink one last cup of apple tea")
         };
 
         q.experienceReward = 0;
@@ -376,16 +377,16 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildBoundArchivistQuest1()
     {
-        var q = Make(QuestIds.Q_BA01, "The Reversal Clause", "Brahma'nın bıraktığı dosya, kayıp bir kaydın izini taşıyor. Maren'den başla — Ashenveil'in geçmişi ona sorulur.", QuestType.Main, requiredFlags: new[] { QuestFlags.BoundArchivistStart }, flagsOnComplete: new[] { QuestFlags.BoundArchivistQuest1Done });
+        var q = Make(QuestIds.Q_BA01, "The Reversal Clause", "The file Brahma left behind carries the trail of a lost record. Start with Maren — Ashenveil's past is asked of her.", QuestType.Main, requiredFlags: new[] { QuestFlags.BoundArchivistStart }, flagsOnComplete: new[] { QuestFlags.BoundArchivistQuest1Done });
 
         q.objectives = new[]
         {
-            Talk("obj_speak_maren_gate", "Kapıda Maren ile konuş"),
-            Talk("obj_learn_maren_knowledge", "Maren'in mutfağında geçmişi öğren"),
-            Talk("obj_find_elis", "Elis'i bul ve üç konumu öğren", optional: true),
-            Talk("obj_handle_eow_operative", "EoW operatifiyle ilgilen"),
-            Talk("obj_speak_voss_day3", "3. gün Voss ile konuş"),
-            Interact("obj_cross_reference", "Kaydın yerini çapraz referansla daralt")
+            Talk("obj_speak_maren_gate", "Speak with Maren at the gate"),
+            Talk("obj_learn_maren_knowledge", "Learn the past in Maren's kitchen"),
+            Talk("obj_find_elis", "Find Elis and learn the three locations", optional: true),
+            Talk("obj_handle_eow_operative", "Deal with the EoW operative"),
+            Talk("obj_speak_voss_day3", "Speak with Voss on day 3"),
+            Interact("obj_cross_reference", "Narrow down the record's location by cross-reference")
         };
 
         q.experienceReward = 380;
@@ -394,16 +395,16 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildForeignEchoQuest1()
     {
-        var q = Make(QuestIds.Q_FE01, "The Originating Record", "Axios anomalisi seni Ashenveil'e çekti. Maren'in kapısındaki gölgeyi takip et — chamber'ın içinde ne olduğunu kimse bilmiyor.", QuestType.Main, requiredFlags: new[] { QuestFlags.ForeignEchoStart }, flagsOnComplete: new[] { QuestFlags.ForeignEchoQuest1Done, QuestFlags.ChamberInteriorSeen });
+        var q = Make(QuestIds.Q_FE01, "The Originating Record", "The Axios anomaly drew you to Ashenveil. Follow the shadow at Maren's door — no one knows what lies inside the chamber.", QuestType.Main, requiredFlags: new[] { QuestFlags.ForeignEchoStart }, flagsOnComplete: new[] { QuestFlags.ForeignEchoQuest1Done, QuestFlags.ChamberInteriorSeen });
 
         q.objectives = new[]
         {
-            Interact("obj_follow_shadow_maren", "Maren'in kapısındaki gölgeyi takip et"),
-            Talk("obj_understand_maren_need", "Maren'in misyonunu anla"),
-            Talk("obj_speak_mireya", "Mireya ile konuş — devriye verisini al", optional: true),
-            Talk("obj_meet_chico", "Chico ile buluş", optional: true),
-            Talk("obj_speak_voss_day3", "3. gün Voss ile konuş"),
-            Interact("obj_identify_axios_anomaly", "Chamber zeminindeki kayıt kaynağını tespit et")
+            Interact("obj_follow_shadow_maren", "Follow the shadow at Maren's door"),
+            Talk("obj_understand_maren_need", "Understand Maren's mission"),
+            Talk("obj_speak_mireya", "Speak with Mireya — get the patrol data", optional: true),
+            Talk("obj_meet_chico", "Meet with Chico", optional: true),
+            Talk("obj_speak_voss_day3", "Speak with Voss on day 3"),
+            Interact("obj_identify_axios_anomaly", "Identify the record source on the chamber floor")
         };
 
         q.itemRewards = assets != null && assets.axiosCrystal != null ? new[] { assets.axiosCrystal } : new ItemData[0];
