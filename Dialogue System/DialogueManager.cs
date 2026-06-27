@@ -209,7 +209,7 @@ public class DialogueManager : MonoBehaviour
             speakerPortrait.gameObject.SetActive(portrait != null);
         }
 
-        if (backgroundImage != null)
+        if (backgroundImage != null && currentNode.characterImage == null)
         {
             backgroundImage.sprite = currentNode.backgroundImage;
             backgroundImage.enabled = currentNode.backgroundImage != null;
