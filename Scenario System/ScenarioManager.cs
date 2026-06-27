@@ -219,10 +219,7 @@ public class ScenarioManager : MonoBehaviour
     {
         if (step.enemy != null && CombatManager.Instance != null)
         {
-            CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
-            CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
-            CombatManager.Instance.OnCombatVictory += OnCombatVictory;
-            CombatManager.Instance.OnCombatDefeat += OnCombatDefeat;
+            SubscribeCombatHandlers();
             CombatManager.Instance.StartCombat(step.enemy);
         }
         else
@@ -231,10 +228,34 @@ public class ScenarioManager : MonoBehaviour
         }
     }
 
+    void SubscribeCombatHandlers()
+    {
+        var cm = CombatManager.Instance;
+
+        if (cm == null)
+            return;
+
+        UnsubscribeCombatHandlers();
+        cm.OnCombatVictory += OnCombatVictory;
+        cm.OnCombatDefeat += OnCombatDefeat;
+        cm.OnCombatFled += OnCombatFled;
+    }
+
+    void UnsubscribeCombatHandlers()
+    {
+        var cm = CombatManager.Instance;
+
+        if (cm == null)
+            return;
+
+        cm.OnCombatVictory -= OnCombatVictory;
+        cm.OnCombatDefeat -= OnCombatDefeat;
+        cm.OnCombatFled -= OnCombatFled;
+    }
+
     void OnCombatVictory(EnemyData defeated)
     {
-        CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
-        CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
+        UnsubscribeCombatHandlers();
         activeCoroutine = StartCoroutine(CompleteAfterCombatCloses(currentStepIndex));
     }
 
@@ -256,9 +277,15 @@ public class ScenarioManager : MonoBehaviour
 
     void OnCombatDefeat()
     {
-        CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
-        CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
+        UnsubscribeCombatHandlers();
         Debug.Log($"[ScenarioManager] Combat defeat during scenario '{(currentScenario != null ? currentScenario.scenarioID : null)}'. Restarting scenario from the beginning.");
+        activeCoroutine = StartCoroutine(RestartScenarioAfterCombatCloses());
+    }
+
+    void OnCombatFled()
+    {
+        UnsubscribeCombatHandlers();
+        Debug.Log($"[ScenarioManager] Fled combat during scenario '{(currentScenario != null ? currentScenario.scenarioID : null)}'. Restarting scenario from the beginning.");
         activeCoroutine = StartCoroutine(RestartScenarioAfterCombatCloses());
     }
 
@@ -384,12 +411,7 @@ public class ScenarioManager : MonoBehaviour
 
     void FinalizeScenario()
     {
-        if (CombatManager.Instance != null)
-        {
-            CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
-            CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
-        }
-
+        UnsubscribeCombatHandlers();
         OnScenarioComplete?.Invoke(currentScenario);
         currentScenario = null;
         currentStepIndex = 0;
@@ -404,13 +426,7 @@ public class ScenarioManager : MonoBehaviour
             return;
 
         StopActiveCoroutine();
-
-        if (CombatManager.Instance != null)
-        {
-            CombatManager.Instance.OnCombatVictory -= OnCombatVictory;
-            CombatManager.Instance.OnCombatDefeat -= OnCombatDefeat;
-        }
-
+        UnsubscribeCombatHandlers();
         var aborted = currentScenario;
         currentScenario = null;
         currentStepIndex = 0;
