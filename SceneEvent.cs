@@ -368,6 +368,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             ScenarioManager.Instance.OnScenarioStart += OnScenarioStarted;
             ScenarioManager.Instance.OnScenarioComplete += OnScenarioCompleted;
         }
+
+        if (InventoryManager.Instance != null)
+            InventoryManager.Instance.OnItemUsed += HandleItemUsed;
     }
 
     void OnDisable()
@@ -383,6 +386,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             ScenarioManager.Instance.OnScenarioStart -= OnScenarioStarted;
             ScenarioManager.Instance.OnScenarioComplete -= OnScenarioCompleted;
         }
+
+        if (InventoryManager.Instance != null)
+            InventoryManager.Instance.OnItemUsed -= HandleItemUsed;
     }
 
     void SetupIconButtons()
@@ -1277,7 +1283,11 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         yield return FadeOutCharacter(duration, endedNode);
     }
 
-    void OnScenarioStarted(ScenarioData scenario)
+    void OnScenarioStarted(ScenarioData scenario) => ForceHideSceneCharacter();
+
+    void OnScenarioCompleted(ScenarioData scenario) => ForceHideSceneCharacter();
+
+    void ForceHideSceneCharacter()
     {
         if (charFadeCoroutine != null)
         {
@@ -1289,33 +1299,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         _sceneCharacterActive = false;
         _charImageFromDialogue = false;
 
-        if (charImage != null)
-        {
-            Color cc = charImage.color;
-            charImage.color = new Color(cc.r, cc.g, cc.b, 1f);
-            charImage.gameObject.SetActive(false);
-        }
-    }
-
-    void OnScenarioCompleted(ScenarioData scenario)
-    {
         if (charImage == null)
             return;
 
-        _sceneCharacterActive = false;
-
-        if (charFadeCoroutine != null && _charFadingOut)
-            return;
-
-        if (charFadeCoroutine != null)
-        {
-            StopCoroutine(charFadeCoroutine);
-            charFadeCoroutine = null;
-            _charFadingOut = false;
-        }
-
-        if (DialogueManager.Instance == null || !DialogueManager.Instance.IsInDialogue())
-            charImage.gameObject.SetActive(false);
+        Color cc = charImage.color;
+        charImage.color = new Color(cc.r, cc.g, cc.b, 1f);
+        charImage.gameObject.SetActive(false);
     }
 
     void HandleSceneTransition(DialogueNode endedNode)
@@ -2039,6 +2028,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             InventoryManager.Instance.AddItem(tea);
 
         ShowForegroundMessage("Çay demlendi — bir fincan elma çayı aldın.", 3f);
+    }
+
+    void HandleItemUsed(ItemData item)
+    {
+        if (item != null && item.itemID == "apple_tea")
+            DeliverTeaToMaren();
     }
 
     public void DeliverTeaToMaren()
