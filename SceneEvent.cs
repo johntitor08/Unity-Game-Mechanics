@@ -1704,8 +1704,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         ShowHudPanels();
     }
 
-    private static bool IsQuestObjectiveAction(HoverAction a) =>
-        a == HoverAction.QuestTalk || a == HoverAction.QuestInteract || a == HoverAction.QuestCombat;
+    private static bool IsQuestObjectiveAction(HoverAction a) => a == HoverAction.QuestTalk || a == HoverAction.QuestInteract || a == HoverAction.QuestCombat;
 
     private void ApplyHoverVisibility(int bgIndex)
     {
