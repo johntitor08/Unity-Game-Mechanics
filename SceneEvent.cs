@@ -1118,6 +1118,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         }
 
         _charFadingOut = false;
+        charImage.color = new Color(col.r, col.g, col.b, 0f);
         charImage.sprite = newSprite;
         ApplyDialogueCharacterLayout();
 
@@ -1129,8 +1130,6 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (_dialogueBgPending != null)
             _dialogueBgCurrent = _dialogueBgPending;
-
-        charImage.color = new Color(col.r, col.g, col.b, 0f);
 
         for (float e = 0f; e < 0.28f; e += Time.deltaTime)
         {
