@@ -193,6 +193,11 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         public MapGroup group;
         public PhaseCondition interactablePhase;
         public Vector2 interactableOffset;
+
+        [Header("Quest travel")]
+        public string questID;
+        public string questObjectiveID;
+        public string travelToLocation;
     }
 
     [System.Serializable]
@@ -814,6 +819,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 continue;
 
             bool visible = group.HasValue && loc.group == group.Value;
+
+            if (!string.IsNullOrEmpty(loc.questID))
+                visible = visible && IsQuestIconActive(loc);
+
             SetActive(loc.icon, visible);
 
             if (!visible)
@@ -1705,6 +1714,21 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     }
 
     private static bool IsQuestObjectiveAction(HoverAction a) => a == HoverAction.QuestTalk || a == HoverAction.QuestInteract || a == HoverAction.QuestCombat;
+
+    private bool IsQuestIconActive(MapLocationEntry loc)
+    {
+        if (string.IsNullOrEmpty(loc.questID) || QuestManager.Instance == null)
+            return false;
+
+        if (!QuestManager.Instance.IsQuestActive(loc.questID))
+            return false;
+
+        if (string.IsNullOrEmpty(loc.questObjectiveID))
+            return true;
+
+        var objState = QuestManager.Instance.GetObjectiveState(loc.questID, loc.questObjectiveID);
+        return objState == null || !objState.isCompleted;
+    }
 
     private void ApplyHoverVisibility(int bgIndex)
     {
