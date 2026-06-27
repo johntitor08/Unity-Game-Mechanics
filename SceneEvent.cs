@@ -26,6 +26,7 @@ public enum SceneProgress
 public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 {
     private static readonly WaitForSecondsRealtime _waitForSecondsRealtime0_12 = new(0.12f);
+    private static readonly WaitForSecondsRealtime _bgSwapPause = new(0.2f);
     public static SceneEvent Instance { get; private set; }
     private SceneProgress progress = SceneProgress.Scene1;
     private int currentMapIndex;
@@ -36,8 +37,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     private readonly List<(UIHoverRegion hover, Action handler)> _hoverClickActions = new();
     private Action<EnemyData> _currentVictoryHandler;
     private Action _currentDefeatHandler;
+    private Action _currentFleeHandler;
     private int _lastBgIndex = -1;
     private int _lastCharIndex = -1;
+    private string _currentQuestLocation;
     private bool dayScenarioPending;
 
     public bool DayScenarioPending
@@ -150,7 +153,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         ShowGardenHole,
         ShowPool,
         CollectItem,
-        OpenStove
+        OpenStove,
+        QuestInteract,
+        QuestTalk,
+        QuestCombat,
+        GoToQuestLocation,
+        ReturnToTown
     }
 
     [System.Serializable]
@@ -162,6 +170,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         public PhaseCondition phase;
         public HoverAction action;
         public int worldItemIndex;
+        public string questObjectiveTag;
+        public int questProgressAmount;
+        public string questLocationName;
+        public EnemyData questEnemy;
     }
 
     [System.Serializable]
@@ -170,6 +182,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         public string name;
         public GameObject item;
         public int[] visibleOnBackgrounds;
+        public string questLocationName;
     }
 
     [System.Serializable]
@@ -660,6 +673,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public void SetBackground(int index)
     {
         _lastBgIndex = index;
+        _currentQuestLocation = null;
 
         if (backgroundImage != null && index >= 0 && index < backgrounds.Length)
             backgroundImage.sprite = ResolveBg(index);
@@ -738,7 +752,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     private void ClearDialogueBackground()
     {
-        if (DialogueManager.Instance == null || DialogueManager.Instance.backgroundImage == null || DialogueManager.Instance.IsInDialogue())
+        if (DialogueManager.Instance == null || DialogueManager.Instance.backgroundImage == null || DialogueManager.Instance.IsInDialogue() || _charFadingOut)
             return;
 
         DialogueManager.Instance.backgroundImage.enabled = false;
@@ -937,10 +951,16 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             SetActive(townNpc, false);
 
         if (timePanelAnimator != null)
+        {
+            timePanelAnimator.ResetTrigger(timePanelOpenTrigger);
             timePanelAnimator.SetTrigger(timePanelCloseTrigger);
+        }
 
         if (iconPanelAnimator != null)
+        {
+            iconPanelAnimator.ResetTrigger(iconPanelOpenTrigger);
             iconPanelAnimator.SetTrigger(iconPanelCloseTrigger);
+        }
 
         SetActive(settingsIconPanel, false);
         HideAllPanels();
@@ -1059,7 +1079,13 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             charImage.color = new Color(c.r, c.g, c.b, 1f);
             ApplyDialogueCharacterLayout();
 
-            if (_dialogueBgPending != null)
+            bool bgChanged = _dialogueBgPending != null && _dialogueBgPending != _dialogueBgCurrent;
+
+            if (bgChanged && visible)
+            {
+                charFadeCoroutine = StartCoroutine(SwapBackgroundOnly(_dialogueBgPending));
+            }
+            else if (_dialogueBgPending != null)
             {
                 _dialogueBgCurrent = _dialogueBgPending;
 
@@ -1103,6 +1129,20 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         }
     }
 
+    IEnumerator SwapBackgroundOnly(Sprite newBg)
+    {
+        yield return _bgSwapPause;
+
+        if (newBg != null && DialogueManager.Instance != null && DialogueManager.Instance.backgroundImage != null)
+        {
+            DialogueManager.Instance.backgroundImage.sprite = newBg;
+            DialogueManager.Instance.backgroundImage.enabled = true;
+        }
+
+        _dialogueBgCurrent = newBg;
+        charFadeCoroutine = null;
+    }
+
     IEnumerator SwapCharacter(Sprite newSprite)
     {
         _charImageFromDialogue = true;
@@ -1119,8 +1159,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         _charFadingOut = false;
         charImage.color = new Color(col.r, col.g, col.b, 0f);
-        charImage.sprite = newSprite;
-        ApplyDialogueCharacterLayout();
+        charImage.gameObject.SetActive(false);
+        yield return _bgSwapPause;
 
         if (_dialogueBgPending != null && DialogueManager.Instance != null && DialogueManager.Instance.backgroundImage != null)
         {
@@ -1130,6 +1170,11 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (_dialogueBgPending != null)
             _dialogueBgCurrent = _dialogueBgPending;
+
+        charImage.sprite = newSprite;
+        ApplyDialogueCharacterLayout();
+        charImage.gameObject.SetActive(true);
+        charImage.color = new Color(col.r, col.g, col.b, 0f);
 
         for (float e = 0f; e < 0.28f; e += Time.deltaTime)
         {
@@ -1202,12 +1247,17 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         charImage.gameObject.SetActive(false);
         charImage.color = new Color(startColor.r, startColor.g, startColor.b, 1f);
         charFadeCoroutine = null;
+        yield return _bgSwapPause;
         _charFadingOut = false;
 
         if (endedNode != null)
         {
             HandleSceneTransition(endedNode);
             ClearDialogueBackground();
+        }
+        else if (CombatManager.Instance == null || !CombatManager.Instance.inCombat)
+        {
+            ShowHudPanels();
         }
     }
 
@@ -1261,10 +1311,16 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetActive(iconPanel, true);
 
         if (timePanelAnimator != null)
+        {
+            timePanelAnimator.ResetTrigger(timePanelCloseTrigger);
             timePanelAnimator.SetTrigger(timePanelOpenTrigger);
+        }
 
         if (iconPanelAnimator != null)
+        {
+            iconPanelAnimator.ResetTrigger(iconPanelCloseTrigger);
             iconPanelAnimator.SetTrigger(iconPanelOpenTrigger);
+        }
 
         ApplyHouseIconVisibility(IsHouseBackground(_lastBgIndex));
 
@@ -1314,29 +1370,20 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (charImage == null)
             return;
 
-        if (charFadeCoroutine != null)
-        {
-            StopCoroutine(charFadeCoroutine);
-            charFadeCoroutine = null;
-        }
+        _sceneCharacterActive = false;
+
+        if (charFadeCoroutine != null && _charFadingOut)
+            return;
 
         if (charImage.gameObject.activeSelf && charImage.color.a > 0.01f)
         {
-            charFadeCoroutine = StartCoroutine(FadeOutThenShowTown(0.5f));
-            return;
+            charFadeCoroutine = StartCoroutine(DeferredFadeOut(0.5f, null));
         }
-
-        _charFadingOut = false;
-        _sceneCharacterActive = false;
-        charImage.gameObject.SetActive(false);
-        ShowHudPanels();
-    }
-
-    IEnumerator FadeOutThenShowTown(float duration)
-    {
-        _sceneCharacterActive = false;
-        yield return FadeOutCharacter(duration);
-        ShowHudPanels();
+        else
+        {
+            charImage.gameObject.SetActive(false);
+            ShowHudPanels();
+        }
     }
 
     void ForceHideSceneCharacter()
@@ -1435,6 +1482,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     }
 
     public float DialogueOpenAnimationDuration() => 0f;
+
+    public bool IsSceneTransitionActive() => charFadeCoroutine != null;
 
     public float DialogueCloseAnimationDuration()
     {
@@ -1612,8 +1661,51 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             case HoverAction.OpenStove:
                 OpenStove(entry.worldItemIndex);
                 break;
+
+            case HoverAction.QuestInteract:
+                if (QuestManager.Instance != null)
+                    QuestManager.Instance.NotifyObjectInteracted(entry.questObjectiveTag, Mathf.Max(1, entry.questProgressAmount));
+
+                break;
+
+            case HoverAction.QuestTalk:
+                if (QuestManager.Instance != null)
+                    QuestManager.Instance.NotifyTalkToNPC(entry.questObjectiveTag, Mathf.Max(1, entry.questProgressAmount));
+
+                break;
+
+            case HoverAction.QuestCombat:
+                StartQuestCombat(entry);
+                break;
+
+            case HoverAction.GoToQuestLocation:
+                ShowQuestLocation(entry.questLocationName);
+                break;
+
+            case HoverAction.ReturnToTown:
+                ReturnToTownFromQuestLocation();
+                break;
         }
     }
+
+    private void StartQuestCombat(HoverRegionEntry entry)
+    {
+        if (entry.questEnemy == null || CombatManager.Instance == null || CombatManager.Instance.inCombat)
+            return;
+
+        CombatManager.Instance.StartCombat(entry.questEnemy);
+    }
+
+    private void ReturnToTownFromQuestLocation()
+    {
+        _currentQuestLocation = null;
+        Progress = SceneProgress.Scene1;
+        SetBackground(0);
+        ShowHudPanels();
+    }
+
+    private static bool IsQuestObjectiveAction(HoverAction a) =>
+        a == HoverAction.QuestTalk || a == HoverAction.QuestInteract || a == HoverAction.QuestCombat;
 
     private void ApplyHoverVisibility(int bgIndex)
     {
@@ -1622,13 +1714,26 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         foreach (var entry in hoverRegions)
         {
-            if (entry.region == null || entry.visibleOnBackgrounds == null || entry.visibleOnBackgrounds.Length == 0)
+            if (entry.region == null)
                 continue;
 
-            bool visible = System.Array.IndexOf(entry.visibleOnBackgrounds, bgIndex) >= 0 && PhaseMatches(entry.phase);
+            bool isQuestLocationRegion = !string.IsNullOrEmpty(entry.questLocationName) && IsQuestObjectiveAction(entry.action);
+            bool visible;
 
-            if (entry.action == HoverAction.EnterTown)
-                visible = visible && !_doorClicked && !StoryFlags.Has("day1_complete");
+            if (isQuestLocationRegion)
+            {
+                visible = _currentQuestLocation == entry.questLocationName && PhaseMatches(entry.phase);
+            }
+            else
+            {
+                if (entry.visibleOnBackgrounds == null || entry.visibleOnBackgrounds.Length == 0)
+                    continue;
+
+                visible = string.IsNullOrEmpty(_currentQuestLocation) && System.Array.IndexOf(entry.visibleOnBackgrounds, bgIndex) >= 0 && PhaseMatches(entry.phase);
+
+                if (entry.action == HoverAction.EnterTown)
+                    visible = visible && !_doorClicked && !StoryFlags.Has("day1_complete");
+            }
 
             SetActive(entry.region, visible);
         }
@@ -1646,8 +1751,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             if (entry.item == null)
                 continue;
 
-            if (entry.visibleOnBackgrounds != null && entry.visibleOnBackgrounds.Length > 0)
-                SetActive(entry.item, System.Array.IndexOf(entry.visibleOnBackgrounds, bgIndex) >= 0);
+            if (!string.IsNullOrEmpty(entry.questLocationName))
+                SetActive(entry.item, _currentQuestLocation == entry.questLocationName);
+            else if (entry.visibleOnBackgrounds != null && entry.visibleOnBackgrounds.Length > 0)
+                SetActive(entry.item, string.IsNullOrEmpty(_currentQuestLocation) && System.Array.IndexOf(entry.visibleOnBackgrounds, bgIndex) >= 0);
 
             if (entry.name == "HistoryBook" && entry.item.activeSelf && _itemDefaultY != null && i < _itemDefaultY.Length && entry.item.TryGetComponent<RectTransform>(out var rt))
             {
@@ -1671,6 +1778,11 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     public void ResetSceneProgress()
     {
+        _doorClicked = false;
+
+        if (TimePhaseManager.Instance != null)
+            TimePhaseManager.Instance.SetPhase(TimePhase.Morning);
+
         Progress = SceneProgress.Scene1;
         SetBackground(0);
         SetCharacter(0);
@@ -1771,7 +1883,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             flee.isDisabled = disabled;
     }
 
-    private void StartCombatForScene(int enemyIndex, Action<EnemyData> onVictory, Action onDefeat)
+    private void StartCombatForScene(int enemyIndex, Action<EnemyData> onVictory, Action onDefeat, Action onFlee = null)
     {
         var cm = CombatManager.Instance;
 
@@ -1790,9 +1902,14 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         UnsubscribeSceneCombat();
         _currentVictoryHandler = onVictory;
         _currentDefeatHandler = onDefeat;
+        _currentFleeHandler = onFlee;
         cm.OnCombatVictory += _currentVictoryHandler;
         cm.OnCombatDefeat += _currentDefeatHandler;
-        SetFleeDisabled(true);
+
+        if (_currentFleeHandler != null)
+            cm.OnCombatFled += _currentFleeHandler;
+
+        SetFleeDisabled(onFlee == null);
         cm.StartCombat(enemies[enemyIndex]);
     }
 
@@ -1814,6 +1931,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             cm.OnCombatDefeat -= _currentDefeatHandler;
             _currentDefeatHandler = null;
         }
+
+        if (_currentFleeHandler != null)
+        {
+            cm.OnCombatFled -= _currentFleeHandler;
+            _currentFleeHandler = null;
+        }
     }
 
     private void StartCombatForScene4()
@@ -1832,6 +1955,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 SetFleeDisabled(false);
                 UnsubscribeSceneCombat();
                 StartCoroutine(RestartScene4AfterCombatCloses());
+            },
+            onFlee: () =>
+            {
+                SetFleeDisabled(false);
+                UnsubscribeSceneCombat();
+                StartCoroutine(RestartDay1AfterCombatCloses());
             }
         );
     }
@@ -1846,6 +1975,16 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetBackground(3);
         SetCharacter(14);
         TryStartDialogue(3);
+    }
+
+    private IEnumerator RestartDay1AfterCombatCloses()
+    {
+        yield return new WaitUntil(() => CombatUI.Instance == null || CombatUI.Instance.combatPanel == null || !CombatUI.Instance.combatPanel.activeSelf);
+
+        if (PlayerStats.Instance != null)
+            PlayerStats.Instance.FullRestore();
+
+        ResetSceneProgress();
     }
 
     public void SkipToNextDay()
@@ -2035,7 +2174,14 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             return;
 
         backgroundImage.sprite = spr;
+        _currentQuestLocation = bgName;
+        _lastBgIndex = -1;
         CloseAnimated(mapPanel);
+        ClearDialogueBackground();
+        SetActive(townNpc, false);
+        ApplyHoverVisibility(-1);
+        ApplyItemVisibility(-1);
+        ApplyHouseIconVisibility(false);
 
         if (bgName == "bg_templeborn_archives")
             DeliverTeaToMaren();
