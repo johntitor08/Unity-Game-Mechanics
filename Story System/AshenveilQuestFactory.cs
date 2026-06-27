@@ -175,9 +175,9 @@ public class AshenveilQuestFactory : MonoBehaviour
 
         q.objectives = new[]
         {
-            Collect("q02_obj1", "Search the blacksmith's house (Torn Contract)", assets != null ? assets.tornContract : null, 1),
-            Collect("q02_obj2", "Search the baker's house (Torn Contract)", assets != null ? assets.tornContract : null, 1),
-            Collect("q02_obj3", "Search the healer's house (Torn Contract)", assets != null ? assets.tornContract : null, 1),
+            Interact("q02_obj1", "Search the blacksmith's house (Torn Contract)"),
+            Interact("q02_obj2", "Search the baker's house (Torn Contract)"),
+            Interact("q02_obj3", "Search the healer's house (Torn Contract)"),
             Kill("q02_obj4", "Kill 2 Shadow Lurkers outside the village", assets != null ? assets.shadowLurker : null, 2),
             Talk("q02_obj5", "Speak with old Corvin")
         };
