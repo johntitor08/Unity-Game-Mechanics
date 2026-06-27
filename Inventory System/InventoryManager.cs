@@ -7,6 +7,7 @@ public class InventoryManager : MonoBehaviour
     public static InventoryManager Instance;
     public static event Action OnReady;
     public event Action OnInventoryChanged;
+    public event Action<ItemData> OnItemUsed;
     private readonly Dictionary<string, int> stock = new();
     private readonly Dictionary<string, int> totalByItemID = new();
 
@@ -64,6 +65,8 @@ public class InventoryManager : MonoBehaviour
     public bool RemoveInstance(EquipmentInstance inst, int amount = 1) => RemoveInternal(Key(inst.baseData, inst.upgradeLevel), amount);
 
     public bool RemoveUpgradedItem(EquipmentData data, int upgradeLevel, int amount = 1) => RemoveInternal(Key(data, upgradeLevel), amount);
+
+    public void NotifyItemUsed(ItemData item) => OnItemUsed?.Invoke(item);
 
     bool RemoveInternal(string key, int amount)
     {

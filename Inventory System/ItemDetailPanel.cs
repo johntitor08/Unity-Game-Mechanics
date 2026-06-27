@@ -166,33 +166,40 @@ public class ItemDetailPanel : MonoBehaviour
         if (actionButton != null)
             actionButton.interactable = false;
 
-        currentItem.onUse?.Invoke();
+        ItemData item = currentItem;
+        item.onUse?.Invoke();
 
-        if (currentItem.IsEquipment())
+        if (item.IsEquipment())
         {
-            if (currentItem is EquipmentData eq)
+            if (item is EquipmentData eq)
                 EquipEquipment(eq);
             else
-                Debug.LogError($"{currentItem.itemID} IsEquipment() true ama EquipmentData değil");
+                Debug.LogError($"{item.itemID} IsEquipment() true ama EquipmentData değil");
 
             RefreshQuantity();
             return;
         }
 
-        if (currentItem is StatModifierItem statMod)
+        if (item is StatModifierItem statMod)
             statMod.Use();
 
-        bool removed = InventoryManager.Instance.RemoveItem(currentItem, 1);
-
-        if (!removed)
+        if (item.consumeOnUse)
         {
-            isProcessingUse = false;
+            bool removed = InventoryManager.Instance.RemoveItem(item, 1);
 
-            if (actionButton != null)
-                actionButton.interactable = true;
+            if (!removed)
+            {
+                isProcessingUse = false;
 
-            return;
+                if (actionButton != null)
+                    actionButton.interactable = true;
+
+                return;
+            }
         }
+
+        if (InventoryManager.Instance != null)
+            InventoryManager.Instance.NotifyItemUsed(item);
 
         RefreshQuantity();
     }

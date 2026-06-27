@@ -20,6 +20,7 @@ public class ItemData : ScriptableObject
 
     [Header("Usage")]
     public bool useable;
+    public bool consumeOnUse = true;
     public UnityEvent onUse;
 
     [Header("Reading")]
