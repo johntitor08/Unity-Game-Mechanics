@@ -174,6 +174,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         public int questProgressAmount;
         public string questLocationName;
         public EnemyData questEnemy;
+        public ItemData questGrantItem;
     }
 
     [System.Serializable]
@@ -442,7 +443,20 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (mapLocations != null)
             foreach (var loc in mapLocations)
+            {
                 SetActive(loc.icon, false);
+
+                if (loc.icon != null && !string.IsNullOrEmpty(loc.travelToLocation))
+                {
+                    Button questIconButton = loc.icon.GetComponentInChildren<Button>(true);
+
+                    if (questIconButton != null)
+                    {
+                        string target = loc.travelToLocation;
+                        questIconButton.onClick.AddListener(() => ShowQuestLocation(target));
+                    }
+                }
+            }
 
         if (roomIcons != null)
             foreach (var room in roomIcons)
@@ -1672,7 +1686,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 break;
 
             case HoverAction.QuestInteract:
-                if (QuestManager.Instance != null)
+                if (entry.questGrantItem != null && InventoryManager.Instance != null)
+                    InventoryManager.Instance.AddItem(entry.questGrantItem);
+
+                if (QuestManager.Instance != null && !string.IsNullOrEmpty(entry.questObjectiveTag))
                     QuestManager.Instance.NotifyObjectInteracted(entry.questObjectiveTag, Mathf.Max(1, entry.questProgressAmount));
 
                 break;
@@ -1717,17 +1734,26 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     private bool IsQuestIconActive(MapLocationEntry loc)
     {
-        if (string.IsNullOrEmpty(loc.questID) || QuestManager.Instance == null)
-            return false;
-
-        if (!QuestManager.Instance.IsQuestActive(loc.questID))
+        if (string.IsNullOrEmpty(loc.questID) || QuestManager.Instance == null || !QuestManager.Instance.IsQuestActive(loc.questID))
             return false;
 
         if (string.IsNullOrEmpty(loc.questObjectiveID))
             return true;
 
-        var objState = QuestManager.Instance.GetObjectiveState(loc.questID, loc.questObjectiveID);
-        return objState == null || !objState.isCompleted;
+        foreach (var rawId in loc.questObjectiveID.Split(','))
+        {
+            string id = rawId.Trim();
+
+            if (id.Length == 0)
+                continue;
+
+            var objState = QuestManager.Instance.GetObjectiveState(loc.questID, id);
+
+            if (objState == null || !objState.isCompleted)
+                return true;
+        }
+
+        return false;
     }
 
     private void ApplyHoverVisibility(int bgIndex)
@@ -1740,7 +1766,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             if (entry.region == null)
                 continue;
 
-            bool isQuestLocationRegion = !string.IsNullOrEmpty(entry.questLocationName) && IsQuestObjectiveAction(entry.action);
+            bool isQuestLocationRegion = !string.IsNullOrEmpty(entry.questLocationName) && (IsQuestObjectiveAction(entry.action) || entry.action == HoverAction.ReturnToTown);
             bool visible;
 
             if (isQuestLocationRegion)
@@ -2248,11 +2274,24 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (objective == null || objective.isCompleted)
             return;
 
-        QuestManager.Instance.UpdateObjectiveProgress(questID, brewObjectiveID, 1);
-        ItemData tea = ItemDatabase.Instance != null ? ItemDatabase.Instance.GetByID("apple_tea") : null;
+        var inv = InventoryManager.Instance;
+        var db = ItemDatabase.Instance;
+        ItemData apple = db != null ? db.GetByID("fresh_apple") : null;
+        ItemData cinnamon = db != null ? db.GetByID("cinnamon") : null;
 
-        if (tea != null && InventoryManager.Instance != null)
-            InventoryManager.Instance.AddItem(tea);
+        if (inv == null || apple == null || cinnamon == null || inv.GetTotalQuantity("fresh_apple") <= 0 || inv.GetTotalQuantity("cinnamon") <= 0)
+        {
+            ShowForegroundMessage("You need a Fresh Apple and Cinnamon to brew the tea.", 3f);
+            return;
+        }
+
+        inv.RemoveItem(apple);
+        inv.RemoveItem(cinnamon);
+        QuestManager.Instance.UpdateObjectiveProgress(questID, brewObjectiveID, 1);
+        ItemData tea = db.GetByID("apple_tea");
+
+        if (tea != null)
+            inv.AddItem(tea);
 
         ShowForegroundMessage("The tea is brewed — you got a cup of apple tea.", 3f);
     }
