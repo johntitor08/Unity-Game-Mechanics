@@ -66,7 +66,7 @@ public class ItemDetailPanel : MonoBehaviour
         int qty = ResolveQuantity(item, quantity, upgradeLevel);
 
         if (quantityText != null)
-            quantityText.text = $"Sahip olunan: {qty}";
+            quantityText.text = $"Owned: {qty}";
 
         if (upgradeFusionButton != null)
             upgradeFusionButton.SetItem(item is EquipmentData eq ? eq : null);
@@ -212,7 +212,7 @@ public class ItemDetailPanel : MonoBehaviour
         int qty = ResolveQuantity(currentItem, -1, currentUpgradeLevel);
 
         if (quantityText != null)
-            quantityText.text = $"Sahip olunan: {qty}";
+            quantityText.text = $"Owned: {qty}";
 
         isProcessingUse = false;
 
