@@ -673,7 +673,7 @@ public class CombatManager : MonoBehaviour
 
     private void AggressiveDecision(float enemyHp)
     {
-        if (enemyHp < currentEnemy.lowHealthThreshold)
+        if (enemyHp < currentEnemy.lowHealthThreshold && UnityEngine.Random.value < currentEnemy.defendChance)
             Defend();
         else
             SpecialAttackOrAttack();
@@ -681,7 +681,9 @@ public class CombatManager : MonoBehaviour
 
     private void DefensiveDecision(float enemyHp)
     {
-        if (enemyHp < 0.5f)
+        float defendOdds = enemyHp < 0.5f ? Mathf.Clamp01(currentEnemy.defendChance + 0.35f) : currentEnemy.defendChance;
+
+        if (UnityEngine.Random.value < defendOdds)
             Defend();
         else
             Attack();
@@ -837,13 +839,6 @@ public class CombatManager : MonoBehaviour
         Log($"Remaining gold: {gold}");
         OnCombatDefeat?.Invoke();
         OnCombatEnded?.Invoke();
-
-        if (PlayerStats != null && !PlayerStats.IsAlive())
-            PlayerStats.Set(StatType.Health, 1, true);
-
-        if (ProfileUI.Instance != null)
-            ProfileUI.Instance.RefreshAll();
-
         yield return _waitForSeconds2;
         EndCombatInternal();
     }
