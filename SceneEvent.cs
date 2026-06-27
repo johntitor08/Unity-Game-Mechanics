@@ -913,9 +913,17 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         yield return null;
         bool isFreeRoamScene = Progress == SceneProgress.SceneHome || Progress == SceneProgress.SceneMarket || Progress == SceneProgress.SceneGym || Progress == SceneProgress.SceneOffice || Progress == SceneProgress.SceneChurch;
         DialogueNode node = sceneStartDialogueNodes != null && nodeIndex >= 0 && nodeIndex < sceneStartDialogueNodes.Length ? sceneStartDialogueNodes[nodeIndex] : null;
+        int currentDay = TimeUI.Instance != null ? TimeUI.Instance.GetCurrentDay() : 1;
+        bool pastDay1Sequence = currentDay > 1 || (ScenarioManager.Instance != null && ScenarioManager.Instance.GetCompletedScenarios().Count > 0);
 
-        if (isFreeRoamScene || node == null || DialogueManager.Instance == null)
+        if (isFreeRoamScene || pastDay1Sequence || node == null || DialogueManager.Instance == null)
         {
+            if (pastDay1Sequence && !isFreeRoamScene)
+            {
+                Progress = SceneProgress.Scene1;
+                SetBackground(0);
+            }
+
             ShowHudPanels();
             yield break;
         }
@@ -1037,7 +1045,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         bool visible = charImage.gameObject.activeSelf && charImage.color.a > 0.05f;
         bool deferBg = visible && charImage.sprite != sprite && _dialogueBgPending != null && _dialogueBgCurrent != null && _dialogueBgPending != _dialogueBgCurrent;
 
-        if (visible && charImage.sprite == sprite)
+        if (charImage.sprite == sprite)
         {
             if (charFadeCoroutine != null)
             {
@@ -1046,12 +1054,21 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             }
 
             _charFadingOut = false;
+            charImage.gameObject.SetActive(true);
             Color c = charImage.color;
             charImage.color = new Color(c.r, c.g, c.b, 1f);
             ApplyDialogueCharacterLayout();
 
             if (_dialogueBgPending != null)
+            {
                 _dialogueBgCurrent = _dialogueBgPending;
+
+                if (DialogueManager.Instance != null && DialogueManager.Instance.backgroundImage != null)
+                {
+                    DialogueManager.Instance.backgroundImage.sprite = _dialogueBgPending;
+                    DialogueManager.Instance.backgroundImage.enabled = true;
+                }
+            }
 
             return;
         }
@@ -1072,7 +1089,15 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         else
         {
             if (_dialogueBgPending != null)
+            {
                 _dialogueBgCurrent = _dialogueBgPending;
+
+                if (DialogueManager.Instance != null && DialogueManager.Instance.backgroundImage != null)
+                {
+                    DialogueManager.Instance.backgroundImage.sprite = _dialogueBgPending;
+                    DialogueManager.Instance.backgroundImage.enabled = true;
+                }
+            }
 
             charFadeCoroutine = StartCoroutine(FadeInCharacter(sprite));
         }
@@ -1285,7 +1310,35 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     void OnScenarioStarted(ScenarioData scenario) => ForceHideSceneCharacter();
 
-    void OnScenarioCompleted(ScenarioData scenario) => ForceHideSceneCharacter();
+    void OnScenarioCompleted(ScenarioData scenario)
+    {
+        if (charImage == null)
+            return;
+
+        if (charFadeCoroutine != null)
+        {
+            StopCoroutine(charFadeCoroutine);
+            charFadeCoroutine = null;
+        }
+
+        if (charImage.gameObject.activeSelf && charImage.color.a > 0.01f)
+        {
+            charFadeCoroutine = StartCoroutine(FadeOutThenShowTown(0.5f));
+            return;
+        }
+
+        _charFadingOut = false;
+        _sceneCharacterActive = false;
+        charImage.gameObject.SetActive(false);
+        ShowHudPanels();
+    }
+
+    IEnumerator FadeOutThenShowTown(float duration)
+    {
+        _sceneCharacterActive = false;
+        yield return FadeOutCharacter(duration);
+        ShowHudPanels();
+    }
 
     void ForceHideSceneCharacter()
     {
@@ -2027,7 +2080,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (tea != null && InventoryManager.Instance != null)
             InventoryManager.Instance.AddItem(tea);
 
-        ShowForegroundMessage("Çay demlendi — bir fincan elma çayı aldın.", 3f);
+        ShowForegroundMessage("The tea is brewed — you got a cup of apple tea.", 3f);
     }
 
     void HandleItemUsed(ItemData item)
@@ -2053,7 +2106,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (tea == null || InventoryManager.Instance == null || InventoryManager.Instance.GetTotalQuantity("apple_tea") <= 0)
         {
-            ShowForegroundMessage("Önce ocakta çayı demlemelisin.", 2.5f);
+            ShowForegroundMessage("You need to brew the tea at the stove first.", 2.5f);
             return;
         }
 
@@ -2073,7 +2126,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (QuestManager.Instance != null)
             QuestManager.Instance.UpdateObjectiveProgress(questID, deliverObjectiveID, 1);
 
-        ShowForegroundMessage("Fincanı Maren'e verdin.", 3f);
+        ShowForegroundMessage("You gave the cup to Maren.", 3f);
     }
 
     private void OnDoorClicked()
