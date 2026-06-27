@@ -227,32 +227,40 @@ public class DialogueManager : MonoBehaviour
         currentLineIndex = 0;
         onDialogueEnd = callback;
         State = DialogueState.Opening;
-        dialoguePanel.SetActive(true);
-        PlaySound(dialogueOpenSound);
         currentNode.onEnter?.Invoke();
         OnDialogueStart?.Invoke(currentNode);
         SetupVisuals();
         ClearChoices();
+        StartCoroutine(OpenPanelAfterTransition());
+    }
+
+    IEnumerator OpenPanelAfterTransition()
+    {
+        while (IsPanelAnimatorAlive() && PanelAnimator.IsSceneTransitionActive())
+            yield return null;
+
+        dialoguePanel.SetActive(true);
+        PlaySound(dialogueOpenSound);
+
+        float openDuration = 0f;
 
         if (IsPanelAnimatorAlive())
         {
             PanelAnimator.OpenDialoguePanel();
-            float openDuration = PanelAnimator.DialogueOpenAnimationDuration();
+            openDuration = PanelAnimator.DialogueOpenAnimationDuration();
+        }
 
-            if (openDuration > 0f)
-                StartCoroutine(WaitThenShowLine(openDuration));
-            else
-                ShowLine();
-        }
-        else
-        {
-            ShowLine();
-        }
+        yield return WaitThenShowLine(openDuration);
     }
 
     IEnumerator WaitThenShowLine(float delay)
     {
-        yield return new WaitForSeconds(delay);
+        if (delay > 0f)
+            yield return new WaitForSeconds(delay);
+
+        while (IsPanelAnimatorAlive() && PanelAnimator.IsSceneTransitionActive())
+            yield return null;
+
         ShowLine();
     }
 
@@ -417,7 +425,8 @@ public class DialogueManager : MonoBehaviour
             currentNode.onEnter?.Invoke();
             SetupVisuals();
             OnNodeAdvanced?.Invoke(currentNode);
-            ShowLine();
+            State = DialogueState.Opening;
+            StartCoroutine(WaitThenShowLine(0f));
         }
         else
         {
@@ -536,4 +545,6 @@ public interface IDialoguePanelAnimator
     float DialogueOpenAnimationDuration();
 
     float DialogueCloseAnimationDuration();
+
+    bool IsSceneTransitionActive();
 }
