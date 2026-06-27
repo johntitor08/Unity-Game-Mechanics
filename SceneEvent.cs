@@ -1832,15 +1832,21 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             {
                 SetFleeDisabled(false);
                 UnsubscribeSceneCombat();
-
-                if (PlayerStats.Instance != null)
-                    PlayerStats.Instance.FullRestore();
-
-                SetBackground(3);
-                SetCharacter(14);
-                TryStartDialogue(3);
+                StartCoroutine(RestartScene4AfterCombatCloses());
             }
         );
+    }
+
+    private IEnumerator RestartScene4AfterCombatCloses()
+    {
+        yield return new WaitUntil(() => CombatUI.Instance == null || CombatUI.Instance.combatPanel == null || !CombatUI.Instance.combatPanel.activeSelf);
+
+        if (PlayerStats.Instance != null)
+            PlayerStats.Instance.FullRestore();
+
+        SetBackground(3);
+        SetCharacter(14);
+        TryStartDialogue(3);
     }
 
     public void SkipToNextDay()
