@@ -2278,6 +2278,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         CloseAnimated(mapPanel);
         ClearDialogueBackground();
         SetActive(townNpc, false);
+        ForceHideSceneCharacter();
         ApplyHoverVisibility(-1);
         ApplyItemVisibility(-1);
         ApplyHouseIconVisibility(false);
