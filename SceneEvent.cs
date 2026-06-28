@@ -1501,13 +1501,19 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public void OpenDialoguePanel()
     {
         if (dialoguePanelAnimator != null)
+        {
+            dialoguePanelAnimator.ResetTrigger(dialoguePanelCloseTrigger);
             dialoguePanelAnimator.SetTrigger(dialoguePanelOpenTrigger);
+        }
     }
 
     public void CloseDialoguePanel()
     {
         if (dialoguePanelAnimator != null)
+        {
+            dialoguePanelAnimator.ResetTrigger(dialoguePanelOpenTrigger);
             dialoguePanelAnimator.SetTrigger(dialoguePanelCloseTrigger);
+        }
     }
 
     public float DialogueOpenAnimationDuration() => 0f;
