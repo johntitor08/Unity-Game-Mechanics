@@ -176,6 +176,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         public EnemyData questEnemy;
         public ItemData questGrantItem;
         public string questID;
+        public DialogueNode questDialogueNode;
     }
 
     [System.Serializable]
@@ -1690,14 +1691,20 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 if (entry.questGrantItem != null && InventoryManager.Instance != null)
                     InventoryManager.Instance.AddItem(entry.questGrantItem);
 
-                if (QuestManager.Instance != null && !string.IsNullOrEmpty(entry.questObjectiveTag))
-                    QuestManager.Instance.NotifyObjectInteracted(entry.questObjectiveTag, Mathf.Max(1, entry.questProgressAmount));
+                PlayQuestDialogueThen(entry, () =>
+                {
+                    if (QuestManager.Instance != null && !string.IsNullOrEmpty(entry.questObjectiveTag))
+                        QuestManager.Instance.NotifyObjectInteracted(entry.questObjectiveTag, Mathf.Max(1, entry.questProgressAmount));
+                });
 
                 break;
 
             case HoverAction.QuestTalk:
-                if (QuestManager.Instance != null)
-                    QuestManager.Instance.NotifyTalkToNPC(entry.questObjectiveTag, Mathf.Max(1, entry.questProgressAmount));
+                PlayQuestDialogueThen(entry, () =>
+                {
+                    if (QuestManager.Instance != null)
+                        QuestManager.Instance.NotifyTalkToNPC(entry.questObjectiveTag, Mathf.Max(1, entry.questProgressAmount));
+                });
 
                 break;
 
@@ -1715,12 +1722,24 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         }
     }
 
+    private void PlayQuestDialogueThen(HoverRegionEntry entry, System.Action onDone)
+    {
+        if (entry.questDialogueNode != null && DialogueManager.Instance != null && !DialogueManager.Instance.IsInDialogue())
+            DialogueManager.Instance.StartDialogue(entry.questDialogueNode, onDone);
+        else
+            onDone?.Invoke();
+    }
+
     private void StartQuestCombat(HoverRegionEntry entry)
     {
         if (entry.questEnemy == null || CombatManager.Instance == null || CombatManager.Instance.inCombat)
             return;
 
-        CombatManager.Instance.StartCombat(entry.questEnemy);
+        PlayQuestDialogueThen(entry, () =>
+        {
+            if (CombatManager.Instance != null && !CombatManager.Instance.inCombat)
+                CombatManager.Instance.StartCombat(entry.questEnemy);
+        });
     }
 
     private void ReturnToTownFromQuestLocation()
