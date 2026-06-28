@@ -175,6 +175,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         public string questLocationName;
         public EnemyData questEnemy;
         public ItemData questGrantItem;
+        // Owning quest of an objective hotspot — the hotspot is only shown while this
+        // quest is active and its objective (questObjectiveTag) is not yet complete.
+        public string questID;
     }
 
     [System.Serializable]
@@ -1732,6 +1735,18 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     private static bool IsQuestObjectiveAction(HoverAction a) => a == HoverAction.QuestTalk || a == HoverAction.QuestInteract || a == HoverAction.QuestCombat;
 
+    private bool IsQuestObjectiveActive(string questID, string objectiveID)
+    {
+        if (string.IsNullOrEmpty(questID) || QuestManager.Instance == null || !QuestManager.Instance.IsQuestActive(questID))
+            return false;
+
+        if (string.IsNullOrEmpty(objectiveID))
+            return true;
+
+        var objState = QuestManager.Instance.GetObjectiveState(questID, objectiveID);
+        return objState == null || !objState.isCompleted;
+    }
+
     private bool IsQuestIconActive(MapLocationEntry loc)
     {
         if (string.IsNullOrEmpty(loc.questID) || QuestManager.Instance == null || !QuestManager.Instance.IsQuestActive(loc.questID))
@@ -1772,6 +1787,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             if (isQuestLocationRegion)
             {
                 visible = _currentQuestLocation == entry.questLocationName && PhaseMatches(entry.phase);
+
+                if (IsQuestObjectiveAction(entry.action))
+                    visible = visible && IsQuestObjectiveActive(entry.questID, entry.questObjectiveTag);
             }
             else
             {
