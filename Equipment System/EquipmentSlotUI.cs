@@ -16,7 +16,7 @@ public class EquipmentSlotUI : MonoBehaviour
     [Header("Visual Feedback")]
     public Color emptyColor = new(0.3f, 0.3f, 0.3f, 0.5f);
 
-    private Sprite emptySprite;
+    [SerializeField] private Sprite emptySprite;
     private Sprite commonSprite;
     private Sprite rareSprite;
     private Sprite epicSprite;
