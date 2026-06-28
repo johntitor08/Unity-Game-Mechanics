@@ -1349,7 +1349,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         ApplyHouseIconVisibility(IsHouseBackground(_lastBgIndex));
 
-        if (!_charFadingOut)
+        if (!_charFadingOut && string.IsNullOrEmpty(_currentQuestLocation))
             ClearDialogueBackground();
     }
 
@@ -1370,6 +1370,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         else if (isFinal)
         {
             HandleSceneTransition(endedNode);
+        }
+        else if (CombatManager.Instance == null || !CombatManager.Instance.inCombat)
+        {
+            ShowHudPanels();
         }
 
         if (!isFinal)
@@ -1724,10 +1728,21 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     private void PlayQuestDialogueThen(HoverRegionEntry entry, System.Action onDone)
     {
-        if (entry.questDialogueNode != null && DialogueManager.Instance != null && !DialogueManager.Instance.IsInDialogue())
-            DialogueManager.Instance.StartDialogue(entry.questDialogueNode, onDone);
-        else
+        if (entry.questDialogueNode == null || DialogueManager.Instance == null || DialogueManager.Instance.IsInDialogue())
+        {
             onDone?.Invoke();
+            return;
+        }
+
+        DialogueNode node = entry.questDialogueNode;
+
+        if (string.IsNullOrEmpty(node.speakerName))
+        {
+            node = Instantiate(node);
+            node.speakerName = ProfileManager.Instance != null && ProfileManager.Instance.profile != null ? ProfileManager.Instance.profile.playerName : "You";
+        }
+
+        DialogueManager.Instance.StartDialogue(node, onDone);
     }
 
     private void StartQuestCombat(HoverRegionEntry entry)
