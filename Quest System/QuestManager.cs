@@ -27,7 +27,7 @@ public class QuestManager : MonoBehaviour
     public QuestData[] allQuests;
 
     [Header("Quest Tracking")]
-    public int maxActiveQuests = 5;
+    public int maxActiveQuests = 99;
     public int maxDailyQuests = 3;
 
     void Awake()

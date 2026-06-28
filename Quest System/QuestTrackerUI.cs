@@ -14,7 +14,7 @@ public class QuestTrackerUI : MonoBehaviour
     public GameObject trackerPanel;
     public Transform trackedQuestsContainer;
     public QuestTrackerEntry trackerEntryPrefab;
-    public int maxTrackedQuests = 3;
+    public int maxTrackedQuests = 99;
     public Button closeButton;
 
     [Header("Settings")]
