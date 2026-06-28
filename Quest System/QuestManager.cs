@@ -439,13 +439,9 @@ public class QuestManager : MonoBehaviour
                     if (updatedState.isCompleted && objective.consumeItems)
                         InventoryManager.Instance.RemoveItem(objective.targetItem, objective.itemCount);
                 }
-                else if (newProgress < state.currentProgress && !objective.consumeItems)
+                else if (newProgress < state.currentProgress && !objective.consumeItems && !state.isCompleted)
                 {
                     state.currentProgress = newProgress;
-
-                    if (state.isCompleted && newProgress < required)
-                        state.isCompleted = false;
-
                     OnObjectiveUpdated?.Invoke(quest, objective);
                     SaveSystem.SaveGame();
                 }
