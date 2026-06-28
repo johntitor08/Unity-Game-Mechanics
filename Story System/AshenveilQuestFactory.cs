@@ -13,6 +13,9 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     void OnDestroy()
     {
+        if (QuestManager.Instance != null)
+            QuestManager.Instance.OnQuestCompleted -= HandleQuestCompleted;
+
         if (_instance == this)
             _instance = null;
     }
@@ -26,8 +29,34 @@ public class AshenveilQuestFactory : MonoBehaviour
         }
 
         BuildAllQuests();
+        ApplySequentialGating();
         InjectIntoQuestManager();
         TryAutoStartAvailableQuests();
+        QuestManager.Instance.OnQuestCompleted += HandleQuestCompleted;
+    }
+
+    void HandleQuestCompleted(QuestData _) => TryAutoStartAvailableQuests();
+
+    void ApplySequentialGating()
+    {
+        string[] order =
+        {
+            "q01_bir_fincan_huzur", "q02_hala_duman", "q03_kirik_muhur",
+            "q04_yasli_adamin_itirafi", "q05_acik_el", "q06_tarif_defteri",
+            "q07_corvinin_borcu", "q08_defterdeki_sesler", "q09_bekleyis",
+            "q10_acik_hesap", "q11_fincan_basinda"
+        };
+
+        for (int i = 1; i < order.Length; i++)
+        {
+            var prev = _builtQuests.Find(q => q.questID == order[i - 1]);
+            var cur = _builtQuests.Find(q => q.questID == order[i]);
+
+            if (prev == null || cur == null || prev.flagsToSetOnComplete == null || prev.flagsToSetOnComplete.Length == 0)
+                continue;
+
+            cur.requiredFlags = new[] { prev.flagsToSetOnComplete[0] };
+        }
     }
 
     public static void OnOriginApplied()
@@ -306,7 +335,7 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest10()
     {
-        var q = Make("q10_acik_hesap", "Open Account", "You've entered Voss's warehouse. Take out the guards, free the captives, and confront Voss.", QuestType.Main, requiredFlags: new[] { QuestFlags.ElderTruthKnown, QuestFlags.Q09VossWarehouseFound });
+        var q = Make("q10_acik_hesap", "Open Account", "You've entered Voss's warehouse. Take out the guards, free the captives, and confront Voss.", QuestType.Main, requiredFlags: new[] { QuestFlags.ElderTruthKnown, QuestFlags.Q09VossWarehouseFound }, flagsOnComplete: new[] { QuestFlags.VossDefeatedClean });
 
         q.objectives = new[]
         {
