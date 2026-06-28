@@ -25,6 +25,7 @@ public enum SceneProgress
 
 public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 {
+    private static readonly int DialoguePanelCloseHash = Animator.StringToHash("DialoguePanelClose");
     private static readonly WaitForSecondsRealtime _waitForSecondsRealtime0_12 = new(0.12f);
     private static readonly WaitForSecondsRealtime _bgSwapPause = new(0.2f);
     public static SceneEvent Instance { get; private set; }
@@ -1510,11 +1511,14 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     public void CloseDialoguePanel()
     {
-        if (dialoguePanelAnimator != null)
-        {
-            dialoguePanelAnimator.ResetTrigger(dialoguePanelOpenTrigger);
-            dialoguePanelAnimator.SetTrigger(dialoguePanelCloseTrigger);
-        }
+        if (dialoguePanelAnimator == null)
+            return;
+
+        dialoguePanelAnimator.ResetTrigger(dialoguePanelOpenTrigger);
+        dialoguePanelAnimator.SetTrigger(dialoguePanelCloseTrigger);
+
+        if (dialoguePanelAnimator.HasState(0, Animator.StringToHash("DialoguePanelClose")))
+            dialoguePanelAnimator.Play(DialoguePanelCloseHash, 0, 0f);
     }
 
     public float DialogueOpenAnimationDuration() => 0f;
