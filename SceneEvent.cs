@@ -177,6 +177,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         public ItemData questGrantItem;
         public string questID;
         public DialogueNode questDialogueNode;
+        public string hideIfFlag;
     }
 
     [System.Serializable]
@@ -1839,6 +1840,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 if (entry.action == HoverAction.EnterTown)
                     visible = visible && !_doorClicked && !StoryFlags.Has("day1_complete");
             }
+
+            if (!string.IsNullOrEmpty(entry.hideIfFlag) && StoryFlags.Has(entry.hideIfFlag))
+                visible = false;
 
             SetActive(entry.region, visible);
         }
