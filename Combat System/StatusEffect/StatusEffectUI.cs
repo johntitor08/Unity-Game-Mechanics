@@ -119,11 +119,15 @@ public class StatusEffectUI : MonoBehaviour
 
         while (elapsed < duration)
         {
+            if (bg == null)
+                yield break;
+
             elapsed += Time.deltaTime;
             bg.color = Color.Lerp(flash, original, elapsed / duration);
             yield return null;
         }
 
-        bg.color = original;
+        if (bg != null)
+            bg.color = original;
     }
 }
