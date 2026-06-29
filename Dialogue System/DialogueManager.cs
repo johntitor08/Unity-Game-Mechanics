@@ -89,6 +89,32 @@ public class DialogueManager : MonoBehaviour
 
         PanelAnimator ??= GetComponent<IDialoguePanelAnimator>();
         BuildLocMap();
+        LanguageManager.OnLanguageChanged += OnLanguageSwitched;
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this)
+            LanguageManager.OnLanguageChanged -= OnLanguageSwitched;
+    }
+
+    void OnLanguageSwitched(GameLanguage lang)
+    {
+        if (currentNode == null || State == DialogueState.Idle || State == DialogueState.Closing || State == DialogueState.Opening)
+            return;
+
+        DialogueNode relocalized = Localize(currentNode);
+
+        if (relocalized == null || relocalized == currentNode)
+            return;
+
+        currentNode = relocalized;
+        SetupVisuals();
+
+        if (State == DialogueState.Choices)
+            ShowChoicesOrEnd();
+        else if (currentLineIndex < currentNode.lines.Length)
+            ShowLine();
     }
 
     void Update()
