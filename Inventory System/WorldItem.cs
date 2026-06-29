@@ -9,6 +9,7 @@ public class WorldItem : MonoBehaviour, IPointerClickHandler
     [Header("Quest")]
     public string catalogObjectiveID;
     private string questObjectiveTag;
+    private bool _collected;
 
     void Awake()
     {
@@ -20,6 +21,9 @@ public class WorldItem : MonoBehaviour, IPointerClickHandler
 
     public void Collect()
     {
+        if (_collected)
+            return;
+
         if (data == null)
         {
             Debug.LogWarning($"[WorldItem] {name} has no ItemData assigned.");
@@ -32,6 +36,7 @@ public class WorldItem : MonoBehaviour, IPointerClickHandler
             return;
         }
 
+        _collected = true;
         InventoryManager.Instance.AddItem(data, quantity);
 
         if (!string.IsNullOrEmpty(questObjectiveTag) && QuestManager.Instance != null)
