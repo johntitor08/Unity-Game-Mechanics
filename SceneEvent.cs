@@ -254,6 +254,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public GameObject timePanel;
     public GameObject settingsPanel;
     public GameObject savePanel;
+    public GameObject minigameLauncherPanel;
     public GameObject profilePanel;
     public GameObject inventoryPanel;
     public GameObject shopPanel;
@@ -288,6 +289,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     [Header("Animation")]
     public Animator timePanelAnimator;
     public Animator iconPanelAnimator;
+    public Animator minigameLauncherPanelAnimator;
     public Animator dialoguePanelAnimator;
     public string timePanelOpenTrigger = "TimePanelOpened";
     public string timePanelCloseTrigger = "TimePanelClosed";
@@ -295,6 +297,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public string iconPanelCloseTrigger = "IconPanelClosed";
     public string dialoguePanelOpenTrigger = "DialoguePanelOpened";
     public string dialoguePanelCloseTrigger = "DialoguePanelClosed";
+    public string minigameLauncherPanelOpenTrigger = "MinigameLauncherPanelOpened";
+    public string minigameLauncherPanelCloseTrigger = "MinigameLauncherPanelClosed";
     public float dialogueCloseFallbackDuration = 0.25f;
 
     [Header("Icon Settings")]
@@ -365,6 +369,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetActive(settingsIconPanel, false);
         SetActive(timePanel, false);
         SetActive(iconPanel, false);
+        SetActive(minigameLauncherPanel, false);
 
         if (charImage != null)
         {
@@ -988,6 +993,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         {
             iconPanelAnimator.ResetTrigger(iconPanelOpenTrigger);
             iconPanelAnimator.SetTrigger(iconPanelCloseTrigger);
+        }
+
+        if (minigameLauncherPanelAnimator != null)
+        {
+            minigameLauncherPanelAnimator.ResetTrigger(minigameLauncherPanelOpenTrigger);
+            minigameLauncherPanelAnimator.SetTrigger(minigameLauncherPanelCloseTrigger);
         }
 
         SetActive(settingsIconPanel, false);
