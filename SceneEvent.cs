@@ -840,7 +840,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             bool visible = group.HasValue && loc.group == group.Value;
 
             if (!string.IsNullOrEmpty(loc.questID))
-                visible = visible && IsQuestIconActive(loc);
+                visible = visible && IsQuestIconActive(loc) && !IsNight();
 
             SetActive(loc.icon, visible);
 
@@ -1358,7 +1358,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     void HandleDialogueEnd(DialogueNode endedNode)
     {
-        bool isFinal = endedNode != null && endedNode.isFinalNode;
+        bool scenarioActive = ScenarioManager.Instance != null && ScenarioManager.Instance.IsScenarioActive();
+        bool isFinal = !scenarioActive && endedNode != null && endedNode.isFinalNode;
 
         if (charImage != null && charImage.gameObject.activeSelf)
         {
