@@ -8,11 +8,31 @@ public class DailyCurrencyReward : MonoBehaviour
     public int baseRewardAmount = 100;
     public int streakBonus = 50;
     public int maxStreak = 30;
-
+    public bool autoClaimOnStart = true;
     private DateTime lastClaimDate;
     private int currentStreak = 0;
 
-    void Start() => LoadLastClaimDate();
+    void Start()
+    {
+        LoadLastClaimDate();
+
+        if (autoClaimOnStart)
+            StartCoroutine(AutoClaimWhenReady());
+    }
+
+    System.Collections.IEnumerator AutoClaimWhenReady()
+    {
+        float t = 0f;
+
+        while (CurrencyManager.Instance == null && t < 5f)
+        {
+            t += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        if (CurrencyManager.Instance != null)
+            ClaimDailyReward();
+    }
 
     public bool CanClaim()
     {
