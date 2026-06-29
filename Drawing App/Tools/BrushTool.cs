@@ -25,7 +25,7 @@ public static class BrushTool
             for (int y = cy - radius; y <= cy + radius; y++)
             {
                 if (x < 0 || x >= W || y < 0 || y >= H)
-                continue;
+                    continue;
 
                 float dx = x - cx, dy = y - cy;
                 float dist = Mathf.Sqrt(dx * dx + dy * dy);
