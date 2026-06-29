@@ -57,7 +57,7 @@ public class AshenveilVossWeakPoint : MonoBehaviour
         StoryFlags.Add(QuestFlags.VossWeakPointApplied);
 
         if (CombatUI.Instance != null)
-            CombatUI.Instance.AddLogMessage("Voss'un savunması zayıf başlıyor...");
+            CombatUI.Instance.AddLogMessage(LanguageManager.Current == GameLanguage.TR ? "Voss'un savunması zayıf başlıyor..." : "Voss's defenses are weakened...");
 
         Debug.Log($"[AshenveilVossWeakPoint] DEF reduced: {currentDef} → {reducedDef}");
     }
