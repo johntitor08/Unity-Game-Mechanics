@@ -21,6 +21,7 @@ public class ScenarioManager : MonoBehaviour
     private readonly HashSet<string> completedScenarios = new();
     private Coroutine activeCoroutine;
     private Transform cachedPlayer;
+    private ScenarioData _queuedScenario;
     public bool hasStoryStarted = false;
 
     [Header("Active Scenario")]
@@ -116,6 +117,12 @@ public class ScenarioManager : MonoBehaviour
         if (!CanStartScenario(scenario))
         {
             Debug.LogWarning("Scenario cannot be started.");
+            return;
+        }
+
+        if (isScenarioActive)
+        {
+            _queuedScenario = scenario;
             return;
         }
 
@@ -420,6 +427,19 @@ public class ScenarioManager : MonoBehaviour
         isScenarioActive = false;
         StopActiveCoroutine();
         SaveSystem.SaveGame();
+        TryStartQueuedScenario();
+    }
+
+    void TryStartQueuedScenario()
+    {
+        if (_queuedScenario == null)
+            return;
+
+        var next = _queuedScenario;
+        _queuedScenario = null;
+
+        if (CanStartScenario(next))
+            StartScenario(next);
     }
 
     void AbortScenario()
