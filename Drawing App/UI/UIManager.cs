@@ -79,7 +79,9 @@ public class UIManager : MonoBehaviour
             sizeSlider.onValueChanged.AddListener(v =>
             {
                 bs.size = (int)v;
-                if (sizeLabel != null) sizeLabel.text = $"{(int)v}px";
+
+                if (sizeLabel != null)
+                    sizeLabel.text = $"{(int)v}px";
             });
         }
 

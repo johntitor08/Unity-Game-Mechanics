@@ -51,7 +51,10 @@ public class ColorWheelUI : MonoBehaviour
         if (ColorUtility.TryParseHtmlString("#" + hex, out var color))
         {
             BrushSettings.Instance.color = color;
-            if (colorPreview != null) colorPreview.color = color;
+
+            if (colorPreview != null)
+                colorPreview.color = color;
+
             Color.RGBToHSV(color, out float h, out float s, out float v);
 
             if (hueSlider != null)
