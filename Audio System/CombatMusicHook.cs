@@ -25,8 +25,13 @@ public class CombatMusicHook : MonoBehaviour
     {
         var am = GameAudioManager.Instance;
 
-        if (am != null && am.defaultMusic != null)
-            am.PlayMusic(am.defaultMusic);
+        if (am == null)
+            return;
+
+        AudioClip resume = am.currentAmbientMusic != null ? am.currentAmbientMusic : am.defaultMusic;
+
+        if (resume != null)
+            am.PlayMusic(resume);
     }
 
     void OnDestroy()

@@ -15,6 +15,7 @@ public class GameAudioManager : MonoBehaviour
 
     [Header("Default clips")]
     public AudioClip defaultMusic;
+    [HideInInspector] public AudioClip currentAmbientMusic;
     public AudioClip defaultAmbience;
     public AudioClip uiClick;
     public AudioClip uiBack;
@@ -47,6 +48,9 @@ public class GameAudioManager : MonoBehaviour
 
     void Start()
     {
+        if (currentAmbientMusic == null)
+            currentAmbientMusic = defaultMusic;
+
         if (defaultMusic != null)
             PlayMusic(defaultMusic);
 
