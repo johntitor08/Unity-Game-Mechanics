@@ -237,6 +237,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public DialogueNode scene9SecondNode;
     public DialogueNode scene9FifthNode;
     public DialogueNode finaleCutsceneNode;
+    public DialogueNode marenTeaDialogue; // Maren's thank-you at the archives tea hand-in (q01_obj4)
     public DialogueNode marenDeliveryNode;
 
     [Header("Enemies")]
@@ -1761,10 +1762,35 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (entry.questEnemy == null || CombatManager.Instance == null || CombatManager.Instance.inCombat)
             return;
 
+        GameObject region = entry.region;
+
         PlayQuestDialogueThen(entry, () =>
         {
-            if (CombatManager.Instance != null && !CombatManager.Instance.inCombat)
-                CombatManager.Instance.StartCombat(entry.questEnemy);
+            if (CombatManager.Instance == null || CombatManager.Instance.inCombat)
+                return;
+
+            Action onDefeat = null;
+            Action<EnemyData> onVictory = null;
+
+            void Cleanup()
+            {
+                CombatManager.Instance.OnCombatDefeat -= onDefeat;
+                CombatManager.Instance.OnCombatVictory -= onVictory;
+            }
+
+            onDefeat = () =>
+            {
+                Cleanup();
+
+                if (region != null)
+                    region.SetActive(true);
+            };
+
+            onVictory = (_) => Cleanup();
+
+            CombatManager.Instance.OnCombatDefeat += onDefeat;
+            CombatManager.Instance.OnCombatVictory += onVictory;
+            CombatManager.Instance.StartCombat(entry.questEnemy);
         });
     }
 
@@ -2298,7 +2324,30 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         ApplyHouseIconVisibility(false);
 
         if (bgName == "bg_templeborn_archives")
-            DeliverTeaToMaren();
+            StartTeaHandIn();
+    }
+
+    private void StartTeaHandIn()
+    {
+        if (QuestManager.Instance == null || !QuestManager.Instance.IsQuestActive("q01_bir_fincan_huzur"))
+            return;
+
+        var objective = QuestManager.Instance.GetObjectiveState("q01_bir_fincan_huzur", "q01_obj4");
+
+        if (objective == null || objective.isCompleted)
+            return;
+
+        bool hasCup = InventoryManager.Instance != null && InventoryManager.Instance.GetTotalQuantity("apple_tea") > 0;
+
+        // With the cup in hand, play Maren's thank-you and resolve the hand-in when it ends.
+        if (hasCup && marenTeaDialogue != null && DialogueManager.Instance != null)
+        {
+            DialogueManager.Instance.StartDialogue(marenTeaDialogue, DeliverTeaToMaren);
+            return;
+        }
+
+        // No cup yet (or no dialogue wired) → fall back to the direct path (shows the "brew first" hint).
+        DeliverTeaToMaren();
     }
 
     public void CollectAppleTeaSeed() => CollectWorldItem(WorldItemIndex.AppleTeaSeed);
