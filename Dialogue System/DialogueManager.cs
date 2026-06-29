@@ -236,12 +236,9 @@ public class DialogueManager : MonoBehaviour
 
     IEnumerator OpenPanelAfterTransition()
     {
-        while (IsPanelAnimatorAlive() && PanelAnimator.IsSceneTransitionActive())
-            yield return null;
-
+        yield return WaitForSceneTransition();
         dialoguePanel.SetActive(true);
         PlaySound(dialogueOpenSound);
-
         float openDuration = 0f;
 
         if (IsPanelAnimatorAlive())
@@ -258,19 +255,27 @@ public class DialogueManager : MonoBehaviour
         if (delay > 0f)
             yield return new WaitForSeconds(delay);
 
-        while (IsPanelAnimatorAlive() && PanelAnimator.IsSceneTransitionActive())
-            yield return null;
-
+        yield return WaitForSceneTransition();
         ShowLine();
     }
 
     IEnumerator WaitTransitionThenSetupAndShow()
     {
-        while (IsPanelAnimatorAlive() && PanelAnimator.IsSceneTransitionActive())
-            yield return null;
-
+        yield return WaitForSceneTransition();
         SetupVisuals();
         ShowLine();
+    }
+
+    IEnumerator WaitForSceneTransition()
+    {
+        const float maxWait = 1.2f;
+        float t = 0f;
+
+        while (IsPanelAnimatorAlive() && PanelAnimator.IsSceneTransitionActive() && t < maxWait)
+        {
+            t += Time.unscaledDeltaTime;
+            yield return null;
+        }
     }
 
     public bool IsInDialogue() => State != DialogueState.Idle;
