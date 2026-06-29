@@ -22,6 +22,7 @@ public class ItemData : ScriptableObject
     public bool useable;
     public bool consumeOnUse = true;
     public UnityEvent onUse;
+    public string questObjectiveOnUse;
 
     [Header("Reading")]
     public bool readable;

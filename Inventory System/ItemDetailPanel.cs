@@ -183,6 +183,12 @@ public class ItemDetailPanel : MonoBehaviour
         if (item is StatModifierItem statMod)
             statMod.Use();
 
+        if (item is ConsumableBuffItem buffItem)
+            buffItem.Use();
+
+        if (!string.IsNullOrEmpty(item.questObjectiveOnUse) && QuestManager.Instance != null)
+            QuestManager.Instance.NotifyObjectInteracted(item.questObjectiveOnUse, 1);
+
         if (item.consumeOnUse)
         {
             bool removed = InventoryManager.Instance.RemoveItem(item, 1);

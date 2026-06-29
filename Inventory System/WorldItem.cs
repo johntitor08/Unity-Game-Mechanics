@@ -37,8 +37,8 @@ public class WorldItem : MonoBehaviour, IPointerClickHandler
         if (!string.IsNullOrEmpty(questObjectiveTag) && QuestManager.Instance != null)
             QuestManager.Instance.NotifyObjectInteracted(questObjectiveTag, quantity);
 
-        if (LootNotificationUI.Instance != null)
-            LootNotificationUI.Instance.ShowLoot(data);
+        if (ForegroundNotifier.Instance != null)
+            ForegroundNotifier.Instance.ShowLoot(data, quantity);
 
         Destroy(gameObject);
     }
