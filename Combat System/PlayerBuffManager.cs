@@ -21,6 +21,7 @@ public class PlayerBuffManager : MonoBehaviour
         public float multiplier = 1f;
         public float duration = 5f;
         public bool stackable = false;
+        public int fightsRemaining = 0;
         [HideInInspector] public float endTime;
         [HideInInspector] public string uiKey;
         public float damageMultiplier = 1f;
@@ -67,7 +68,10 @@ public class PlayerBuffManager : MonoBehaviour
 
             if (existing != null)
             {
-                existing.endTime = Time.time + buff.duration;
+                if (buff.fightsRemaining > 0)
+                    existing.fightsRemaining = buff.fightsRemaining;
+                else
+                    existing.endTime = Time.time + buff.duration;
 
                 if (buffUIMap.TryGetValue(buff.id, out var existingUI))
                     existingUI.UpdateTimer(buff.duration);
@@ -77,7 +81,7 @@ public class PlayerBuffManager : MonoBehaviour
             }
         }
 
-        buff.endTime = Time.time + buff.duration;
+        buff.endTime = buff.fightsRemaining > 0 ? float.PositiveInfinity : Time.time + buff.duration;
         activeBuffs.Add(buff);
         SpawnBuffUI(buff);
         OnBuffsChanged?.Invoke();
@@ -90,12 +94,41 @@ public class PlayerBuffManager : MonoBehaviour
         for (int i = activeBuffs.Count - 1; i >= 0; i--)
         {
             Buff buff = activeBuffs[i];
+
+            if (buff.fightsRemaining > 0)
+                continue;
+
             float timeLeft = buff.endTime - Time.time;
 
             if (!string.IsNullOrEmpty(buff.uiKey) && buffUIMap.TryGetValue(buff.uiKey, out var ui))
                 ui.UpdateTimer(timeLeft);
 
             if (Time.time >= buff.endTime)
+            {
+                RemoveBuffUI(buff.uiKey ?? buff.id);
+                activeBuffs.RemoveAt(i);
+                changed = true;
+            }
+        }
+
+        if (changed)
+            OnBuffsChanged?.Invoke();
+    }
+
+    public void NotifyCombatEnded()
+    {
+        bool changed = false;
+
+        for (int i = activeBuffs.Count - 1; i >= 0; i--)
+        {
+            Buff buff = activeBuffs[i];
+
+            if (buff.fightsRemaining <= 0)
+                continue;
+
+            buff.fightsRemaining--;
+
+            if (buff.fightsRemaining <= 0)
             {
                 RemoveBuffUI(buff.uiKey ?? buff.id);
                 activeBuffs.RemoveAt(i);

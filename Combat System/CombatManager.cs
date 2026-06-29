@@ -849,6 +849,10 @@ public class CombatManager : MonoBehaviour
         combatResolved = false;
         UnsubscribeFromEnemyEvents();
         ClearAllBuffs();
+
+        if (PlayerBuffs != null)
+            PlayerBuffs.NotifyCombatEnded();
+
         ClearEnemyStatusEffects();
         ResetCombatVariables();
         PlayerStats.enableHealthRegen = true;
