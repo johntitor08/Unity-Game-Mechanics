@@ -7,7 +7,6 @@ public class UndoRedoManager : MonoBehaviour
     private readonly int maxHistory = 50;
     private readonly LinkedList<Texture2D[]> _undoHistory = new();
     private readonly Stack<Texture2D[]> _redoStack = new();
-
     public bool CanUndo => _undoHistory.Count > 1;
     public bool CanRedo => _redoStack.Count > 0;
 
