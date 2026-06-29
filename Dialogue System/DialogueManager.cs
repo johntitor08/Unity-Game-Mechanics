@@ -264,6 +264,15 @@ public class DialogueManager : MonoBehaviour
         ShowLine();
     }
 
+    IEnumerator WaitTransitionThenSetupAndShow()
+    {
+        while (IsPanelAnimatorAlive() && PanelAnimator.IsSceneTransitionActive())
+            yield return null;
+
+        SetupVisuals();
+        ShowLine();
+    }
+
     public bool IsInDialogue() => State != DialogueState.Idle;
 
     void ShowLine()
@@ -423,10 +432,9 @@ public class DialogueManager : MonoBehaviour
             currentNode = Localize(choice.nextNode);
             currentLineIndex = 0;
             currentNode.onEnter?.Invoke();
-            SetupVisuals();
             OnNodeAdvanced?.Invoke(currentNode);
             State = DialogueState.Opening;
-            StartCoroutine(WaitThenShowLine(0f));
+            StartCoroutine(WaitTransitionThenSetupAndShow());
         }
         else
         {
