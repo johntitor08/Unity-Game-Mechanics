@@ -265,6 +265,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public GameObject questPanel;
     public GameObject houseIconsPanel;
     public GameObject sleepingPanel;
+    public GameObject diversionsPanel;
 
     [Header("Sleep Rules")]
     public TimePhase earliestSleepPhase = TimePhase.Evening;
@@ -277,6 +278,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public GameObject coinIcon;
     public GameObject questIcon;
     public GameObject combatIcon;
+    public GameObject diversionsIcon;
 
     [Header("Map Locations & Room Icons")]
     public MapLocationEntry[] mapLocations;
@@ -439,6 +441,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (questIcon != null)
             questIcon.GetComponent<Button>().onClick.AddListener(() => TogglePanel(questPanel, "Quest"));
+
+        if (diversionsIcon != null)
+            diversionsIcon.GetComponent<Button>().onClick.AddListener(() => TogglePanel(diversionsPanel, "Diversions"));
 
         if (combatIcon != null)
             combatIcon.GetComponentInChildren<Button>().onClick.AddListener(() => TogglePanel(combatMapPanel, "Combat Map"));
@@ -621,6 +626,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         CloseAnimated(coinPanel);
         CloseAnimated(questPanel);
         CloseAnimated(combatMapPanel);
+        CloseAnimated(diversionsPanel);
 
         if (MarketUI.Instance != null)
             MarketUI.Instance.CloseAll();
