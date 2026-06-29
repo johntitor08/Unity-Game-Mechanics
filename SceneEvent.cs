@@ -1348,6 +1348,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         SetActive(settingsIconPanel, true);
         SetActive(timePanel, true);
         SetActive(iconPanel, true);
+        SetActive(minigameLauncherPanel, true);
 
         if (timePanelAnimator != null)
         {
@@ -1359,6 +1360,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         {
             iconPanelAnimator.ResetTrigger(iconPanelCloseTrigger);
             iconPanelAnimator.SetTrigger(iconPanelOpenTrigger);
+        }
+
+        if (iconPanelAnimator != null)
+        {
+            iconPanelAnimator.ResetTrigger(minigameLauncherPanelCloseTrigger);
+            iconPanelAnimator.SetTrigger(minigameLauncherPanelOpenTrigger);
         }
 
         ApplyHouseIconVisibility(IsHouseBackground(_lastBgIndex));
