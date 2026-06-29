@@ -237,7 +237,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public DialogueNode scene9SecondNode;
     public DialogueNode scene9FifthNode;
     public DialogueNode finaleCutsceneNode;
-    public DialogueNode marenTeaDialogue; // Maren's thank-you at the archives tea hand-in (q01_obj4)
+    public DialogueNode marenTeaDialogue;
     public DialogueNode marenDeliveryNode;
 
     [Header("Enemies")]
@@ -2339,14 +2339,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         bool hasCup = InventoryManager.Instance != null && InventoryManager.Instance.GetTotalQuantity("apple_tea") > 0;
 
-        // With the cup in hand, play Maren's thank-you and resolve the hand-in when it ends.
         if (hasCup && marenTeaDialogue != null && DialogueManager.Instance != null)
         {
             DialogueManager.Instance.StartDialogue(marenTeaDialogue, DeliverTeaToMaren);
             return;
         }
 
-        // No cup yet (or no dialogue wired) → fall back to the direct path (shows the "brew first" hint).
         DeliverTeaToMaren();
     }
 
