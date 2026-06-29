@@ -1362,10 +1362,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             iconPanelAnimator.SetTrigger(iconPanelOpenTrigger);
         }
 
-        if (iconPanelAnimator != null)
+        if (minigameLauncherPanelAnimator != null)
         {
-            iconPanelAnimator.ResetTrigger(minigameLauncherPanelCloseTrigger);
-            iconPanelAnimator.SetTrigger(minigameLauncherPanelOpenTrigger);
+            minigameLauncherPanelAnimator.ResetTrigger(minigameLauncherPanelCloseTrigger);
+            minigameLauncherPanelAnimator.SetTrigger(minigameLauncherPanelOpenTrigger);
         }
 
         ApplyHouseIconVisibility(IsHouseBackground(_lastBgIndex));
