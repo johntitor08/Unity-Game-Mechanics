@@ -69,9 +69,11 @@ public class PuzzleManager : MonoBehaviour
             case Difficulty.Easy:
                 gridX = gridY = 4;
                 break;
+
             case Difficulty.Medium:
                 gridX = gridY = 5;
                 break;
+
             case Difficulty.Hard:
                 gridX = gridY = 6;
                 break;
@@ -87,22 +89,17 @@ public class PuzzleManager : MonoBehaviour
         if (gameUI != null)
             gameUI.ResetUI();
 
-        if (!currentImage) return;
+        if (!currentImage)
+            return;
+
         CreatePuzzle();
     }
 
     void CreatePuzzle()
     {
-        puzzleContainer.SetSizeWithCurrentAnchors(
-            RectTransform.Axis.Horizontal, puzzleSize.x);
-        puzzleContainer.SetSizeWithCurrentAnchors(
-            RectTransform.Axis.Vertical, puzzleSize.y);
-
-        pieceSize = new Vector2(
-            puzzleSize.x / gridX,
-            puzzleSize.y / gridY
-        );
-
+        puzzleContainer.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, puzzleSize.x);
+        puzzleContainer.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, puzzleSize.y);
+        pieceSize = new Vector2(puzzleSize.x / gridX, puzzleSize.y / gridY);
         Texture2D tex = currentImage.texture;
         int pixelW = tex.width / gridX;
         int pixelH = tex.height / gridY;
@@ -115,19 +112,7 @@ public class PuzzleManager : MonoBehaviour
                 RectTransform rt = obj.GetComponent<RectTransform>();
                 rt.sizeDelta = pieceSize;
                 rt.localScale = Vector3.one;
-
-                Sprite pieceSprite = Sprite.Create(
-                    tex,
-                    new Rect(
-                        x * pixelW,
-                        (gridY - 1 - y) * pixelH,
-                        pixelW,
-                        pixelH
-                    ),
-                    new Vector2(0.5f, 0.5f),
-                    100f
-                );
-
+                Sprite pieceSprite = Sprite.Create(tex, new Rect(x * pixelW, (gridY - 1 - y) * pixelH, pixelW, pixelH), new Vector2(0.5f, 0.5f), 100f);
                 obj.GetComponent<Image>().sprite = pieceSprite;
                 PuzzlePiece piece = obj.GetComponent<PuzzlePiece>();
                 piece.Initialize(new Vector2Int(x, y), this);
@@ -191,11 +176,7 @@ public class PuzzleManager : MonoBehaviour
     {
         float startX = -puzzleSize.x / 2f + pieceSize.x / 2f;
         float startY = puzzleSize.y / 2f - pieceSize.y / 2f;
-
-        return new Vector2(
-            startX + gp.x * pieceSize.x,
-            startY - gp.y * pieceSize.y
-        );
+        return new Vector2(startX + gp.x * pieceSize.x, startY - gp.y * pieceSize.y);
     }
 
     public float GetSnapDistance()
@@ -224,7 +205,8 @@ public class PuzzleManager : MonoBehaviour
     {
         foreach (PuzzlePiece p in pieces)
         {
-            if (!p) continue;
+            if (!p)
+                continue;
 
             if (p.TryGetComponent(out Image img) && img.sprite)
                 Destroy(img.sprite);

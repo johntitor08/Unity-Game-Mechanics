@@ -35,11 +35,13 @@ public class GameUI : MonoBehaviour
 
     void Update()
     {
-        if (!timerRunning) return;
+        if (!timerRunning)
+            return;
+
         float elapsed = Time.time - startTime;
         int min = Mathf.FloorToInt(elapsed / 60f);
         int sec = Mathf.FloorToInt(elapsed % 60f);
-        timeText.text = $"S�re: {min:00}:{sec:00}";
+        timeText.text = $"Time: {min:00}:{sec:00}";
     }
 
     void StartTimer()
@@ -51,14 +53,14 @@ public class GameUI : MonoBehaviour
     public void IncrementMoves()
     {
         moves++;
-        movesText.text = $"Hamle: {moves}";
+        movesText.text = $"Moves: {moves}";
     }
 
     void ShowWinPanel()
     {
         timerRunning = false;
         winPanel.SetActive(true);
-        winMovesText.text = $"Hamle: {moves}";
+        winMovesText.text = $"Moves: {moves}";
         winTimeText.text = timeText.text;
     }
 
@@ -67,8 +69,8 @@ public class GameUI : MonoBehaviour
         moves = 0;
         startTime = Time.time;
         timerRunning = true;
-        movesText.text = "Hamle: 0";
-        timeText.text = "S�re: 00:00";
+        movesText.text = "Moves: 0";
+        timeText.text = "Time: 00:00";
 
         if (winPanel)
             winPanel.SetActive(false);

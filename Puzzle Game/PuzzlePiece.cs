@@ -18,9 +18,7 @@ public class PuzzlePiece : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
     {
         rt = GetComponent<RectTransform>();
         canvas = GetComponentInParent<Canvas>();
-        uiCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay
-            ? null
-            : canvas.worldCamera;
+        uiCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
     }
 
     public void Initialize(Vector2Int gp, PuzzleManager pm)
@@ -31,36 +29,28 @@ public class PuzzlePiece : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
 
     public void OnBeginDrag(PointerEventData e)
     {
-        if (placed) return;
+        if (placed)
+            return;
 
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            rt.parent as RectTransform,
-            e.position,
-            uiCamera,
-            out Vector2 localMousePos
-        );
-
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(rt.parent as RectTransform, e.position, uiCamera, out Vector2 localMousePos);
         dragOffset = rt.anchoredPosition - localMousePos;
         PuzzleEvents.OnMoveMade?.Invoke();
     }
 
     public void OnDrag(PointerEventData e)
     {
-        if (placed) return;
+        if (placed)
+            return;
 
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            rt.parent as RectTransform,
-            e.position,
-            uiCamera,
-            out Vector2 localMousePos
-        );
-
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(rt.parent as RectTransform, e.position, uiCamera, out Vector2 localMousePos);
         rt.anchoredPosition = localMousePos + dragOffset;
     }
 
     public void OnEndDrag(PointerEventData e)
     {
-        if (placed) return;
+        if (placed)
+            return;
+
         Vector2 correct = manager.GetCorrectPosition(gridPos);
 
         if (Vector2.Distance(rt.anchoredPosition, correct) < manager.GetSnapDistance())

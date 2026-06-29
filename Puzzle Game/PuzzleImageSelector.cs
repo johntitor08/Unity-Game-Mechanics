@@ -19,7 +19,9 @@ public class PuzzleImageSelector : MonoBehaviour
 
     public void SelectNewRandomImage()
     {
-        if (puzzleImages.Count == 0) return;
+        if (puzzleImages.Count == 0)
+            return;
+
         int newIndex = currentIndex;
 
         if (puzzleImages.Count > 1)
@@ -36,21 +38,27 @@ public class PuzzleImageSelector : MonoBehaviour
 
     public void SelectImageByIndex(int index)
     {
-        if (index < 0 || index >= puzzleImages.Count) return;
+        if (index < 0 || index >= puzzleImages.Count)
+            return;
+
         currentIndex = index;
         ApplySelection();
     }
 
     public void NextImage()
     {
-        if (puzzleImages.Count == 0) return;
+        if (puzzleImages.Count == 0)
+            return;
+
         currentIndex = (currentIndex + 1) % puzzleImages.Count;
         ApplySelection();
     }
 
     public void PreviousImage()
     {
-        if (puzzleImages.Count == 0) return;
+        if (puzzleImages.Count == 0)
+            return;
+
         currentIndex = (currentIndex - 1 + puzzleImages.Count) % puzzleImages.Count;
         ApplySelection();
     }
@@ -58,8 +66,13 @@ public class PuzzleImageSelector : MonoBehaviour
     void ApplySelection()
     {
         selectedImage = puzzleImages[currentIndex];
-        if (previewImage) previewImage.sprite = selectedImage;
-        if (imageNameText) imageNameText.text = selectedImage.name;
+
+        if (previewImage)
+            previewImage.sprite = selectedImage;
+
+        if (imageNameText)
+            imageNameText.text = selectedImage.name;
+
         PuzzleEvents.OnImageChanged?.Invoke(selectedImage);
     }
 
