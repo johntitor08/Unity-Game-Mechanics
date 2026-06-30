@@ -135,6 +135,13 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     {
         public string name;
         public Sprite sprite;
+        public Sprite eveningSprite;
+
+        public readonly Sprite Resolve(TimePhase phase)
+        {
+            bool dusk = phase == TimePhase.Evening || phase == TimePhase.Night;
+            return dusk && eveningSprite != null ? eveningSprite : sprite;
+        }
     }
 
     public enum PhaseCondition { Any, MorningOrNoon, NotNight, NightOnly, NoonOrEvening, MorningOnly, EveningOrNight }
@@ -2325,12 +2332,13 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             return;
 
         Sprite spr = null;
+        TimePhase phase = TimePhaseManager.Instance != null ? TimePhaseManager.Instance.currentPhase : TimePhase.Morning;
 
         if (questLocationBackgrounds != null)
             foreach (var qb in questLocationBackgrounds)
                 if (qb.name == bgName)
                 {
-                    spr = qb.sprite;
+                    spr = qb.Resolve(phase);
                     break;
                 }
 
