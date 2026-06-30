@@ -1544,14 +1544,13 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     public void CloseDialoguePanel()
     {
-        if (dialoguePanelAnimator == null)
+        if (dialoguePanelAnimator == null || !dialoguePanelAnimator.gameObject.activeInHierarchy)
             return;
 
         dialoguePanelAnimator.ResetTrigger(dialoguePanelOpenTrigger);
         dialoguePanelAnimator.SetTrigger(dialoguePanelCloseTrigger);
-
-        if (dialoguePanelAnimator.HasState(0, Animator.StringToHash("DialoguePanelClose")))
-            dialoguePanelAnimator.Play(DialoguePanelCloseHash, 0, 0f);
+        dialoguePanelAnimator.Play(DialoguePanelCloseHash, 0, 0f);
+        dialoguePanelAnimator.Update(0f);
     }
 
     public float DialogueOpenAnimationDuration() => 0f;
@@ -1560,15 +1559,17 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     public float DialogueCloseAnimationDuration()
     {
+        float len = dialogueCloseFallbackDuration;
+
         if (dialoguePanelAnimator != null)
         {
             AnimatorStateInfo info = dialoguePanelAnimator.GetCurrentAnimatorStateInfo(0);
 
             if (info.length > 0f)
-                return info.length;
+                len = info.length;
         }
 
-        return dialogueCloseFallbackDuration;
+        return Mathf.Max(len, 0.4f);
     }
 
     public void ApplySceneProgress(SceneProgress targetProgress)
