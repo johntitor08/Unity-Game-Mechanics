@@ -7,6 +7,7 @@ public class GameAudioManager : MonoBehaviour
     public static GameAudioManager Instance { get; private set; }
     const string PP_MASTER = "audio_master", PP_MUSIC = "audio_music", PP_AMB = "audio_amb", PP_SFX = "audio_sfx";
     Coroutine _musicFade;
+    AudioClip _pendingMusic;
 
     [Header("Sources")]
     [SerializeField] private AudioSource musicSource;
@@ -82,12 +83,18 @@ public class GameAudioManager : MonoBehaviour
 
     public void PlayMusic(AudioClip clip, bool restartIfSame = false)
     {
-        if (clip == null || (!restartIfSame && musicSource.clip == clip && musicSource.isPlaying))
+        if (clip == null)
+            return;
+
+        AudioClip effective = _musicFade != null ? _pendingMusic : musicSource.clip;
+
+        if (!restartIfSame && effective == clip && (musicSource.isPlaying || _musicFade != null))
             return;
 
         if (_musicFade != null)
             StopCoroutine(_musicFade);
 
+        _pendingMusic = clip;
         _musicFade = StartCoroutine(CrossfadeMusic(clip));
     }
 
@@ -118,6 +125,7 @@ public class GameAudioManager : MonoBehaviour
 
         musicSource.volume = target;
         _musicFade = null;
+        _pendingMusic = null;
     }
 
     public void StopMusic()
