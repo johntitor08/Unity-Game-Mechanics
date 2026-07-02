@@ -30,7 +30,7 @@ public class ItemDatabase : ScriptableObject
             Debug.LogError($"ItemDatabase missing: {id}");
             return null;
         }
-        
+
         return item;
     }
 
@@ -43,6 +43,8 @@ public class ItemDatabase : ScriptableObject
 
         Initialize();
     }
+
+    #if UNITY_EDITOR
 
     [ContextMenu("Populate From All ItemData")]
     public void PopulateFromProject()
@@ -68,4 +70,6 @@ public class ItemDatabase : ScriptableObject
         UnityEditor.AssetDatabase.SaveAssets();
         Debug.Log($"[ItemDatabase] Populated {items.Count} items from the project.");
     }
+
+    #endif
 }

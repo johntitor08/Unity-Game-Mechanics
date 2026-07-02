@@ -59,7 +59,7 @@ public class ItemSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         currentQuantity = qty;
         icon.sprite = currentItem.icon;
         icon.enabled = true;
-        string displayName = upgradeLevel > 0 ? $"{currentItem.itemName} <color=#FFD700>+{upgradeLevel}</color>" : currentItem.itemName;
+        string displayName = upgradeLevel > 0 ? $"{currentItem.DisplayName} <color=#FFD700>+{upgradeLevel}</color>" : currentItem.DisplayName;
         title.text = displayName;
         ApplyRarityUI(currentItem);
 

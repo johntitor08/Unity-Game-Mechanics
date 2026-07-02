@@ -54,11 +54,11 @@ public class ItemDetailPanel : MonoBehaviour
         if (title != null)
         {
             string upgradeStr = upgradeLevel > 0 ? $" <color=#FFD700>+{upgradeLevel}</color>" : "";
-            title.text = $"{item.itemName}{upgradeStr}";
+            title.text = $"{item.DisplayName}{upgradeStr}";
         }
 
         if (description != null)
-            description.text = item.description;
+            description.text = item.DisplayDescription;
 
         if (icon != null)
             icon.sprite = item.icon;
@@ -66,7 +66,7 @@ public class ItemDetailPanel : MonoBehaviour
         int qty = ResolveQuantity(item, quantity, upgradeLevel);
 
         if (quantityText != null)
-            quantityText.text = $"Owned: {qty}";
+            quantityText.text = $"{Loc.T("Owned", "Sahip olunan")}: {qty}";
 
         if (upgradeFusionButton != null)
             upgradeFusionButton.SetItem(item is EquipmentData eq ? eq : null);
@@ -140,7 +140,7 @@ public class ItemDetailPanel : MonoBehaviour
             return;
 
         if (ReadingPanel.Instance != null)
-            ReadingPanel.Instance.Show(currentItem.itemName, currentItem.readText, currentItem.icon);
+            ReadingPanel.Instance.Show(currentItem.DisplayName, currentItem.DisplayReadText, currentItem.icon);
         else
             Debug.LogWarning("[ItemDetailPanel] ReadingPanel.Instance is null.");
     }
@@ -218,7 +218,7 @@ public class ItemDetailPanel : MonoBehaviour
         int qty = ResolveQuantity(currentItem, -1, currentUpgradeLevel);
 
         if (quantityText != null)
-            quantityText.text = $"Owned: {qty}";
+            quantityText.text = $"{Loc.T("Owned", "Sahip olunan")}: {qty}";
 
         isProcessingUse = false;
 

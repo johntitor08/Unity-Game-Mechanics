@@ -29,7 +29,7 @@ public class LootNotificationUI : MonoBehaviour
         if (equipment == null)
             return;
 
-        string message = $"+1 {equipment.itemName}";
+        string message = $"+1 {equipment.DisplayName}";
         Color color = equipment.GetRarityColor();
         ShowNotification(message, color, equipment.icon);
     }
@@ -39,7 +39,7 @@ public class LootNotificationUI : MonoBehaviour
         if (item == null)
             return;
 
-        string message = $"+1 {item.itemName}";
+        string message = $"+1 {item.DisplayName}";
         ShowNotification(message, Color.white, item.icon);
     }
 

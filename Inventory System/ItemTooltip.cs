@@ -9,7 +9,7 @@ public class ItemTooltip : MonoBehaviour
     {
         int sellPrice = item.GetSellPrice();
         string upgradeStr = upgradeLevel > 0 ? $"  <color=#FFD700>+{upgradeLevel}</color>" : "";
-        tooltipText.text = $"{item.itemName}{upgradeStr}\nSell Price: {sellPrice} Gold";
+        tooltipText.text = $"{item.DisplayName}{upgradeStr}\n{Loc.T("Sell Price", "Satış Fiyatı")}: {sellPrice} {Loc.T("Gold", "Altın")}";
         gameObject.SetActive(true);
     }
 

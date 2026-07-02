@@ -7,9 +7,12 @@ public class ItemData : ScriptableObject
     [Header("Identity")]
     public string itemID;
     public string itemName;
+    public string itemNameTR;
     public Sprite icon;
     [TextArea]
     public string description;
+    [TextArea]
+    public string descriptionTR;
 
     [Header("Type")]
     public ItemType itemType = ItemType.Consumable;
@@ -28,12 +31,20 @@ public class ItemData : ScriptableObject
     public bool readable;
     [TextArea(3, 15)]
     public string readText;
+    [TextArea(3, 15)]
+    public string readTextTR;
 
     [Header("Economy")]
     public int basePrice = 10;
 
     [Header("Rarity")]
     public Rarity rarity = Rarity.Common;
+
+    public string DisplayName => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(itemNameTR) ? itemNameTR : itemName;
+
+    public string DisplayDescription => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(descriptionTR) ? descriptionTR : description;
+
+    public string DisplayReadText => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(readTextTR) ? readTextTR : readText;
 
     public virtual bool IsEquipment()
     {
