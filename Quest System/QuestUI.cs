@@ -234,7 +234,7 @@ public class QuestUI : HotkeyPanelUI
             questDescriptionText.text = quest.DisplayDescription;
 
         if (questTypeText != null)
-            questTypeText.text = $"{quest.questType} - {quest.difficulty}";
+            questTypeText.text = $"{quest.questType.Display()} - {quest.difficulty.Display()}";
 
         if (questIcon != null)
             questIcon.sprite = quest.icon;

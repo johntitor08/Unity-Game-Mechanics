@@ -85,3 +85,26 @@ public enum QuestDifficulty
     Elite,
     Epic
 }
+
+public static class QuestEnumLoc
+{
+    public static string Display(this QuestType t) => t switch
+    {
+        QuestType.Main => Loc.T("Main", "Ana"),
+        QuestType.Side => Loc.T("Side", "Yan"),
+        QuestType.Daily => Loc.T("Daily", "Günlük"),
+        QuestType.Repeatable => Loc.T("Repeatable", "Tekrarlanabilir"),
+        QuestType.Event => Loc.T("Event", "Etkinlik"),
+        _ => t.ToString()
+    };
+
+    public static string Display(this QuestDifficulty d) => d switch
+    {
+        QuestDifficulty.Easy => Loc.T("Easy", "Kolay"),
+        QuestDifficulty.Normal => Loc.T("Normal", "Normal"),
+        QuestDifficulty.Hard => Loc.T("Hard", "Zor"),
+        QuestDifficulty.Elite => Loc.T("Elite", "Elit"),
+        QuestDifficulty.Epic => Loc.T("Epic", "Destansı"),
+        _ => d.ToString()
+    };
+}

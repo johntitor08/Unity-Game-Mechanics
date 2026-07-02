@@ -23,7 +23,7 @@ public class QuestSlotUI : MonoBehaviour
             questNameText.text = questData.DisplayName;
 
         if (questTypeText != null)
-            questTypeText.text = questData.questType.ToString();
+            questTypeText.text = questData.questType.Display();
 
         if (questIcon != null && questData.icon != null)
             questIcon.sprite = questData.icon;
