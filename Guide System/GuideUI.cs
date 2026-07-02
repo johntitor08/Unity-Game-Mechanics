@@ -124,7 +124,7 @@ public class GuideUI : MonoBehaviour
         if (listFont != null)
             lbl.font = listFont;
 
-        lbl.text = e.title;
+        lbl.text = e.DisplayTitle;
         lbl.color = labelColor;
         lbl.fontSize = 26;
         lbl.alignment = TextAlignmentOptions.Left;
@@ -151,18 +151,18 @@ public class GuideUI : MonoBehaviour
     {
         if (detailTitle != null)
         {
-            detailTitle.text = e.title;
+            detailTitle.text = e.DisplayTitle;
             detailTitle.color = goldColor;
         }
 
         if (detailBody != null)
         {
-            string body = e.body;
+            string body = e.DisplayBody;
 
             if (e.category == GuideCategory.Book)
-                body += "\n\n(Click to open and read.)";
+                body += Loc.T("\n\n(Click to open and read.)", "\n\n(Açıp okumak için tıkla.)");
             else if (e.category == GuideCategory.Character && AffinityManager.Instance != null)
-                body += $"\n\nAffinity: {AffinityManager.Instance.HeartBar(e.title)}  {AffinityManager.Instance.Get(e.title)}/{AffinityManager.Instance.maxAffinity}  ({AffinityManager.Instance.Tier(e.title)})";
+                body += $"\n\n{Loc.T("Affinity", "Yakınlık")}: {AffinityManager.Instance.HeartBar(e.title)}  {AffinityManager.Instance.Get(e.title)}/{AffinityManager.Instance.maxAffinity}  ({AffinityManager.Instance.Tier(e.title)})";
 
             detailBody.text = body;
         }
