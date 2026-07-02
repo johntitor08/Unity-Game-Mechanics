@@ -41,9 +41,7 @@ public class ItemData : ScriptableObject
     public Rarity rarity = Rarity.Common;
 
     public string DisplayName => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(itemNameTR) ? itemNameTR : itemName;
-
     public string DisplayDescription => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(descriptionTR) ? descriptionTR : description;
-
     public string DisplayReadText => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(readTextTR) ? readTextTR : readText;
 
     public virtual bool IsEquipment()
