@@ -20,7 +20,6 @@ public class GuideEntry : ScriptableObject
     public string body;
     [TextArea(3, 15)]
     public string bodyTR;
-
     public string DisplayTitle => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(titleTR) ? titleTR : title;
     public string DisplayBody => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(bodyTR) ? bodyTR : body;
 }
