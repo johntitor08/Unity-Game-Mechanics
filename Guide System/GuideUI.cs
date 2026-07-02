@@ -140,7 +140,7 @@ public class GuideUI : MonoBehaviour
         if (e.category == GuideCategory.Book && e.bookItem != null && ReadingPanel.Instance != null)
         {
             Close();
-            ReadingPanel.Instance.Show(e.bookItem.itemName, e.bookItem.readText, e.bookItem.icon);
+            ReadingPanel.Instance.Show(e.bookItem.DisplayName, e.bookItem.DisplayReadText, e.bookItem.icon);
             return;
         }
 
