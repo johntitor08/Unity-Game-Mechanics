@@ -82,7 +82,7 @@ public class EnemyLoot : MonoBehaviour
 
             AddItemToInventory(equipment, 1);
             string rarityColor = GetRarityColorHex(equipment.rarity);
-            LogDrop($"<color={rarityColor}>{equipment.itemName}</color> (Equipment)");
+            LogDrop($"<color={rarityColor}>{equipment.DisplayName}</color> ({Loc.T("Equipment", "Ekipman")})");
         }
     }
 
@@ -105,7 +105,7 @@ public class EnemyLoot : MonoBehaviour
             if (Random.value <= dropChance)
             {
                 AddItemToInventory(item, 1);
-                LogDrop($"<color=yellow>{item.itemName}</color>");
+                LogDrop($"<color=yellow>{item.DisplayName}</color>");
             }
         }
     }

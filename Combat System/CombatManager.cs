@@ -306,17 +306,17 @@ public class CombatManager : MonoBehaviour
         int bonus = action.CalculateDefenseBonus();
         ApplyDefenseBonus(bonus);
         ApplyHealing(action.healAmount);
-        Log($"{action.actionName} used! +{bonus} defense.");
+        Log(Loc.T($"{action.DisplayActionName} used! +{bonus} defense.", $"{action.DisplayActionName} kullanıldı! +{bonus} savunma."));
 
         if (action.healAmount > 0)
-            Log($"+{action.healAmount} health restored.");
+            Log(Loc.T($"+{action.healAmount} health restored.", $"+{action.healAmount} can yenilendi."));
 
         if (action.applyBuff && PlayerBuffs != null)
         {
             PlayerBuffs.AddBuff(new PlayerBuffManager.Buff
             {
                 id = action.buffId,
-                displayName = action.buffDisplayName,
+                displayName = action.DisplayBuffName,
                 type = action.buffType,
                 damageMultiplier = action.buffDamageMultiplier,
                 damageReduction = action.buffDamageReduction,
@@ -325,7 +325,7 @@ public class CombatManager : MonoBehaviour
                 stackable = false
             });
 
-            Log($"{action.buffDisplayName} active! ({action.buffDuration}s)");
+            Log(Loc.T($"{action.DisplayBuffName} active! ({action.buffDuration}s)", $"{action.DisplayBuffName} etkin! ({action.buffDuration}s)"));
         }
     }
 
@@ -454,7 +454,7 @@ public class CombatManager : MonoBehaviour
     {
         enemyStats.Modify(StatType.Health, -damage);
         TryApplyOnHitEffects(enemyStats);
-        Log($"Dealt {damage} damage to {currentEnemy.enemyName}.");
+        Log(Loc.T($"Dealt {damage} damage to {currentEnemy.DisplayName}.", $"{currentEnemy.DisplayName} hedefine {damage} hasar verildi."));
     }
 
     private bool IsEnemyDefeated()
@@ -507,13 +507,13 @@ public class CombatManager : MonoBehaviour
             if (enemyStats != null && enemyStats.TryGetComponent<StatusEffectManager>(out var efx))
             {
                 efx.ApplyEffect(ability);
-                Log($"{currentEnemy.enemyName} uses {ability.effectName}!");
+                Log(Loc.T($"{currentEnemy.DisplayName} uses {ability.DisplayName}!", $"{currentEnemy.DisplayName}, {ability.DisplayName} kullanıyor!"));
             }
         }
         else if (PlayerEffects != null)
         {
             PlayerEffects.ApplyEffect(ability);
-            Log($"{currentEnemy.enemyName} afflicts you with {ability.effectName}!");
+            Log(Loc.T($"{currentEnemy.DisplayName} afflicts you with {ability.DisplayName}!", $"{currentEnemy.DisplayName} sana {ability.DisplayName} bulaştırıyor!"));
         }
     }
 
@@ -574,7 +574,7 @@ public class CombatManager : MonoBehaviour
 
             if (!effects.CanAct())
             {
-                Log($"{currentEnemy.enemyName} is stunned and cannot act!");
+                Log(Loc.T($"{currentEnemy.DisplayName} is stunned and cannot act!", $"{currentEnemy.DisplayName} sersemledi ve hareket edemiyor!"));
                 DecayDefenseBonuses();
                 OnCombatStateChanged?.Invoke();
                 StartCoroutine(DelayedCall(turnDelay, StartPlayerTurn));
@@ -625,7 +625,7 @@ public class CombatManager : MonoBehaviour
         if (!inCombat || combatResolved)
             return;
 
-        Log($"{currentEnemy.enemyName} takes {damage} {data.effectName} damage.");
+        Log(Loc.T($"{currentEnemy.DisplayName} takes {damage} {data.DisplayName} damage.", $"{currentEnemy.DisplayName}, {damage} {data.DisplayName} hasarı alıyor."));
 
         if (IsEnemyDefeated())
             ResolveCombat(true);
@@ -714,14 +714,14 @@ public class CombatManager : MonoBehaviour
     {
         int defenseBonus = Mathf.Max(15, Mathf.RoundToInt(currentEnemy.defense * 1.2f));
         enemyDefenseBonus = Mathf.Clamp(enemyDefenseBonus + defenseBonus, 0, maxDefenseBonus);
-        Log($"{currentEnemy.enemyName} defends! (+{defenseBonus} | Total: {GetEnemyTotalDefense()})");
+        Log(Loc.T($"{currentEnemy.DisplayName} defends! (+{defenseBonus} | Total: {GetEnemyTotalDefense()})", $"{currentEnemy.DisplayName} savunuyor! (+{defenseBonus} | Toplam: {GetEnemyTotalDefense()})"));
     }
 
     private void SpecialAttack()
     {
         int damage = Mathf.RoundToInt(currentEnemy.attack * 1.5f);
         DealDamageToPlayer(damage);
-        Log($"{currentEnemy.enemyName} uses a special attack!");
+        Log(Loc.T($"{currentEnemy.DisplayName} uses a special attack!", $"{currentEnemy.DisplayName} özel bir saldırı kullanıyor!"));
     }
 
     private void DealDamageToPlayer(int baseDamage)
@@ -729,7 +729,7 @@ public class CombatManager : MonoBehaviour
         int totalDefense = CalculatePlayerTotalDefense();
         int damage = CalculateEnemyDamageToPlayer(baseDamage, totalDefense);
         PlayerStats.Modify(StatType.Health, -damage, false);
-        Log($"{currentEnemy.enemyName} deals {damage} damage.");
+        Log(Loc.T($"{currentEnemy.DisplayName} deals {damage} damage.", $"{currentEnemy.DisplayName}, {damage} hasar veriyor."));
     }
 
     private int CalculatePlayerTotalDefense()
@@ -819,7 +819,7 @@ public class CombatManager : MonoBehaviour
 
     IEnumerator HandleVictoryAfterDelay(float delay)
     {
-        Log($"Defeated {currentEnemy.enemyName}!");
+        Log(Loc.T($"Defeated {currentEnemy.DisplayName}!", $"{currentEnemy.DisplayName} yenildi!"));
         yield return WaitFor(delay);
         GrantVictoryRewards();
         DropEnemyLoot();

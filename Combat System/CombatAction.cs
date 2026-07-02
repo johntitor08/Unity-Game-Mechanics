@@ -5,7 +5,9 @@ public class CombatAction
 {
     [Header("Basic Info")]
     public string actionName = "Attack";
+    public string actionNameTR;
     public string description = "A basic attack";
+    public string descriptionTR;
     public Sprite icon;
 
     [Header("Damage")]
@@ -39,11 +41,16 @@ public class CombatAction
     public bool applyBuff = false;
     public string buffId;
     public string buffDisplayName;
+    public string buffDisplayNameTR;
     public PlayerBuffManager.BuffType buffType;
     public float buffDamageMultiplier = 1f;
     public float buffDamageReduction = 0f;
     public float buffDuration = 5f;
     public Sprite buffIcon;
+
+    public string DisplayActionName => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(actionNameTR) ? actionNameTR : actionName;
+    public string DisplayDescription => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(descriptionTR) ? descriptionTR : description;
+    public string DisplayBuffName => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(buffDisplayNameTR) ? buffDisplayNameTR : buffDisplayName;
 
     public int CalculateDamage()
     {

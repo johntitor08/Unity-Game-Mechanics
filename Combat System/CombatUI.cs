@@ -143,7 +143,7 @@ public class CombatUI : MonoBehaviour
             enemyTurnIndicator.SetActive(!isPlayerTurn);
 
         if (turnText != null)
-            turnText.text = isPlayerTurn ? "YOUR TURN" : "ENEMY TURN";
+            turnText.text = isPlayerTurn ? Loc.T("YOUR TURN", "SIRA SENDE") : Loc.T("ENEMY TURN", "DÜŞMAN SIRASI");
 
         UpdateActionButtons(isPlayerTurn);
     }
@@ -178,7 +178,7 @@ public class CombatUI : MonoBehaviour
         }
 
         if (enemyNameText != null)
-            enemyNameText.text = enemyData.enemyName;
+            enemyNameText.text = enemyData.DisplayName;
 
         if (enemyHealthBar != null)
         {
@@ -223,7 +223,7 @@ public class CombatUI : MonoBehaviour
         }
 
         if (playerEnergyText != null)
-            playerEnergyText.text = $"Energy: {current} / {max}";
+            playerEnergyText.text = $"{Loc.T("Energy", "Enerji")}: {current} / {max}";
 
         if (IsInCombat)
             RefreshActionButtonsByEnergy();
@@ -271,6 +271,7 @@ public class CombatUI : MonoBehaviour
             {
                 int chance = Mathf.RoundToInt(CombatManager.Instance.GetFleeChance() * 100);
                 action.actionName = $"Run ({chance}%)";
+                action.actionNameTR = $"Kaç (%{chance})";
             }
 
             if (i < actionButtons.Count)

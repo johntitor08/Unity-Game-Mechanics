@@ -5,8 +5,12 @@ public class EnemyData : ScriptableObject
 {
     [Header("Basic Info")]
     public string enemyName = "Enemy";
+    public string enemyNameTR;
     public Sprite sprite;
-    [TextArea] public string description;
+    [TextArea]
+    public string description;
+    [TextArea]
+    public string descriptionTR;
 
     [Header("Stats")]
     public int maxHealth = 100;
@@ -45,4 +49,7 @@ public class EnemyData : ScriptableObject
 
     [Range(0f, 1f)]
     public float finisherThreshold = 0.25f;
+
+    public string DisplayName => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(enemyNameTR) ? enemyNameTR : enemyName;
+    public string DisplayDescription => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(descriptionTR) ? descriptionTR : description;
 }

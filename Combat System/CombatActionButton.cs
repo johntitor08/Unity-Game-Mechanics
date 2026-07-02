@@ -17,10 +17,10 @@ public class CombatActionButton : MonoBehaviour
         action = combatAction;
 
         if (actionNameText != null)
-            actionNameText.text = action.actionName;
+            actionNameText.text = action.DisplayActionName;
 
         if (energyCostText != null)
-            energyCostText.text = $"{action.energyCost} Energy";
+            energyCostText.text = $"{action.energyCost} {Loc.T("Energy", "Enerji")}";
 
         if (iconImage != null && action.icon != null)
             iconImage.sprite = action.icon;
