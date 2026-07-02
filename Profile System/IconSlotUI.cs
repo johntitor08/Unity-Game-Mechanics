@@ -17,10 +17,18 @@ public class IconSlotUI : MonoBehaviour
     {
         iconID = entry.id;
         onClicked = onClick;
-        if (iconImage != null) iconImage.sprite = entry.sprite;
-        if (lockedOverlay != null) lockedOverlay.gameObject.SetActive(!unlocked);
-        if (selectedOutline != null) selectedOutline.gameObject.SetActive(selected);
-        if (costText != null) costText.text = unlocked ? "" : $"{entry.cost}g";
+
+        if (iconImage != null)
+            iconImage.sprite = entry.sprite;
+
+        if (lockedOverlay != null)
+            lockedOverlay.gameObject.SetActive(!unlocked);
+
+        if (selectedOutline != null)
+            selectedOutline.gameObject.SetActive(selected);
+
+        if (costText != null)
+            costText.text = unlocked ? "" : $"{entry.cost}g";
 
         if (button != null)
         {
