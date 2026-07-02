@@ -42,6 +42,6 @@ public class PuzzleRewarder : MonoBehaviour
             Debug.LogWarning("[PuzzleRewarder] CurrencyManager not found; reward not granted.");
 
         if (rewardText != null)
-            rewardText.text = $"+{amount} Gold";
+            rewardText.text = $"+{amount} {Loc.T("Gold", "Altın")}";
     }
 }
