@@ -51,7 +51,8 @@ public class IconSelectionUI : MonoBehaviour
     private void BuildGrid()
     {
         foreach (var slot in spawnedSlots)
-            if (slot != null) Destroy(slot.gameObject);
+            if (slot != null)
+                Destroy(slot.gameObject);
 
         spawnedSlots.Clear();
 
@@ -86,7 +87,7 @@ public class IconSelectionUI : MonoBehaviour
             previewNameText.text = entry.displayName;
 
         if (previewCostText != null)
-            previewCostText.text = unlocked ? "Unlocked" : $"{entry.cost} Gold";
+            previewCostText.text = unlocked ? Loc.T("Unlocked", "Açıldı") : $"{entry.cost} {Loc.T("Gold", "Altın")}";
 
         if (selectButton != null)
         {
@@ -94,16 +95,21 @@ public class IconSelectionUI : MonoBehaviour
 
             if (selectButtonText != null)
             {
-                if (selected) selectButtonText.text = "Selected";
-                else if (unlocked) selectButtonText.text = "Select";
-                else selectButtonText.text = $"Buy ({entry.cost} Gold)";
+                if (selected)
+                    selectButtonText.text = Loc.T("Selected", "Seçildi");
+                else if (unlocked)
+                    selectButtonText.text = Loc.T("Select", "Seç");
+                else
+                    selectButtonText.text = $"{Loc.T("Buy", "Satın al")} ({entry.cost} {Loc.T("Gold", "Altın")})";
             }
         }
     }
 
     public void OnSelectButtonClicked()
     {
-        if (string.IsNullOrEmpty(hoveredIconID)) return;
+        if (string.IsNullOrEmpty(hoveredIconID))
+            return;
+
         bool unlocked = ProfileManager.Instance.IsIconUnlocked(hoveredIconID);
 
         if (unlocked)
@@ -118,9 +124,7 @@ public class IconSelectionUI : MonoBehaviour
             if (success)
                 ProfileManager.Instance.SelectIcon(hoveredIconID);
             else
-            {
                 Debug.Log("Not enough currency.");
-            }
         }
     }
 

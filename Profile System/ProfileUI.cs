@@ -443,9 +443,9 @@ public class ProfileUI : MonoBehaviour
             return;
 
         playerNameText.text = profile.playerName;
-        levelText.text = $"Level {profile.level}";
+        levelText.text = $"{Loc.T("Level", "Seviye")} {profile.level}";
         int gold = CurrencyManager.Instance != null ? CurrencyManager.Instance.Get(CurrencyType.Gold) : 0;
-        currencyText.text = $"{gold} Gold";
+        currencyText.text = $"{gold} {Loc.T("Gold", "Altın")}";
         expBar.maxValue = Mathf.Max(1, profile.experienceToNextLevel);
         expBar.value = Mathf.Clamp(profile.experience, 0, profile.experienceToNextLevel);
         expText.text = $"{profile.experience} / {profile.experienceToNextLevel} XP";
