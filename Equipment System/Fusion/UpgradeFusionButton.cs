@@ -83,8 +83,8 @@ public class UpgradeFusionButton : MonoBehaviour
         }
 
         var cost = fm.GetUpgradeCost(watchedItem, bestLevel);
-        string matText = cost.material != null ? $" + {cost.materialQty} {cost.material.itemName}" : "";
-        upgradeButtonText.text = $"Upgrade +{bestLevel}→+{bestLevel + 1}  ({cost.gold}g{matText})";
+        string matText = cost.material != null ? $" + {cost.materialQty} {cost.material.DisplayName}" : "";
+        upgradeButtonText.text = $"{Loc.T("Upgrade", "Yükselt")} +{bestLevel}→+{bestLevel + 1}  ({cost.gold}g{matText})";
     }
 
     void OnUpgradeClicked()

@@ -74,7 +74,7 @@ public class FusionUI : MonoBehaviour
         {
             icon.sprite = eq.icon;
             icon.enabled = true;
-            label.text = eq.itemName;
+            label.text = eq.DisplayName;
         }
         else
         {
@@ -100,15 +100,15 @@ public class FusionUI : MonoBehaviour
         {
             resultIcon.sprite = recipe.result.icon;
             resultIcon.enabled = true;
-            resultName.text = recipe.result.itemName;
-            successChanceText.text = $"Success: {recipe.successChance * 100:0}%";
+            resultName.text = recipe.result.DisplayName;
+            successChanceText.text = $"{Loc.T("Success", "Başarı")}: {recipe.successChance * 100:0}%";
             fuseButton.interactable = FusionManager.Instance.CanFuse(selectedA, selectedB);
             statusText.text = "";
         }
         else
         {
             resultIcon.enabled = false;
-            resultName.text = "No recipe found";
+            resultName.text = Loc.T("No recipe found", "Tarif bulunamadı");
             successChanceText.text = "";
             fuseButton.interactable = false;
         }
@@ -118,7 +118,7 @@ public class FusionUI : MonoBehaviour
     {
         if (selectedA == null || selectedB == null || FusionManager.Instance == null)
         {
-            statusText.text = "Select two items to fuse.";
+            statusText.text = Loc.T("Select two items to fuse.", "Birleştirmek için iki eşya seç.");
             return;
         }
 
@@ -126,9 +126,9 @@ public class FusionUI : MonoBehaviour
         ClearAll();
 
         if (result != null)
-            statusText.text = $"Created: {result.itemName}!";
+            statusText.text = $"{Loc.T("Created", "Oluşturuldu")}: {result.DisplayName}!";
         else
-            statusText.text = "Fusion failed — items were lost.";
+            statusText.text = Loc.T("Fusion failed — items were lost.", "Birleştirme başarısız — eşyalar kayboldu.");
     }
 
     void ClearAll()
