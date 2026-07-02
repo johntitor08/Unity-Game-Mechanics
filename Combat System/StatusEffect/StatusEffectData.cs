@@ -7,8 +7,13 @@ public class StatusEffectData : ScriptableObject
     [Header("Basic Info")]
     public StatusEffectType effectType;
     public string effectName = "Poison";
+    [Tooltip("Turkish name. If empty, effectName (EN) is used as fallback.")]
+    public string effectNameTR;
     public Sprite icon;
     [TextArea] public string description = "Takes damage over time";
+    [TextArea]
+    [Tooltip("Turkish description. If empty, description (EN) is used as fallback.")]
+    public string descriptionTR;
 
     [Header("Visual")]
     public Color effectColor = Color.green;
@@ -43,4 +48,11 @@ public class StatusEffectData : ScriptableObject
     public bool preventMovement = false;
     public float damageMultiplier = 1f;
     public float damageReduction = 0f;
+
+    // --- Localization (base fields hold EN; *TR holds Turkish; falls back to EN when TR empty) ---
+    public string DisplayName =>
+        LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(effectNameTR) ? effectNameTR : effectName;
+
+    public string DisplayDescription =>
+        LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(descriptionTR) ? descriptionTR : description;
 }
