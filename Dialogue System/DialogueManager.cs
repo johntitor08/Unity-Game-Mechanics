@@ -222,7 +222,7 @@ public class DialogueManager : MonoBehaviour
 
         if (speakerNameText != null)
         {
-            speakerNameText.text = currentNode.speakerName ?? "";
+            speakerNameText.text = currentNode.DisplaySpeaker ?? "";
             speakerNameText.color = currentNode.speakerNameColor;
         }
 
@@ -415,12 +415,12 @@ public class DialogueManager : MonoBehaviour
 
             if (locked)
             {
-                lbl.text = $"{capturedChoice.choiceText}  <color=#9A8C78>(needs {capturedChoice.affinityCharacter} {capturedChoice.requiredAffinity})</color>";
+                lbl.text = $"{capturedChoice.DisplayChoiceText}  <color=#9A8C78>({Loc.T("needs", "gerekli")} {capturedChoice.affinityCharacter} {capturedChoice.requiredAffinity})</color>";
                 btn.interactable = false;
             }
             else
             {
-                lbl.text = capturedChoice.choiceText;
+                lbl.text = capturedChoice.DisplayChoiceText;
                 btn.onClick.AddListener(() => SelectChoice(capturedChoice));
             }
         }
@@ -548,7 +548,7 @@ public class DialogueManager : MonoBehaviour
             return "";
         }
 
-        string line = currentNode.lines[currentLineIndex];
+        string line = currentNode.GetDisplayLine(currentLineIndex);
 
         if (ProfileManager.Instance != null)
             line = line.Replace("{playerName}", ProfileManager.Instance.profile.playerName);

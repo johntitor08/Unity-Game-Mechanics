@@ -12,6 +12,9 @@ public class DialogueNode : ScriptableObject
     [Header("Dialogue Lines")]
     [TextArea(2, 5)]
     public string[] lines;
+    public string speakerNameTR;
+    [TextArea(2, 5)]
+    public string[] linesTR;
 
     [Header("Choices")]
     public DialogueChoice[] choices;
@@ -40,6 +43,15 @@ public class DialogueNode : ScriptableObject
 
     public string[] flagsToSetOnExit;
     public bool isFinalNode;
+    public string DisplaySpeaker => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(speakerNameTR) ? speakerNameTR : speakerName;
+
+    public string GetDisplayLine(int i)
+    {
+        if (LanguageManager.Current == GameLanguage.TR && linesTR != null && i >= 0 && i < linesTR.Length && !string.IsNullOrEmpty(linesTR[i]))
+            return linesTR[i];
+
+        return (lines != null && i >= 0 && i < lines.Length) ? lines[i] : "";
+    }
 }
 
 [System.Serializable]
@@ -47,7 +59,9 @@ public class DialogueChoice
 {
     [Header("Choice Text")]
     public string choiceText;
+    public string choiceTextTR;
     public DialogueNode nextNode;
+    public string DisplayChoiceText => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(choiceTextTR) ? choiceTextTR : choiceText;
 
     [Header("Conditions")]
     public bool requiresItem;
