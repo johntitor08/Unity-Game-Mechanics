@@ -76,7 +76,7 @@ public class ForegroundNotifier : MonoBehaviour
             return;
 
         Color c = item is EquipmentData eq ? eq.GetRarityColor() : Cream;
-        ShowToast($"+{quantity} {item.itemName}", item.icon, c);
+        ShowToast($"+{quantity} {item.DisplayName}", item.icon, c);
     }
 
     public void ShowToast(string message, Sprite icon, Color tint, float seconds = 3f)
