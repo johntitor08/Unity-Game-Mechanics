@@ -6,8 +6,10 @@ public class EquipmentSetData : ScriptableObject
 {
     public int setID;
     public string setName;
+    public string setNameTR;
     public int totalPieces = 4;
     public List<EquipmentSetStatBonus> bonuses;
+    public string DisplaySetName => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(setNameTR) ? setNameTR : setName;
 }
 
 [System.Serializable]

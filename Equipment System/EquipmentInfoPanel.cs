@@ -122,7 +122,7 @@ public class EquipmentInfoPanel : MonoBehaviour
             nameText.text = instance.GetDisplayName();
 
         if (descriptionText != null)
-            descriptionText.text = data.description;
+            descriptionText.text = data.DisplayDescription;
 
         if (statsText != null)
             statsText.text = instance.GetStatsDescription();

@@ -49,7 +49,7 @@ public class EquipmentTooltip : MonoBehaviour
 
         canvasGroup.alpha = 1f;
         canvasGroup.blocksRaycasts = false;
-        nameText.text = equipment.itemName;
+        nameText.text = equipment.DisplayName;
         rarityText.text = equipment.rarity.ToString();
         statsText.text = equipment.GetStatsDescription();
         requirementsText.text = GetRequirementsText(equipment);
@@ -66,7 +66,8 @@ public class EquipmentTooltip : MonoBehaviour
     void UpdateSetBonuses(EquipmentData equipment)
     {
         foreach (var t in activeSetTexts)
-            if (t != null) t.gameObject.SetActive(false);
+            if (t != null)
+                t.gameObject.SetActive(false);
 
         if (EquipmentManager.Instance == null || setBonusParent == null || setBonusTextPrefab == null || equipment.setData == null)
             return;
@@ -98,7 +99,8 @@ public class EquipmentTooltip : MonoBehaviour
         canvasGroup.blocksRaycasts = false;
 
         foreach (var t in activeSetTexts)
-            if (t != null) t.gameObject.SetActive(false);
+            if (t != null)
+                t.gameObject.SetActive(false);
     }
 
     string GetRequirementsText(EquipmentData equipment)

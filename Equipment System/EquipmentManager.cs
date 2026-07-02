@@ -238,7 +238,7 @@ public class EquipmentManager : MonoBehaviour
             if (pieces == 0)
                 continue;
 
-            list.Add($"{set.data.setName} ({pieces}/{set.data.totalPieces})");
+            list.Add($"{set.data.DisplaySetName} ({pieces}/{set.data.totalPieces})");
             list.Add(set.GetDescription(pieces));
         }
 

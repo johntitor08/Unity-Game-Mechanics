@@ -23,7 +23,7 @@ public class EquipmentInstance
 
     public bool CanUpgrade() => upgradeLevel < baseData.maxUpgradeLevel;
 
-    public string GetDisplayName() => upgradeLevel > 0 ? $"{baseData.itemName} +{upgradeLevel}" : baseData.itemName;
+    public string GetDisplayName() => upgradeLevel > 0 ? $"{baseData.DisplayName} +{upgradeLevel}" : baseData.DisplayName;
 
     public string GetStatsDescription()
     {
