@@ -179,16 +179,27 @@ public class GameStartNameInput : MonoBehaviour
             nameInputField.characterLimit = maxNameLength;
             nameInputField.onValueChanged.AddListener(OnNameChanged);
             nameInputField.onSubmit.AddListener(OnSubmit);
+
+            if (nameInputField.placeholder is TMP_Text placeholder)
+                placeholder.text = Loc.T("Hero's name...", "Kahraman adı...");
         }
 
         if (errorMessageText != null)
             errorMessageText.gameObject.SetActive(false);
 
-        if (useTypewriterEffect && welcomeText != null)
+        if (welcomeText != null)
         {
-            string originalText = welcomeText.text;
-            welcomeText.text = "";
-            StartCoroutine(TypewriterEffect(welcomeText, originalText, typewriterSpeed));
+            string originalText = Loc.T("Welcome to the adventure!", "Maceraya hoş geldin!");
+
+            if (useTypewriterEffect)
+            {
+                welcomeText.text = "";
+                StartCoroutine(TypewriterEffect(welcomeText, originalText, typewriterSpeed));
+            }
+            else
+            {
+                welcomeText.text = originalText;
+            }
         }
     }
 
@@ -241,43 +252,43 @@ public class GameStartNameInput : MonoBehaviour
 
         if (string.IsNullOrWhiteSpace(name))
         {
-            errorMessage = "Name cannot be empty!";
+            errorMessage = Loc.T("Name cannot be empty!", "İsim boş olamaz!");
             return false;
         }
 
         if (name.Length < minNameLength)
         {
-            errorMessage = $"Name must be at least {minNameLength} characters!";
+            errorMessage = Loc.T($"Name must be at least {minNameLength} characters!", $"İsim en az {minNameLength} karakter olmalı!");
             return false;
         }
 
         if (name.Length > maxNameLength)
         {
-            errorMessage = $"Name can be at most {maxNameLength} characters!";
+            errorMessage = Loc.T($"Name can be at most {maxNameLength} characters!", $"İsim en fazla {maxNameLength} karakter olabilir!");
             return false;
         }
 
         if (!allowSpaces && name.Contains(" "))
         {
-            errorMessage = "Name cannot contain spaces!";
+            errorMessage = Loc.T("Name cannot contain spaces!", "İsim boşluk içeremez!");
             return false;
         }
 
         if (!allowNumbers && ContainsNumbers(name))
         {
-            errorMessage = "Name cannot contain numbers!";
+            errorMessage = Loc.T("Name cannot contain numbers!", "İsim rakam içeremez!");
             return false;
         }
 
         if (!allowSpecialCharacters && ContainsSpecialCharacters(name))
         {
-            errorMessage = "Name cannot contain special characters!";
+            errorMessage = Loc.T("Name cannot contain special characters!", "İsim özel karakter içeremez!");
             return false;
         }
 
         if (IsProfane(name))
         {
-            errorMessage = "Please choose an appropriate name!";
+            errorMessage = Loc.T("Please choose an appropriate name!", "Lütfen uygun bir isim seç!");
             return false;
         }
 
@@ -383,7 +394,6 @@ public class GameStartNameInput : MonoBehaviour
             return;
 
         hasStarted = true;
-        SaveSystem.SavingEnabled = true;
 
         if (ProfileManager.Instance != null)
         {
@@ -405,7 +415,7 @@ public class GameStartNameInput : MonoBehaviour
 
     IEnumerator ShowWelcomeMessage(string playerName)
     {
-        string welcomeMessage = $"Welcome, {playerName}!";
+        string welcomeMessage = Loc.T($"Welcome, {playerName}!", $"Hoş geldin, {playerName}!");
 
         if (welcomeText != null)
         {
