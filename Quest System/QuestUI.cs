@@ -95,11 +95,22 @@ public class QuestUI : HotkeyPanelUI
     void OnEnable()
     {
         QuestManager.OnReady += TrySubscribe;
+        LanguageManager.OnLanguageChanged += OnLanguageChanged;
         TrySubscribe();
+    }
+
+    void OnLanguageChanged(GameLanguage lang)
+    {
+        RefreshQuestLog();
+
+        if (selectedQuest != null)
+            ShowQuestDetails(selectedQuest);
     }
 
     void OnDisable()
     {
+        LanguageManager.OnLanguageChanged -= OnLanguageChanged;
+
         if (isSubscribed && QuestManager.Instance != null)
         {
             QuestManager.Instance.OnQuestStarted -= OnQuestStarted;
@@ -217,10 +228,10 @@ public class QuestUI : HotkeyPanelUI
             questDetailsPanel.SetActive(true);
 
         if (questTitleText != null)
-            questTitleText.text = quest.questName;
+            questTitleText.text = quest.DisplayName;
 
         if (questDescriptionText != null)
-            questDescriptionText.text = quest.description;
+            questDescriptionText.text = quest.DisplayDescription;
 
         if (questTypeText != null)
             questTypeText.text = $"{quest.questType} - {quest.difficulty}";
@@ -388,7 +399,7 @@ public class QuestUI : HotkeyPanelUI
                     continue;
 
                 int qty = quest.itemRewardQuantities != null && i < quest.itemRewardQuantities.Length ? quest.itemRewardQuantities[i] : 1;
-                SpawnRewardItem(item.itemName, $"x{qty}", item.icon);
+                SpawnRewardItem(item.DisplayName, $"x{qty}", item.icon);
             }
         }
 
@@ -405,7 +416,7 @@ public class QuestUI : HotkeyPanelUI
 
                 var reward = item;
                 bool isSelected = selectedOptionalReward == reward;
-                string value = canSelectOptionalReward ? isSelected ? "Selected" : "Choose" : "x1";
+                string value = canSelectOptionalReward ? isSelected ? Loc.T("Selected", "Seçildi") : Loc.T("Choose", "Seç") : "x1";
                 System.Action onClick = null;
 
                 if (canSelectOptionalReward)
@@ -417,7 +428,7 @@ public class QuestUI : HotkeyPanelUI
                     };
                 }
 
-                SpawnRewardItem($"{reward.itemName} (Optional)", value, reward.icon, onClick, isSelected);
+                SpawnRewardItem($"{reward.DisplayName} ({Loc.T("Optional", "İsteğe bağlı")})", value, reward.icon, onClick, isSelected);
             }
         }
     }

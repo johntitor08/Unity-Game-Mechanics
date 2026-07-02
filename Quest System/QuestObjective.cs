@@ -18,6 +18,7 @@ public class QuestObjective
     [Header("Objective Info")]
     public string objectiveID;
     public string description;
+    public string descriptionTR;
     public QuestObjectiveType type;
 
     [Header("Target")]
@@ -30,6 +31,8 @@ public class QuestObjective
     [Header("Events")]
     public UnityEngine.Events.UnityEvent onObjectiveStart;
     public UnityEngine.Events.UnityEvent onObjectiveComplete;
+
+    public string DisplayDescription => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(descriptionTR) ? descriptionTR : description;
 
     public int GetRequiredCount()
     {

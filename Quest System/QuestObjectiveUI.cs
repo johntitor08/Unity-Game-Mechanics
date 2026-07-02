@@ -13,7 +13,7 @@ public class QuestObjectiveUI : MonoBehaviour
     public void Setup(QuestObjective objective, ObjectiveRuntimeState state)
     {
         if (descriptionText != null)
-            descriptionText.text = objective.description;
+            descriptionText.text = objective.DisplayDescription;
 
         UpdateProgress(objective, state);
     }

@@ -21,7 +21,7 @@ public class QuestTrackerEntry : MonoBehaviour
             return;
 
         if (questNameText != null)
-            questNameText.text = quest.questName;
+            questNameText.text = quest.DisplayName;
 
         var incompleteObjectives = new List<(QuestObjective obj, ObjectiveRuntimeState state)>();
 
@@ -47,7 +47,7 @@ public class QuestTrackerEntry : MonoBehaviour
             {
                 var (obj, state) = incompleteObjectives[i];
                 var textComp = objectiveTexts[i];
-                textComp.text = $"- {obj.description} ({state.currentProgress}/{obj.GetRequiredCount()})";
+                textComp.text = $"- {obj.DisplayDescription} ({state.currentProgress}/{obj.GetRequiredCount()})";
                 textComp.gameObject.SetActive(true);
             }
             else

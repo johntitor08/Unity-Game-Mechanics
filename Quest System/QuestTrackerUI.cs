@@ -57,8 +57,11 @@ public class QuestTrackerUI : MonoBehaviour
     void OnEnable()
     {
         QuestManager.OnReady += TrySubscribe;
+        LanguageManager.OnLanguageChanged += OnLanguageChanged;
         TrySubscribe();
     }
+
+    void OnLanguageChanged(GameLanguage lang) => RefreshEntries();
 
     void OnDisable()
     {
@@ -77,6 +80,7 @@ public class QuestTrackerUI : MonoBehaviour
         }
 
         QuestManager.OnReady -= TrySubscribe;
+        LanguageManager.OnLanguageChanged -= OnLanguageChanged;
     }
 
     void TrySubscribe()

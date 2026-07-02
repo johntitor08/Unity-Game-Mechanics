@@ -69,7 +69,7 @@ public class QuestRewardUI : MonoBehaviour
             rewardPanel.SetActive(true);
 
         if (questNameText != null)
-            questNameText.text = quest.questName;
+            questNameText.text = quest.DisplayName;
 
         if (titleText != null)
             titleText.text = completionTitle;
@@ -77,7 +77,7 @@ public class QuestRewardUI : MonoBehaviour
         ClearContainer(rewardsContainer);
 
         if (quest.experienceReward > 0)
-            SpawnRewardItem(rewardsContainer, "Experience", quest.experienceReward.ToString(), null);
+            SpawnRewardItem(rewardsContainer, Loc.T("Experience", "Deneyim"), quest.experienceReward.ToString(), null);
 
         if (quest.currencyRewards != null)
         {
@@ -98,7 +98,7 @@ public class QuestRewardUI : MonoBehaviour
                     continue;
 
                 int qty = (quest.itemRewardQuantities != null && i < quest.itemRewardQuantities.Length) ? quest.itemRewardQuantities[i] : 1;
-                SpawnRewardItem(rewardsContainer, item.itemName, $"x{qty}", item.icon);
+                SpawnRewardItem(rewardsContainer, item.DisplayName, $"x{qty}", item.icon);
             }
         }
 
@@ -111,13 +111,13 @@ public class QuestRewardUI : MonoBehaviour
 
         if (selectedOptionalReward != null)
         {
-            SpawnRewardItem(optionalRewardsContainer, selectedOptionalReward.itemName, "x1", selectedOptionalReward.icon);
+            SpawnRewardItem(optionalRewardsContainer, selectedOptionalReward.DisplayName, "x1", selectedOptionalReward.icon);
         }
         else if (quest.optionalRewards != null && optionalRewardsContainer != null)
         {
             foreach (var item in quest.optionalRewards)
                 if (item != null)
-                    SpawnRewardItem(optionalRewardsContainer, item.itemName, "x1", item.icon);
+                    SpawnRewardItem(optionalRewardsContainer, item.DisplayName, "x1", item.icon);
         }
 
         autoCloseCoroutine = StartCoroutine(AutoClose());

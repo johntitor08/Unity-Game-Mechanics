@@ -7,8 +7,11 @@ public class QuestData : ScriptableObject
     [Header("Quest Info")]
     public string questID;
     public string questName;
+    public string questNameTR;
     [TextArea(3, 6)]
     public string description;
+    [TextArea(3, 6)]
+    public string descriptionTR;
     public Sprite icon;
     public QuestType questType = QuestType.Main;
     public QuestDifficulty difficulty = QuestDifficulty.Normal;
@@ -60,6 +63,9 @@ public class QuestData : ScriptableObject
     [Header("Flags")]
     public string[] flagsToSetOnStart;
     public string[] flagsToSetOnComplete;
+
+    public string DisplayName => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(questNameTR) ? questNameTR : questName;
+    public string DisplayDescription => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(descriptionTR) ? descriptionTR : description;
 }
 
 public enum QuestType
