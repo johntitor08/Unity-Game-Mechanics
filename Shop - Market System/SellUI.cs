@@ -131,7 +131,7 @@ public class SellUI : MonoBehaviour
             return;
 
         int gold = CurrencyManager.Instance != null ? CurrencyManager.Instance.Get(CurrencyType.Gold) : 0;
-        currencyText.text = $"{gold} Gold";
+        currencyText.text = $"{gold} {Loc.T("Gold", "Altın")}";
     }
 
     private static void ScrollToTop(ScrollRect sr)

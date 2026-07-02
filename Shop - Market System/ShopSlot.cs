@@ -90,10 +90,10 @@ public class ShopSlot : MonoBehaviour
             itemIcon.sprite = shopItem.item.icon;
 
         if (itemNameText != null)
-            itemNameText.text = shopItem.item.itemName;
+            itemNameText.text = shopItem.item.DisplayName;
 
         if (itemDescriptionText != null)
-            itemDescriptionText.text = shopItem.item.description;
+            itemDescriptionText.text = shopItem.item.DisplayDescription;
 
         if (priceText != null)
             priceText.text = $"{shopItem.price}";
@@ -230,7 +230,7 @@ public class ShopSlot : MonoBehaviour
             string props = $"Slot: {equip.slot}";
 
             if (equip.setData != null && !string.IsNullOrEmpty(equip.setData.setName))
-                props += $"\nSet: {equip.setData.setName}";
+                props += $"\n{Loc.T("Set", "Set")}: {equip.setData.DisplaySetName}";
 
             propertiesText.gameObject.SetActive(true);
             propertiesText.text = props;

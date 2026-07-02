@@ -61,10 +61,10 @@ public class SellSlot : MonoBehaviour
         }
 
         if (nameText != null)
-            nameText.text = (isEquipment && upgradeLevel > 0) ? $"{item.itemName} +{upgradeLevel}" : item.itemName;
+            nameText.text = (isEquipment && upgradeLevel > 0) ? $"{item.DisplayName} +{upgradeLevel}" : item.DisplayName;
 
         if (descText != null)
-            descText.text = item.description;
+            descText.text = item.DisplayDescription;
 
         if (quantityText != null)
             quantityText.text = $"x{quantity}";
