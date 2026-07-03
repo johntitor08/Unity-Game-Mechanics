@@ -72,7 +72,7 @@ public class QuestRewardUI : MonoBehaviour
             questNameText.text = quest.DisplayName;
 
         if (titleText != null)
-            titleText.text = completionTitle;
+            titleText.text = Loc.T(completionTitle, "Görev Tamamlandı!");
 
         ClearContainer(rewardsContainer);
 
