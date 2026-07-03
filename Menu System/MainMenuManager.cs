@@ -92,10 +92,12 @@ public class MainMenuManager : MonoBehaviour
             if (ConfirmationDialog.Instance != null)
             {
                 ConfirmationDialog.Instance.Show(
-                    "New Game",
-                    "This will overwrite your save. Continue?",
+                    Loc.T("New Game", "Yeni Oyun"),
+                    Loc.T("This will overwrite your save. Continue?", "Bu, mevcut kaydının üzerine yazacak. Devam edilsin mi?"),
                     StartNewGame,
-                    () => SetButtonPanel(true));
+                    () => SetButtonPanel(true),
+                    Loc.T("Yes", "Evet"),
+                    Loc.T("No", "Hayır"));
             }
             else
             {
@@ -148,7 +150,7 @@ public class MainMenuManager : MonoBehaviour
         PlayButtonSound();
 
         if (ConfirmationDialog.Instance != null)
-            ConfirmationDialog.Instance.Show("Quit Game", "Are you sure?", QuitGame, null);
+            ConfirmationDialog.Instance.Show(Loc.T("Quit Game", "Oyundan Çık"), Loc.T("Are you sure?", "Emin misin?"), QuitGame, null, Loc.T("Yes", "Evet"), Loc.T("No", "Hayır"));
         else
             QuitGame();
     }
@@ -217,7 +219,7 @@ public class MainMenuManager : MonoBehaviour
                 loadingBar.value = p;
 
             if (loadingText != null)
-                loadingText.text = $"Loading {Mathf.RoundToInt(p * 100)}%";
+                loadingText.text = $"{Loc.T("Loading", "Yükleniyor")} {Mathf.RoundToInt(p * 100)}%";
 
             yield return null;
         }

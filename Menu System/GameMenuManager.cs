@@ -162,7 +162,7 @@ public class GameMenuManager : MonoBehaviour
 
         if (ConfirmationDialog.Instance != null)
         {
-            ConfirmationDialog.Instance.Show("Main Menu", "Unsaved progress will be lost.", ReturnToMainMenu, null);
+            ConfirmationDialog.Instance.Show(Loc.T("Main Menu", "Ana Menü"), Loc.T("Unsaved progress will be lost.", "Kaydedilmemiş ilerleme kaybolacak."), ReturnToMainMenu, null, Loc.T("Yes", "Evet"), Loc.T("No", "Hayır"));
         }
         else
         {
@@ -213,7 +213,7 @@ public class GameMenuManager : MonoBehaviour
                 loadingBar.value = p;
 
             if (loadingText != null)
-                loadingText.text = $"Loading {Mathf.RoundToInt(p * 100)}%";
+                loadingText.text = $"{Loc.T("Loading", "Yükleniyor")} {Mathf.RoundToInt(p * 100)}%";
 
             yield return null;
         }
