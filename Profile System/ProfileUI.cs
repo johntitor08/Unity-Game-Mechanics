@@ -468,7 +468,7 @@ public class ProfileUI : MonoBehaviour
             return;
 
         int score = (int)PlayerStats.Instance.GetPowerScore();
-        powerScoreText.text = $"Power Score: {score}";
+        powerScoreText.text = $"{Loc.T("Power Score", "Güç Puanı")}: {score}";
     }
 
     void RefreshStatPointsText()
@@ -477,7 +477,7 @@ public class ProfileUI : MonoBehaviour
             return;
 
         int pts = ProfileManager.Instance.profile?.statPoints ?? 0;
-        statPointsText.text = pts > 0 ? $"Stat Points: {pts}" : "Stat Points: 0";
+        statPointsText.text = $"{Loc.T("Stat Points", "Yetenek Puanı")}: {pts}";
         statPointsText.color = pts > 0 ? Color.yellow : Color.white;
     }
 
@@ -486,12 +486,12 @@ public class ProfileUI : MonoBehaviour
         if (PlayerStats.Instance == null)
             return;
 
-        strengthText.text = $"Strength: {PlayerStats.Instance.Get(StatType.Strength)}";
-        intelligenceText.text = $"Intelligence: {PlayerStats.Instance.Get(StatType.Intelligence)}";
-        charismaText.text = $"Charisma: {PlayerStats.Instance.Get(StatType.Charisma)}";
-        defenseText.text = $"Defense: {PlayerStats.Instance.Get(StatType.Defense)}";
-        speedText.text = $"Speed: {PlayerStats.Instance.Get(StatType.Speed)}";
-        luckText.text = $"Luck: {PlayerStats.Instance.Get(StatType.Luck)}";
+        strengthText.text = $"{Loc.T("Strength", "Güç")}: {PlayerStats.Instance.Get(StatType.Strength)}";
+        intelligenceText.text = $"{Loc.T("Intelligence", "Zekâ")}: {PlayerStats.Instance.Get(StatType.Intelligence)}";
+        charismaText.text = $"{Loc.T("Charisma", "Karizma")}: {PlayerStats.Instance.Get(StatType.Charisma)}";
+        defenseText.text = $"{Loc.T("Defense", "Savunma")}: {PlayerStats.Instance.Get(StatType.Defense)}";
+        speedText.text = $"{Loc.T("Speed", "Hız")}: {PlayerStats.Instance.Get(StatType.Speed)}";
+        luckText.text = $"{Loc.T("Luck", "Şans")}: {PlayerStats.Instance.Get(StatType.Luck)}";
     }
 
     void OnStatChanged(StatType type, int oldValue, int newValue)
@@ -504,27 +504,27 @@ public class ProfileUI : MonoBehaviour
         switch (type)
         {
             case StatType.Strength:
-                strengthText.text = $"Strength: {val}";
+                strengthText.text = $"{Loc.T("Strength", "Güç")}: {val}";
                 break;
 
             case StatType.Intelligence:
-                intelligenceText.text = $"Intelligence: {val}";
+                intelligenceText.text = $"{Loc.T("Intelligence", "Zekâ")}: {val}";
                 break;
 
             case StatType.Charisma:
-                charismaText.text = $"Charisma: {val}";
+                charismaText.text = $"{Loc.T("Charisma", "Karizma")}: {val}";
                 break;
 
             case StatType.Defense:
-                defenseText.text = $"Defense: {val}";
+                defenseText.text = $"{Loc.T("Defense", "Savunma")}: {val}";
                 break;
 
             case StatType.Speed:
-                speedText.text = $"Speed: {val}";
+                speedText.text = $"{Loc.T("Speed", "Hız")}: {val}";
                 break;
 
             case StatType.Luck:
-                luckText.text = $"Luck: {val}";
+                luckText.text = $"{Loc.T("Luck", "Şans")}: {val}";
                 break;
         }
 
@@ -565,7 +565,7 @@ public class ProfileUI : MonoBehaviour
         }
 
         if (healthText != null)
-            healthText.text = $"Health: {cur} / {max}";
+            healthText.text = $"{Loc.T("Health", "Sağlık")}: {cur} / {max}";
 
         if (healthFillImage != null)
             healthFillImage.color = pct > 0.6f ? healthHighColor : pct > 0.3f ? healthMediumColor : healthLowColor;
@@ -586,7 +586,7 @@ public class ProfileUI : MonoBehaviour
         }
 
         if (energyText != null)
-            energyText.text = $"Energy: {cur} / {max}";
+            energyText.text = $"{Loc.T("Energy", "Enerji")}: {cur} / {max}";
 
         if (energyFillImage != null)
             energyFillImage.color = energyColor;
