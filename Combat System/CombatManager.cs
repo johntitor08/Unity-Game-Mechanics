@@ -801,6 +801,9 @@ public class CombatManager : MonoBehaviour
         if (combatResolved)
             return;
 
+        if (victory && (PlayerStats == null || !PlayerStats.IsAlive()))
+            victory = false;
+
         combatResolved = true;
 
         if (victory)
