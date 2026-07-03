@@ -827,11 +827,11 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (mapTitleText != null)
         {
             if (isModern)
-                mapTitleText.text = "Neighborhood";
+                mapTitleText.text = Loc.T("Neighborhood", "Mahalle");
             else if (isFantasy)
-                mapTitleText.text = "Ashenveil Town";
+                mapTitleText.text = Loc.T("Ashenveil Town", "Ashenveil Kasabası");
             else if (isCombat)
-                mapTitleText.text = "Combat Region";
+                mapTitleText.text = Loc.T("Combat Region", "Savaş Bölgesi");
         }
     }
 
@@ -2166,13 +2166,13 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (TimePhaseManager.Instance.currentPhase < earliestSleepPhase)
         {
-            ShowForegroundMessage("It's too early to sleep.", 2f);
+            ShowForegroundMessage(Loc.T("It's too early to sleep.", "Uyumak için çok erken."), 2f);
             return;
         }
 
         if (!IsCurrentDayContentComplete())
         {
-            ShowForegroundMessage("You should finish today's events before resting.", 2.5f);
+            ShowForegroundMessage(Loc.T("You should finish today's events before resting.", "Dinlenmeden önce bugünün olaylarını bitirmelisin."), 2.5f);
             return;
         }
 
@@ -2427,7 +2427,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (inv == null || apple == null || cinnamon == null || inv.GetTotalQuantity("fresh_apple") <= 0 || inv.GetTotalQuantity("cinnamon") <= 0)
         {
-            ShowForegroundMessage("You need a Fresh Apple and Cinnamon to brew the tea.", 3f);
+            ShowForegroundMessage(Loc.T("You need a Fresh Apple and Cinnamon to brew the tea.", "Çayı demlemek için bir Taze Elma ve Tarçın gerekiyor."), 3f);
             return;
         }
 
@@ -2439,7 +2439,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (tea != null)
             inv.AddItem(tea);
 
-        ShowForegroundMessage("The tea is brewed — you got a cup of apple tea.", 3f);
+        ShowForegroundMessage(Loc.T("The tea is brewed — you got a cup of apple tea.", "Çay demlendi — bir fincan elma çayı aldın."), 3f);
     }
 
     void HandleItemUsed(ItemData item)
@@ -2465,7 +2465,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
         if (tea == null || InventoryManager.Instance == null || InventoryManager.Instance.GetTotalQuantity("apple_tea") <= 0)
         {
-            ShowForegroundMessage("You need to brew the tea at the stove first.", 2.5f);
+            ShowForegroundMessage(Loc.T("You need to brew the tea at the stove first.", "Önce ocakta çayı demlemen gerek."), 2.5f);
             return;
         }
 
@@ -2485,7 +2485,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (QuestManager.Instance != null)
             QuestManager.Instance.UpdateObjectiveProgress(questID, deliverObjectiveID, 1);
 
-        ShowForegroundMessage("You gave the cup to Maren.", 3f);
+        ShowForegroundMessage(Loc.T("You gave the cup to Maren.", "Fincanı Maren'e verdin."), 3f);
     }
 
     private void OnDoorClicked()
