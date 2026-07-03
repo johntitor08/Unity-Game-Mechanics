@@ -1819,12 +1819,27 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                     region.SetActive(true);
             };
 
-            onVictory = (_) => Cleanup();
+            onVictory = (_) =>
+            {
+                Cleanup();
+                StartCoroutine(RestoreHudAfterQuestCombat());
+            };
 
             CombatManager.Instance.OnCombatDefeat += onDefeat;
             CombatManager.Instance.OnCombatVictory += onVictory;
             CombatManager.Instance.StartCombat(entry.questEnemy);
         });
+    }
+
+    private IEnumerator RestoreHudAfterQuestCombat()
+    {
+        yield return null;
+        yield return null;
+
+        if ((CombatManager.Instance != null && CombatManager.Instance.inCombat) || (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue()))
+            yield break;
+
+        ShowHudPanels();
     }
 
     private void ReturnToTownFromQuestLocation()
