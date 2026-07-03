@@ -356,7 +356,7 @@ public class ShopSlot : MonoBehaviour
         }
 
         btnRect.sizeDelta = new Vector2(originalSize.x + 50f, originalSize.y);
-        buyButtonText.text = "Purchased!";
+        buyButtonText.text = Loc.T("Purchased!", "Satın Alındı!");
         buyButtonText.color = Color.green;
         buyButton.interactable = false;
         yield return waitForSeconds0_5;
