@@ -91,16 +91,16 @@ public class TimeUI : MonoBehaviour
     void UpdateDayCounter()
     {
         if (dayCounterText != null && showDayCounter)
-            dayCounterText.text = "Day " + currentDay;
+            dayCounterText.text = Loc.T("Day", "Gün") + " " + currentDay;
     }
 
     string GetPhaseName(TimePhase phase) => phase switch
     {
-        TimePhase.Morning => "Morning",
-        TimePhase.Noon => "Noon",
-        TimePhase.Evening => "Evening",
-        TimePhase.Night => "Night",
-        _ => "Unknown"
+        TimePhase.Morning => Loc.T("Morning", "Sabah"),
+        TimePhase.Noon => Loc.T("Noon", "Öğle"),
+        TimePhase.Evening => Loc.T("Evening", "Akşam"),
+        TimePhase.Night => Loc.T("Night", "Gece"),
+        _ => Loc.T("Unknown", "Bilinmiyor")
     };
 
     Sprite GetPhaseIcon(TimePhase phase) => phase switch
