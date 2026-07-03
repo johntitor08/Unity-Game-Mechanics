@@ -70,7 +70,7 @@ public class LayerManager : MonoBehaviour
 
     public Layer AddLayer(string name = "")
     {
-        var n = string.IsNullOrEmpty(name) ? $"Layer {_nextId}" : name;
+        var n = string.IsNullOrEmpty(name) ? $"{Loc.T("Layer", "Katman")} {_nextId}" : name;
         var layer = new Layer(_nextId++, n, canvasWidth, canvasHeight);
         Layers.Add(layer);
         ActiveIndex = Layers.Count - 1;
