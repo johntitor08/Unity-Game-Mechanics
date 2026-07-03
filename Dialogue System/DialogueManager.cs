@@ -332,11 +332,10 @@ public class DialogueManager : MonoBehaviour
         else
         {
             dialogueText.text = line;
+            FinishTyping();
 
             if (currentNode.autoAdvance)
                 autoAdvanceCoroutine = StartCoroutine(AutoAdvanceRoutine(currentNode.autoAdvanceDelay));
-            else
-                FinishTyping();
         }
     }
 
@@ -353,13 +352,10 @@ public class DialogueManager : MonoBehaviour
         if (State != DialogueState.Typing || (typewriter != null && typewriter.CurrentTarget != dialogueText))
             return;
 
-        if (currentNode != null && currentNode.autoAdvance)
-        {
-            autoAdvanceCoroutine = StartCoroutine(AutoAdvanceRoutine(currentNode.autoAdvanceDelay));
-            return;
-        }
-
         FinishTyping();
+
+        if (currentNode != null && currentNode.autoAdvance)
+            autoAdvanceCoroutine = StartCoroutine(AutoAdvanceRoutine(currentNode.autoAdvanceDelay));
     }
 
     IEnumerator AutoAdvanceRoutine(float delay)
