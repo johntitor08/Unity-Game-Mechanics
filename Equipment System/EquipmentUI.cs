@@ -238,10 +238,10 @@ public class EquipmentUI : HotkeyPanelUI
             return;
 
         if (totalDamageText != null)
-            totalDamageText.text = $"Total Damage: +{EquipmentManager.Instance.GetTotalDamageBonus()}";
+            totalDamageText.text = $"{Loc.T("Total Damage", "Toplam Hasar")}: +{EquipmentManager.Instance.GetTotalDamageBonus()}";
 
         if (totalDefenseText != null)
-            totalDefenseText.text = $"Total Defense: +{EquipmentManager.Instance.GetTotalDefenseBonus()}";
+            totalDefenseText.text = $"{Loc.T("Total Defense", "Toplam Savunma")}: +{EquipmentManager.Instance.GetTotalDefenseBonus()}";
     }
 
     void RefreshSetBonuses()
