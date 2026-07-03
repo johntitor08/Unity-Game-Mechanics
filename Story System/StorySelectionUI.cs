@@ -118,7 +118,7 @@ public class StorySelectionUI : MonoBehaviour
             var label = btn.GetComponentInChildren<TextMeshProUGUI>();
 
             if (label != null)
-                label.text = origin.displayName;
+                label.text = origin.DisplayName;
 
             string capturedID = origin.originID;
             btn.onClick.RemoveAllListeners();
@@ -139,9 +139,9 @@ public class StorySelectionUI : MonoBehaviour
             detailPanel.SetActive(true);
 
         if (detailTitle != null && data != null)
-            detailTitle.text = data.displayName;
+            detailTitle.text = data.DisplayName;
 
-        string summary = data != null ? data.summary : "";
+        string summary = data != null ? data.DisplaySummary : "";
 
         if (string.IsNullOrEmpty(summary))
             Debug.LogWarning($"[StorySelectionUI] '{originID}' has no summary.");

@@ -6,8 +6,11 @@ public class PlayerOriginData : ScriptableObject
     [Header("Identity")]
     public string originID;
     public string displayName;
+    public string displayNameTR;
     [TextArea(2, 4)]
     public string summary;
+    [TextArea(2, 4)]
+    public string summaryTR;
     public Sprite icon;
 
     [Header("Starting Stats")]
@@ -27,6 +30,9 @@ public class PlayerOriginData : ScriptableObject
     [Header("Passive Description")]
     [TextArea(1, 3)]
     public string passiveDescription;
+
+    public string DisplayName => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(displayNameTR) ? displayNameTR : displayName;
+    public string DisplaySummary => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(summaryTR) ? summaryTR : summary;
 
     public string GetSaveID() => originID;
 }
