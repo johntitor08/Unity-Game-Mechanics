@@ -157,6 +157,9 @@ public static class AshenveilQuestTriggerCatalog
 
         string n = sceneObjectName;
 
+        if (n.Contains("TeaHandIn") || n.Contains("Archive") || n.Contains("Library"))
+            return "bg_templeborn_archives";
+
         if (n.Contains("Garden"))
             return "bg_apple_garden";
 

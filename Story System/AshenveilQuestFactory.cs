@@ -120,6 +120,8 @@ public class AshenveilQuestFactory : MonoBehaviour
         q.questID = id;
         q.questName = name;
         q.description = desc;
+        q.questNameTR = AshenveilQuestTR.NameTR(id);
+        q.descriptionTR = AshenveilQuestTR.DescTR(id);
         q.questType = type;
         q.difficulty = QuestDifficulty.Normal;
         q.requiredFlags = requiredFlags ?? new string[0];
@@ -139,6 +141,7 @@ public class AshenveilQuestFactory : MonoBehaviour
     {
         objectiveID = id,
         description = desc,
+        descriptionTR = AshenveilQuestTR.ObjTR(id),
         type = QuestObjectiveType.InteractWithObject,
         interactObjectTag = string.IsNullOrEmpty(interactTag) ? id : interactTag,
         targetCount = 1,
@@ -149,6 +152,7 @@ public class AshenveilQuestFactory : MonoBehaviour
     {
         objectiveID = id,
         description = desc,
+        descriptionTR = AshenveilQuestTR.ObjTR(id),
         type = QuestObjectiveType.TalkToNPC,
         npcTag = string.IsNullOrEmpty(npcTag) ? id : npcTag,
         targetCount = talkCount,
@@ -159,6 +163,7 @@ public class AshenveilQuestFactory : MonoBehaviour
     {
         objectiveID = id,
         description = desc,
+        descriptionTR = AshenveilQuestTR.ObjTR(id),
         type = QuestObjectiveType.CollectItems,
         targetItem = item,
         itemCount = count,
@@ -169,6 +174,7 @@ public class AshenveilQuestFactory : MonoBehaviour
     {
         objectiveID = id,
         description = desc,
+        descriptionTR = AshenveilQuestTR.ObjTR(id),
         type = QuestObjectiveType.KillEnemies,
         targetEnemy = enemy,
         targetCount = count

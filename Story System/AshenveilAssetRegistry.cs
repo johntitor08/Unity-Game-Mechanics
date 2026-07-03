@@ -21,6 +21,11 @@ public class AshenveilAssetRegistry : ScriptableObject
     public ItemData corvinsTestimony;
     public ItemData axiosCrystal;
 
+    [Header("Equipment — Quest Rewards")]
+    public EquipmentData marenNecklace;
+    public EquipmentData blacksmithApron;
+    public EquipmentData villageCoat;
+
     [Header("Enemies")]
     public EnemyData shadowLurker;
     public EnemyData shadowGuard;
