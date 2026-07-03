@@ -22,7 +22,7 @@ public class SaveSlotUI : MonoBehaviour
         parentUI = parent;
 
         if (slotLabel != null)
-            slotLabel.text = $"Slot {index + 1}";
+            slotLabel.text = $"{Loc.T("Slot", "Yuva")} {index + 1}";
 
         if (saveButton != null)
             saveButton.onClick.AddListener(OnSave);
@@ -51,11 +51,11 @@ public class SaveSlotUI : MonoBehaviour
             if (hasSave)
             {
                 var data = SaveSystem.PeekSlot(slotIndex);
-                metaText.text = data != null ? BuildMeta(data) : "Corrupted";
+                metaText.text = data != null ? BuildMeta(data) : Loc.T("Corrupted", "Bozuk");
             }
             else
             {
-                metaText.text = "Empty";
+                metaText.text = Loc.T("Empty", "Boş");
             }
         }
     }
@@ -95,7 +95,7 @@ public class SaveSlotUI : MonoBehaviour
         if (parentUI != null)
         {
             parentUI.SetAllSlotsInteractable(true);
-            parentUI.ShowToast("Game Saved!");
+            parentUI.ShowToast(Loc.T("Game Saved!", "Oyun Kaydedildi!"));
         }
     }
 
