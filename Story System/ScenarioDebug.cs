@@ -51,6 +51,42 @@ public class ScenarioDebug : MonoBehaviour
     [ContextMenu("Play · Eulogy")]
     public void PlayEulogy() => ForceStart("ashenveil_eulogy");
 
+    [ContextMenu("Play · Finale Cutscene")]
+    public void PlayFinaleCutscene()
+    {
+        if (!Application.isPlaying)
+        {
+            Debug.LogWarning("[ScenarioDebug] Enter Play mode first — the finale cutscene only runs at runtime.");
+            return;
+        }
+
+        if (DialogueManager.Instance == null)
+        {
+            Debug.LogError("[ScenarioDebug] DialogueManager.Instance is null (not in scene / not yet initialized).");
+            return;
+        }
+
+        SceneEvent sceneEvent = null;
+
+        foreach (var se in FindObjectsOfType<SceneEvent>())
+        {
+            if (se.finaleCutsceneNode != null)
+            {
+                sceneEvent = se;
+                break;
+            }
+        }
+
+        if (sceneEvent == null)
+        {
+            Debug.LogError("[ScenarioDebug] No SceneEvent with a finaleCutsceneNode assigned was found in the scene.");
+            return;
+        }
+
+        DialogueManager.Instance.StartDialogue(sceneEvent.finaleCutsceneNode);
+        Debug.Log("<color=#7ec8e3>[ScenarioDebug]</color> Started finale cutscene. Advance with mouse-click / Space.");
+    }
+
     [ContextMenu("Play · Scenario By ID (field above)")]
     public void PlayByID() => ForceStart(scenarioID);
 
