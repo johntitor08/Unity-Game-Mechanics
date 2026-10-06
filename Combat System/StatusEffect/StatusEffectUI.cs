@@ -13,6 +13,7 @@ public class StatusEffectUI : MonoBehaviour
 
     private readonly List<StatusEffectIcon> activeIcons = new();
     private bool isSubscribed = false;
+    private CanvasGroup group;
 
     void OnEnable()
     {
@@ -39,6 +40,16 @@ public class StatusEffectUI : MonoBehaviour
             effectManager.OnEffectHeal += OnEffectHeal;
             isSubscribed = true;
         }
+    }
+
+    void LateUpdate()
+    {
+        if (group == null && !TryGetComponent(out group))
+            group = gameObject.AddComponent<CanvasGroup>();
+
+        bool any = activeIcons.Any(i => i != null);
+        group.alpha = any ? 1f : 0f;
+        group.blocksRaycasts = any;
     }
 
     void Update()
