@@ -61,7 +61,11 @@ public class QuestGiver : MonoBehaviour, IPointerClickHandler
 
     void OnObjectiveChanged(QuestData _, QuestObjective __) => UpdateQuestIndicators();
 
-    public void OnPointerClick(PointerEventData eventData) => Interact();
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (!DialogueManager.WorldClicksBlocked)
+            Interact();
+    }
 
     void UpdateQuestIndicators()
     {

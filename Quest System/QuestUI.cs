@@ -9,6 +9,7 @@ public class QuestUI : HotkeyPanelUI
     private QuestData selectedQuest;
     private readonly List<QuestSlotUI> questSlots = new();
     private bool isSubscribed = false;
+    private int rewardCount;
 
     [Header("Panels")]
     public GameObject questPanel;
@@ -43,6 +44,7 @@ public class QuestUI : HotkeyPanelUI
     [Header("Quest Details ScrollRects")]
     public ScrollRect objectivesScrollRect;
     public ScrollRect rewardsScrollRect;
+    public Sprite experienceIcon;
     public float maxDetailsHeight = 300f;
 
     [Header("Settings")]
@@ -234,7 +236,7 @@ public class QuestUI : HotkeyPanelUI
             questDescriptionText.text = quest.DisplayDescription;
 
         if (questTypeText != null)
-            questTypeText.text = $"{quest.questType.Display()} - {quest.difficulty.Display()}";
+            questTypeText.text = BuildQuestInfo(quest, qm);
 
         if (questIcon != null)
             questIcon.sprite = quest.icon;
@@ -252,6 +254,10 @@ public class QuestUI : HotkeyPanelUI
         }
 
         PopulateRewards(quest);
+
+        if (rewardsScrollRect != null)
+            rewardsScrollRect.gameObject.SetActive(rewardCount > 0);
+
         bool isActive = qm.IsQuestActive(quest.questID);
         bool isCompleted = qm.IsQuestCompleted(quest.questID);
         bool isTracked = QuestTrackerUI.Instance != null && QuestTrackerUI.Instance.IsTracked(quest.questID);
@@ -268,11 +274,63 @@ public class QuestUI : HotkeyPanelUI
             var label = trackButton.GetComponentInChildren<TextMeshProUGUI>();
 
             if (label != null)
-                label.text = isTracked ? "Untrack" : "Track";
+                label.text = isTracked ? Loc.T("Untrack", "Takibi Bırak") : Loc.T("Track", "Takip Et");
         }
 
         StartCoroutine(UpdateDetailsScrollsNextFrame());
     }
+
+    string BuildQuestInfo(QuestData quest, QuestManager qm)
+    {
+        string label = $"<color={UIPalette.Hex(UIPalette.Muted)}>";
+        int total = 0, done = 0;
+
+        foreach (var objective in GetObjectives(quest))
+        {
+            total++;
+            var state = qm.GetObjectiveState(quest.questID, objective.objectiveID);
+
+            if (state != null && state.isCompleted)
+                done++;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"{label}{Loc.T("Type", "Tür")}:</color> {quest.questType.Display()}      ");
+        sb.Append($"{label}{Loc.T("Difficulty", "Zorluk")}:</color> {quest.difficulty.Display()}");
+        sb.Append($"\n{label}{Loc.T("Level", "Seviye")}:</color> {quest.requiredLevel}      ");
+        sb.Append($"{label}{Loc.T("Objectives", "Hedefler")}:</color> {done}/{total}");
+        var rewards = new List<string>();
+
+        if (quest.experienceReward > 0)
+            rewards.Add($"{quest.experienceReward} XP");
+
+        if (quest.currencyRewards != null)
+            foreach (var reward in quest.currencyRewards)
+                rewards.Add($"{reward.amount} {CurrencyName(reward.type)}");
+
+        int items = 0;
+
+        if (quest.itemRewards != null)
+            foreach (var item in quest.itemRewards)
+                if (item != null)
+                    items++;
+
+        if (items > 0)
+            rewards.Add(Loc.T(items == 1 ? "1 item" : $"{items} items", $"{items} eşya"));
+
+        if (rewards.Count > 0)
+            sb.Append($"\n{label}{Loc.T("Reward", "Ödül")}:</color> {string.Join("  ·  ", rewards)}");
+
+        return sb.ToString();
+    }
+
+    static string CurrencyName(CurrencyType type) => type switch
+    {
+        CurrencyType.Gold => Loc.T("Gold", "Altın"),
+        CurrencyType.Gems => Loc.T("Gems", "Mücevher"),
+        CurrencyType.Tokens => Loc.T("Tokens", "Jeton"),
+        _ => Loc.T("Credits", "Kredi")
+    };
 
     System.Collections.IEnumerator UpdateDetailsScrollsNextFrame()
     {
@@ -376,9 +434,10 @@ public class QuestUI : HotkeyPanelUI
             return;
 
         ClearContainer(rewardsContainer);
+        rewardCount = 0;
 
         if (quest.experienceReward > 0)
-            SpawnRewardItem("Experience", quest.experienceReward.ToString(), null);
+            SpawnRewardItem(Loc.T("Experience", "Deneyim"), quest.experienceReward.ToString(), experienceIcon);
 
         if (quest.currencyRewards != null)
         {
@@ -435,6 +494,7 @@ public class QuestUI : HotkeyPanelUI
 
     void SpawnRewardItem(string label, string value, Sprite icon, System.Action onClicked = null, bool isSelected = false)
     {
+        rewardCount++;
         var rewardUI = Instantiate(rewardItemPrefab, rewardsContainer);
         rewardUI.Setup(label, value, icon, onClicked, isSelected);
     }

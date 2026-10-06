@@ -60,7 +60,11 @@ public class QuestUIHoverBridge : MonoBehaviour, IPointerClickHandler
 
     public void OnRegionClicked() => TryFire();
 
-    public void OnPointerClick(PointerEventData eventData) => TryFire();
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (!DialogueManager.WorldClicksBlocked)
+            TryFire();
+    }
 
     public void TryFire()
     {

@@ -2,9 +2,7 @@ using UnityEngine;
 
 public class QuestProgressTrigger : QuestPlayerTriggerBase
 {
-    [Header("Direct Progress")]
     public string objectiveID;
-
     [Min(1)]
     public int progressAmount = 1;
 

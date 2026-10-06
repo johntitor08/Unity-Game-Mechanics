@@ -32,6 +32,7 @@ public static class QuestFlags
     public const string ForeignEchoInvisibleToTracking = "foreign_echo_invisible_to_tracking";
     public const string ChamberTargetKnown = "chamber_target_known";
     public const string MireyaMetForeignEcho = "mireya_met_foreign_echo";
+    public const string MireyaMet = "mireya_met";
     public const string LurkerPatrolData = "lurker_patrol_data";
     public const string ChicoMet = "chico_met";
     public const string AwamoriIncomingKnown = "awamori_incoming_known";
@@ -77,6 +78,9 @@ public static class QuestFlags
     public const string Q09VossWarehouseFound = "q09_voss_warehouse_found";
     public const string VossDefeatedClean = "voss_defeated_clean";
     public const string ScenarioCompleted = "scenario_completed";
+    public const string Q10WarehouseCleared = "q10_warehouse_cleared";
+    public const string OriginChapter2Ready = "origin_chapter2_ready";
+    public const string OriginChapter3Ready = "origin_chapter3_ready";
 
     public static string DayStarted(int day) => $"day{day}_started";
 }

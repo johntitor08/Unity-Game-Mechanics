@@ -36,7 +36,7 @@ public abstract class QuestPlayerTriggerBase : MonoBehaviour, IPointerClickHandl
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (!allowPointerClick)
+        if (!allowPointerClick || DialogueManager.WorldClicksBlocked)
             return;
 
         TryFire();

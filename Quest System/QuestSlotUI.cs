@@ -12,6 +12,7 @@ public class QuestSlotUI : MonoBehaviour
     public Button detailsButton;
     public GameObject completedIndicator;
     public GameObject newIndicator;
+    public Sprite fallbackQuestIcon;
 
     private QuestData quest;
 
@@ -25,8 +26,12 @@ public class QuestSlotUI : MonoBehaviour
         if (questTypeText != null)
             questTypeText.text = questData.questType.Display();
 
-        if (questIcon != null && questData.icon != null)
-            questIcon.sprite = questData.icon;
+        if (questIcon != null)
+        {
+            questIcon.sprite = questData.icon != null ? questData.icon : fallbackQuestIcon;
+            questIcon.preserveAspect = true;
+            questIcon.enabled = questIcon.sprite != null;
+        }
 
         if (completedIndicator != null)
             completedIndicator.SetActive(isCompleted);
@@ -54,12 +59,12 @@ public class QuestSlotUI : MonoBehaviour
     {
         return difficulty switch
         {
-            QuestDifficulty.Easy => Color.gray,
-            QuestDifficulty.Normal => Color.white,
-            QuestDifficulty.Hard => Color.yellow,
-            QuestDifficulty.Elite => new Color(1f, 0.5f, 0f),
-            QuestDifficulty.Epic => new Color(0.8f, 0.2f, 0.8f),
-            _ => Color.white
+            QuestDifficulty.Easy => UIPalette.Muted,
+            QuestDifficulty.Normal => UIPalette.Cream,
+            QuestDifficulty.Hard => UIPalette.Gold,
+            QuestDifficulty.Elite => UIPalette.Legendary,
+            QuestDifficulty.Epic => UIPalette.Epic,
+            _ => UIPalette.Cream
         };
     }
 }

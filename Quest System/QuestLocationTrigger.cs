@@ -2,12 +2,9 @@ using UnityEngine;
 
 public class QuestLocationTrigger : QuestPlayerTriggerBase
 {
-    [Header("Location")]
     public string locationTag;
-
     [Min(1)]
     public int progressAmount = 1;
-
     public bool fireOnEnter = true;
 
     protected override void Update()

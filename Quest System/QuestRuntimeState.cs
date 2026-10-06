@@ -6,7 +6,8 @@ public class QuestRuntimeState
     public string questID;
     public List<string> objectiveIDs = new();
     public List<ObjectiveRuntimeState> objectiveStates = new();
-    [System.NonSerialized] private Dictionary<string, ObjectiveRuntimeState> objectives;
+    [System.NonSerialized]
+    private Dictionary<string, ObjectiveRuntimeState> objectives;
 
     public QuestRuntimeState(string questID)
     {
