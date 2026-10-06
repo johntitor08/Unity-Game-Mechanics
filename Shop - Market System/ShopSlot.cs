@@ -15,6 +15,8 @@ public class ShopSlot : MonoBehaviour
     private Vector2 originalSize;
     private string originalText;
     private Color originalColor;
+    private static readonly Color PurchasedTextColor = new(0.934f, 0.897f, 0.824f);
+    private static string BuyLabel => Loc.T("BUY", "SATIN AL");
 
     [Header("Visual Elements")]
     public Image itemIcon;
@@ -47,12 +49,6 @@ public class ShopSlot : MonoBehaviour
     [Header("Visual Feedback")]
     public Color normalColor = Color.black;
     public Color lockedColor = Color.gray;
-
-    [Header("Rarity Colors")]
-    public Color commonColor = new(0.6f, 0.6f, 0.6f);
-    public Color rareColor = new(0.2f, 0.5f, 1f);
-    public Color epicColor = new(0.6f, 0.2f, 1f);
-    public Color legendaryColor = new(1f, 0.6f, 0f);
 
     void Awake()
     {
@@ -113,31 +109,11 @@ public class ShopSlot : MonoBehaviour
         if (item == null)
             return;
 
-        Rarity rarityEnum = item.rarity;
-        Color color;
-
-        if (item is EquipmentData equip)
-        {
-            rarityEnum = equip.rarity;
-            color = equip.GetRarityColor();
-        }
-        else
-        {
-            color = rarityEnum switch
-            {
-                Rarity.Common => commonColor,
-                Rarity.Rare => rareColor,
-                Rarity.Epic => epicColor,
-                Rarity.Legendary => legendaryColor,
-                _ => commonColor
-            };
-        }
-
         if (rarityText != null)
-            rarityText.text = rarityEnum.ToString();
+            rarityText.text = item.rarity.Display();
 
         if (rarityBadge != null)
-            rarityBadge.color = color;
+            rarityBadge.color = item.GetRarityColor();
     }
 
     void SetupStats(ItemData item)
@@ -156,21 +132,21 @@ public class ShopSlot : MonoBehaviour
         if (item is EquipmentData equip)
         {
             if (equip.damageBonus > 0)
-                lines.Add($"Damage: +{equip.damageBonus}");
+                lines.Add($"{StatType.Damage.Display()}: +{equip.damageBonus}");
 
             if (equip.defenseBonus > 0)
-                lines.Add($"Defense: +{equip.defenseBonus}");
+                lines.Add($"{StatType.Defense.Display()}: +{equip.defenseBonus}");
 
             if (equip.primaryStatBonus > 0)
-                lines.Add($"{equip.primaryStat}: +{equip.primaryStatBonus}");
+                lines.Add($"{equip.primaryStat.Display()}: +{equip.primaryStatBonus}");
 
             if (equip.secondaryStatBonus > 0)
-                lines.Add($"{equip.secondaryStat}: +{equip.secondaryStatBonus}");
+                lines.Add($"{equip.secondaryStat.Display()}: +{equip.secondaryStatBonus}");
         }
         else if (item is StatModifierItem statMod)
         {
             string sign = statMod.modifyAmount >= 0 ? "+" : "";
-            string label = statMod.modifyMaxStat ? $"Max {statMod.targetStat}" : statMod.targetStat.ToString();
+            string label = statMod.modifyMaxStat ? $"{Loc.T("Max", "Maks.")} {statMod.targetStat.Display()}" : statMod.targetStat.Display();
             lines.Add($"{label}: {sign}{statMod.modifyAmount}");
         }
 
@@ -215,7 +191,7 @@ public class ShopSlot : MonoBehaviour
 
         if (buyButtonText != null)
         {
-            originalText = buyButtonText.text;
+            originalText = BuyLabel;
             originalColor = buyButtonText.color;
         }
     }
@@ -227,7 +203,7 @@ public class ShopSlot : MonoBehaviour
 
         if (item is EquipmentData equip)
         {
-            string props = $"Slot: {equip.slot}";
+            string props = $"{Loc.T("Slot", "Yuva")}: {equip.slot.Display()}";
 
             if (equip.setData != null && !string.IsNullOrEmpty(equip.setData.setName))
                 props += $"\n{Loc.T("Set", "Set")}: {equip.setData.DisplaySetName}";
@@ -250,21 +226,21 @@ public class ShopSlot : MonoBehaviour
         var profile = ProfileManager.Instance.profile;
 
         if (profile.level < shopItem.requiredLevel)
-            unmet.Add($"Requires Level {shopItem.requiredLevel}");
+            unmet.Add(Loc.T($"Requires Level {shopItem.requiredLevel}", $"Seviye {shopItem.requiredLevel} gerekli"));
 
         if (shopItem.requiresFlag && !StoryFlags.Has(shopItem.requiredFlag))
-            unmet.Add("Story Progress Required");
+            unmet.Add(Loc.T("Story Progress Required", "Hikâyede ilerleme gerekli"));
 
         int stockAmount = ShopManager.Instance.GetStock(shopItem.item.itemID);
 
         if (!shopItem.unlimitedStock && stockAmount <= 0)
-            unmet.Add("Out of Stock");
+            unmet.Add(Loc.T("Out of Stock", "Stokta yok"));
 
         if (unmet.Count > 0)
         {
             requirementText.gameObject.SetActive(true);
             requirementText.text = string.Join("\n", unmet);
-            requirementText.color = Color.red;
+            requirementText.color = UIPalette.Bad;
         }
         else
         {
@@ -278,7 +254,7 @@ public class ShopSlot : MonoBehaviour
             return;
 
         buyButton.interactable = canBuy && !isPurchasing;
-        buyButtonText.text = canBuy ? "Buy" : "Locked";
+        buyButtonText.text = canBuy ? BuyLabel : Loc.T("LOCKED", "KİLİTLİ");
 
         if (!canBuy)
             background.color = lockedColor;
@@ -295,7 +271,8 @@ public class ShopSlot : MonoBehaviour
             return;
 
         int stockAmount = ShopManager.Instance.GetStock(currentItem.item.itemID);
-        stockText.text = stockAmount == -1 ? "Stock: ∞" : $"Stock: {stockAmount}";
+        string stock = Loc.T("Stock", "Stok");
+        stockText.text = stockAmount == -1 ? $"{stock}: ∞" : $"{stock}: {stockAmount}";
     }
 
     void RefreshVisuals(PlayerProfile profile)
@@ -355,9 +332,8 @@ public class ShopSlot : MonoBehaviour
             yield break;
         }
 
-        btnRect.sizeDelta = new Vector2(originalSize.x + 50f, originalSize.y);
         buyButtonText.text = Loc.T("Purchased!", "Satın Alındı!");
-        buyButtonText.color = Color.green;
+        buyButtonText.color = PurchasedTextColor;
         buyButton.interactable = false;
         yield return waitForSeconds0_5;
 
@@ -387,10 +363,11 @@ public class ShopSlot : MonoBehaviour
         }
 
         Color original = background.color;
+        Color flash = Color.Lerp(original, UIPalette.Bad, 0.45f);
 
         for (int i = 0; i < 3; i++)
         {
-            background.color = Color.red * 0.5f;
+            background.color = flash;
             yield return waitForSeconds0_1;
 
             if (!gameObject.activeInHierarchy)

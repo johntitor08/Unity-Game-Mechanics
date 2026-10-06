@@ -73,6 +73,8 @@ public class ShopUI : MonoBehaviour
 
     public void Open()
     {
+        SetClosedState(false);
+
         if (shopPanel != null)
         {
             UIPanelAnimator.Show(shopPanel);
@@ -96,7 +98,53 @@ public class ShopUI : MonoBehaviour
 
     public void ShowMarketClosed()
     {
+        SetClosedState(true);
+
+        if (shopPanel != null)
+            UIPanelAnimator.Show(shopPanel);
+
         UIPanelAnimator.Show(marketClosedPanel);
+        SetClosedMessage();
+        UpdateMarketStatus();
+    }
+
+    void SetClosedMessage()
+    {
+        if (marketClosedPanel == null)
+            return;
+
+        string muted = UIPalette.Hex(UIPalette.Muted);
+        string en = $"Market Closed\n<size=55%><color={muted}>The stalls open again in the morning.</color></size>";
+        string tr = $"Pazar Kapalı\n<size=55%><color={muted}>Tezgâhlar sabah yeniden açılır.</color></size>";
+        var localized = marketClosedPanel.GetComponentInChildren<LocalizedText>(true);
+
+        if (localized != null)
+        {
+            localized.en = en;
+            localized.tr = tr;
+            localized.Apply();
+            return;
+        }
+
+        var text = marketClosedPanel.GetComponentInChildren<TMP_Text>(true);
+
+        if (text != null)
+            text.text = Loc.T(en, tr);
+    }
+
+    void SetClosedState(bool closed)
+    {
+        if (shopScrollRect != null)
+            shopScrollRect.gameObject.SetActive(!closed);
+
+        if (refreshButton != null)
+            refreshButton.gameObject.SetActive(!closed);
+
+        if (switchToSellButton != null)
+            switchToSellButton.gameObject.SetActive(!closed);
+
+        if (!closed && marketClosedPanel != null)
+            marketClosedPanel.SetActive(false);
     }
 
     public void Refresh()
@@ -149,8 +197,8 @@ public class ShopUI : MonoBehaviour
             return;
 
         bool isOpen = MarketController.Instance == null || MarketController.Instance.IsOpen();
-        marketStatusText.text = isOpen ? "Market Open" : "Market Closed";
-        marketStatusText.color = isOpen ? Color.green : Color.red;
+        marketStatusText.text = isOpen ? Loc.T("Market Open", "Pazar Açık") : Loc.T("Market Closed", "Pazar Kapalı");
+        marketStatusText.color = isOpen ? UIPalette.Good : UIPalette.Bad;
     }
 
     private static void ScrollToTop(ScrollRect sr)

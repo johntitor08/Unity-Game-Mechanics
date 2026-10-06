@@ -14,12 +14,6 @@ public class SellSlot : MonoBehaviour
     public TextMeshProUGUI rarityText;
     public Button sellButton;
 
-    [Header("Rarity Colors")]
-    public Color commonColor = new(0.6f, 0.6f, 0.6f);
-    public Color rareColor = new(0.2f, 0.5f, 1f);
-    public Color epicColor = new(0.6f, 0.2f, 1f);
-    public Color legendaryColor = new(1f, 0.6f, 0f);
-
     private ItemData item;
     private EquipmentData equipData;
     private int upgradeLevel;
@@ -90,31 +84,11 @@ public class SellSlot : MonoBehaviour
         if (item == null)
             return;
 
-        Rarity rarityEnum = item.rarity;
-        Color color;
-
-        if (item is EquipmentData equip)
-        {
-            rarityEnum = equip.rarity;
-            color = equip.GetRarityColor();
-        }
-        else
-        {
-            color = rarityEnum switch
-            {
-                Rarity.Common => commonColor,
-                Rarity.Rare => rareColor,
-                Rarity.Epic => epicColor,
-                Rarity.Legendary => legendaryColor,
-                _ => commonColor
-            };
-        }
-
         if (rarityText != null)
-            rarityText.text = rarityEnum.ToString();
+            rarityText.text = item.rarity.Display();
 
         if (rarityBorder != null)
-            rarityBorder.color = color;
+            rarityBorder.color = item.GetRarityColor();
     }
 
     void RefreshButton()
