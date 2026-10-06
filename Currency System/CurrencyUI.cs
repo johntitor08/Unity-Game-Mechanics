@@ -50,7 +50,12 @@ public class CurrencyUI : MonoBehaviour
             return;
 
         if (Input.GetKeyDown(KeyCode.C))
-            panel.SetActive(!panel.activeSelf);
+        {
+            if (panel.activeSelf)
+                UIPanelAnimator.Hide(panel);
+            else
+                UIPanelAnimator.Show(panel);
+        }
     }
 
     void OnEnable()
