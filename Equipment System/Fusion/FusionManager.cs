@@ -70,6 +70,7 @@ public class FusionManager : MonoBehaviour
             return null;
 
         InventoryManager.Instance.AddItem(recipe.result, 1);
+        Achievements.Unlock(Achievements.Fusion);
         return recipe.result;
     }
 
@@ -150,7 +151,6 @@ public class FusionManager : MonoBehaviour
         var em = EquipmentManager.Instance;
         var equipped = em != null ? em.GetEquipped(data.slot) : null;
         bool equippedIsBest = equipped != null && equipped.baseData.itemID == data.itemID && equipped.upgradeLevel == currentLevel;
-
         EquipmentInstance result;
 
         if (equippedIsBest)
