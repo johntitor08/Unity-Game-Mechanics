@@ -28,14 +28,17 @@ public class ScenarioData : ScriptableObject
     [Header("Failure")]
     public bool canFail = false;
     public DialogueNode failureDialogue;
+    public string retryFlagOnDefeat;
 }
 
 [System.Serializable]
 public class ScenarioStep
 {
     public string stepName;
-    [TextArea] public string stepDescription;
+    [TextArea]
+    public string stepDescription;
     public ScenarioStepType type;
+    public bool Applies() => (string.IsNullOrEmpty(requiredFlag) || StoryFlags.Has(requiredFlag)) && (string.IsNullOrEmpty(blockedByFlag) || !StoryFlags.Has(blockedByFlag));
 
     [Header("Step Data")]
     public EnemyData enemy;
@@ -44,6 +47,10 @@ public class ScenarioStep
     [Min(1)] public int requiredQuantity = 1;
     public string targetLocationTag;
     [Min(0f)] public float waitDuration = 5f;
+
+    [Header("Branch")]
+    public string requiredFlag;
+    public string blockedByFlag;
 
     [Header("Events")]
     public UnityEngine.Events.UnityEvent onStepStart;

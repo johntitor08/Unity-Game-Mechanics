@@ -10,9 +10,7 @@ public class QuestScenarioBridge : MonoBehaviour
         public string questID;
     }
 
-    [Tooltip("Origin start flag -> ScenarioData.scenarioID -> quest id.")]
     public BranchMap[] branches;
-
     private ScenarioManager _sm;
 
     void Start() => TryHook();
@@ -52,10 +50,7 @@ public class QuestScenarioBridge : MonoBehaviour
 
         foreach (var b in branches)
             if (b.startFlag == flag)
-            {
                 StartBranch(b.scenarioID);
-                return;
-            }
     }
 
     void StartBranch(string scenarioID)
