@@ -14,14 +14,33 @@ public class SaveManager : MonoBehaviour
             Destroy(gameObject);
     }
 
-    public void SavePNG(string filename = "")
+    public string SavePNG(string filename = "")
     {
         var flat = LayerManager.Instance.Flatten();
         var bytes = flat.EncodeToPNG();
-        var name = string.IsNullOrEmpty(filename) ? defaultFileName : filename;
-        var path = Path.Combine(Application.persistentDataPath, name + ".png");
-        File.WriteAllBytes(path, bytes);
+        var name = string.IsNullOrEmpty(filename) ? $"{defaultFileName}_{System.DateTime.Now:yyyy-MM-dd_HH-mm-ss}" : filename;
+        string path;
+
+        try
+        {
+            var dir = Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyPictures), "Whispers of the Night");
+            Directory.CreateDirectory(dir);
+            path = Path.Combine(dir, name + ".png");
+            File.WriteAllBytes(path, bytes);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[SaveManager] Pictures folder not writable ({e.Message}); saving to the data folder.");
+            path = Path.Combine(Application.persistentDataPath, name + ".png");
+            File.WriteAllBytes(path, bytes);
+        }
+
         Debug.Log($"PNG kaydedildi: {path}");
+
+        if (ForegroundNotifier.Instance != null)
+            ForegroundNotifier.Instance.ShowMessage(Loc.T($"Drawing saved to\n{path}", $"Çizim kaydedildi:\n{path}"), 4f);
+
+        return path;
     }
 
     public void SaveNative(string filename = "")
