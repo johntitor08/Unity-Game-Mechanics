@@ -7,8 +7,8 @@ public class GuideManager : MonoBehaviour
 {
     public static GuideManager Instance;
     public event Action OnGuideChanged;
-    const string PP_KEY = "guide_unlocked";
-    readonly HashSet<string> _unlocked = new();
+    const string LegacyPrefsKey = "guide_unlocked";
+    static readonly HashSet<string> Unlocked = new();
 
     [Header("All entries in the game")]
     public GuideEntry[] entries;
@@ -22,28 +22,73 @@ public class GuideManager : MonoBehaviour
         }
 
         Instance = this;
-        var saved = PlayerPrefs.GetString(PP_KEY, "");
 
-        foreach (var id in saved.Split(','))
-            if (!string.IsNullOrEmpty(id))
-                _unlocked.Add(id);
+        if (PlayerPrefs.HasKey(LegacyPrefsKey))
+        {
+            PlayerPrefs.DeleteKey(LegacyPrefsKey);
+            PlayerPrefs.Save();
+        }
 
-        if (entries != null)
-            foreach (var e in entries)
-                if (e != null && e.unlockedByDefault && !string.IsNullOrEmpty(e.id))
-                    _unlocked.Add(e.id);
+        AddDefaults();
     }
 
-    public bool IsUnlocked(string id) => !string.IsNullOrEmpty(id) && _unlocked.Contains(id);
+    void AddDefaults()
+    {
+        if (entries == null)
+            return;
+
+        foreach (var e in entries)
+            if (e != null && e.unlockedByDefault && !string.IsNullOrEmpty(e.id))
+                Unlocked.Add(e.id);
+    }
+
+    public bool IsUnlocked(string id) => !string.IsNullOrEmpty(id) && Unlocked.Contains(id);
 
     public void Unlock(string id)
     {
-        if (string.IsNullOrEmpty(id) || !_unlocked.Add(id))
+        if (string.IsNullOrEmpty(id) || !Unlocked.Add(id))
             return;
 
-        PlayerPrefs.SetString(PP_KEY, string.Join(",", _unlocked));
-        PlayerPrefs.Save();
         OnGuideChanged?.Invoke();
+    }
+
+    public static void ResetAll()
+    {
+        Unlocked.Clear();
+
+        if (Instance != null)
+        {
+            Instance.AddDefaults();
+            Instance.OnGuideChanged?.Invoke();
+        }
+    }
+
+    public static void ExportTo(List<string> ids)
+    {
+        ids.Clear();
+        ids.AddRange(Unlocked);
+    }
+
+    public static void ImportFrom(List<string> ids)
+    {
+        Unlocked.Clear();
+
+        if (ids != null)
+            foreach (var id in ids)
+                if (!string.IsNullOrEmpty(id))
+                    Unlocked.Add(id);
+
+        if (Instance != null)
+        {
+            Instance.AddDefaults();
+
+            if (Instance.entries != null)
+                foreach (var e in Instance.entries)
+                    if (e != null && !string.IsNullOrEmpty(e.unlockFlag) && StoryFlags.Has(e.unlockFlag))
+                        Unlocked.Add(e.id);
+
+            Instance.OnGuideChanged?.Invoke();
+        }
     }
 
     public List<GuideEntry> GetEntries(GuideCategory category)

@@ -6,8 +6,10 @@ using UnityEngine.UI;
 public class GuideUI : MonoBehaviour
 {
     public static GuideUI Instance;
-    GuideCategory _current = GuideCategory.Book;
-    readonly List<GameObject> _spawned = new();
+    private GuideCategory _current = GuideCategory.Book;
+    private readonly List<GameObject> _spawned = new();
+    private readonly Dictionary<GuideEntry, UIButtonStyle> _entryStyles = new();
+    private UITheme Theme => theme != null ? theme : booksTab != null && booksTab.TryGetComponent<UIButtonStyle>(out var s) ? s.theme : null;
 
     [Header("Window")]
     public GameObject panel;
@@ -28,9 +30,8 @@ public class GuideUI : MonoBehaviour
     public Image detailIcon;
 
     [Header("Style")]
-    public Color buttonColor = new(0.478f, 0.333f, 0.188f);
-    public Color labelColor = new(0.937f, 0.886f, 0.761f);
-    public Color goldColor = new(0.878f, 0.733f, 0.353f);
+    public UITheme theme;
+    public Color goldColor = new(0.784f, 0.659f, 0.431f);
 
     void Awake()
     {
@@ -93,6 +94,7 @@ public class GuideUI : MonoBehaviour
     public void Show(GuideCategory category)
     {
         _current = category;
+        MarkTab(category);
         ClearList();
         ClearDetail();
         var all = GuideManager.Instance != null ? GuideManager.Instance.GetEntries(category) : new List<GuideEntry>();
@@ -115,7 +117,6 @@ public class GuideUI : MonoBehaviour
     {
         var go = new GameObject(e.title, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
         go.transform.SetParent(listContent, false);
-        go.GetComponent<Image>().color = buttonColor;
         go.GetComponent<LayoutElement>().minHeight = 56;
         var lblGo = new GameObject("Label", typeof(RectTransform));
         lblGo.transform.SetParent(go.transform, false);
@@ -125,14 +126,45 @@ public class GuideUI : MonoBehaviour
             lbl.font = listFont;
 
         lbl.text = e.DisplayTitle;
-        lbl.color = labelColor;
-        lbl.fontSize = 26;
         lbl.alignment = TextAlignmentOptions.Left;
         lbl.margin = new Vector4(18, 0, 8, 0);
         var lr = lbl.rectTransform;
         lr.anchorMin = Vector2.zero; lr.anchorMax = Vector2.one; lr.offsetMin = Vector2.zero; lr.offsetMax = Vector2.zero;
+        var style = go.AddComponent<UIButtonStyle>();
+        style.theme = Theme;
+        style.kind = UIButtonStyle.Kind.Compact;
+        style.labelFontSize = 26;
+        style.resizeToMetrics = false;
+        style.Apply();
+        _entryStyles[e] = style;
         go.GetComponent<Button>().onClick.AddListener(() => Select(e));
         _spawned.Add(go);
+    }
+
+    void MarkTab(GuideCategory category)
+    {
+        SetPrimary(booksTab, category == GuideCategory.Book);
+        SetPrimary(charactersTab, category == GuideCategory.Character);
+        SetPrimary(loreTab, category == GuideCategory.Lore);
+    }
+
+    void MarkEntry(GuideEntry selected)
+    {
+        foreach (var kv in _entryStyles)
+            if (kv.Value != null && kv.Value.primary != (kv.Key == selected))
+            {
+                kv.Value.primary = kv.Key == selected;
+                kv.Value.Apply();
+            }
+    }
+
+    static void SetPrimary(Button button, bool on)
+    {
+        if (button != null && button.TryGetComponent<UIButtonStyle>(out var style) && style.primary != on)
+        {
+            style.primary = on;
+            style.Apply();
+        }
     }
 
     void Select(GuideEntry e)
@@ -149,6 +181,8 @@ public class GuideUI : MonoBehaviour
 
     void ShowDetail(GuideEntry e)
     {
+        MarkEntry(e);
+
         if (detailTitle != null)
         {
             detailTitle.text = e.DisplayTitle;
@@ -169,8 +203,9 @@ public class GuideUI : MonoBehaviour
 
         if (detailIcon != null)
         {
-            detailIcon.sprite = e.icon;
-            detailIcon.enabled = e.icon != null;
+            Sprite sprite = e.bookItem != null && e.bookItem.icon != null ? e.bookItem.icon : e.icon;
+            detailIcon.sprite = sprite;
+            detailIcon.enabled = sprite != null;
         }
     }
 
@@ -181,6 +216,7 @@ public class GuideUI : MonoBehaviour
                 Destroy(g);
 
         _spawned.Clear();
+        _entryStyles.Clear();
     }
 
     void ClearDetail()
