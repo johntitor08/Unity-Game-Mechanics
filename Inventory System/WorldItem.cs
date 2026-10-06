@@ -17,7 +17,11 @@ public class WorldItem : MonoBehaviour, IPointerClickHandler
             questObjectiveTag = entry.tag;
     }
 
-    public void OnPointerClick(PointerEventData eventData) => Collect();
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (!DialogueManager.WorldClicksBlocked)
+            Collect();
+    }
 
     public void Collect()
     {

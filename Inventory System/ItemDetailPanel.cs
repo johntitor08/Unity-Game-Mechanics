@@ -53,7 +53,7 @@ public class ItemDetailPanel : MonoBehaviour
 
         if (title != null)
         {
-            string upgradeStr = upgradeLevel > 0 ? $" <color=#FFD700>+{upgradeLevel}</color>" : "";
+            string upgradeStr = upgradeLevel > 0 ? $" <color={UIPalette.Hex(UIPalette.Gold)}>+{upgradeLevel}</color>" : "";
             title.text = $"{item.DisplayName}{upgradeStr}";
         }
 
@@ -111,27 +111,45 @@ public class ItemDetailPanel : MonoBehaviour
 
         if (isReadable)
         {
-            SetActionButtonLabel("Read");
+            SetActionButtonLabel("Read", "Oku");
             actionButton.interactable = true;
             actionButton.onClick.AddListener(ReadItem);
         }
         else
         {
-            SetActionButtonLabel(item.IsEquipment() ? "Equip" : "Use");
-            actionButton.interactable = item.useable && quantity > 0;
+            bool isEquipment = item.IsEquipment();
+
+            if (isEquipment)
+                SetActionButtonLabel("Equip", "Kuşan");
+            else
+                SetActionButtonLabel("Use", "Kullan");
+
+            actionButton.interactable = CanUse(item) && quantity > 0;
             actionButton.onClick.AddListener(UseItem);
         }
     }
 
-    private void SetActionButtonLabel(string label)
+    static bool CanUse(ItemData item) => item.IsEquipment() || item.useable;
+
+    private void SetActionButtonLabel(string en, string tr)
     {
         if (actionButton == null)
             return;
 
+        var localized = actionButton.GetComponentInChildren<LocalizedText>(true);
+
+        if (localized != null)
+        {
+            localized.en = en;
+            localized.tr = tr;
+            localized.Apply();
+            return;
+        }
+
         var text = actionButton.GetComponentInChildren<TMP_Text>(true);
 
         if (text != null)
-            text.text = label;
+            text.text = Loc.T(en, tr);
     }
 
     public void ReadItem()
@@ -158,7 +176,7 @@ public class ItemDetailPanel : MonoBehaviour
 
     public void UseItem()
     {
-        if (isProcessingUse || currentItem == null || !currentItem.useable)
+        if (isProcessingUse || currentItem == null || !CanUse(currentItem))
             return;
 
         isProcessingUse = true;
@@ -228,7 +246,7 @@ public class ItemDetailPanel : MonoBehaviour
             return;
         }
 
-        if (actionButton != null && currentItem.useable)
+        if (actionButton != null && (currentItem.readable || CanUse(currentItem)))
             actionButton.interactable = true;
     }
 

@@ -32,7 +32,12 @@ public class InventoryUI : HotkeyPanelUI
             return;
 
         if (Input.GetKeyDown(toggleKey) && panel != null)
-            panel.SetActive(!panel.activeSelf);
+        {
+            if (panel.activeSelf)
+                UIPanelAnimator.Hide(panel);
+            else
+                UIPanelAnimator.Show(panel);
+        }
     }
 
     void OnEnable()

@@ -5,11 +5,8 @@ public class ConsumableBuffItem : ItemData
 {
     [Header("Combat Buff")]
     public PlayerBuffManager.BuffType buffType = PlayerBuffManager.BuffType.Damage;
-    [Tooltip("Outgoing damage multiplier (used by Damage buffs). 1.3 = +30% ATK.")]
     public float damageMultiplier = 1f;
-    [Tooltip("Incoming damage reduction 0..1 (used by Defense buffs). 0.3 = take 30% less.")]
     public float damageReduction = 0f;
-    [Tooltip("Number of fights the buff stays active.")]
     public int fights = 2;
 
     public void Use()

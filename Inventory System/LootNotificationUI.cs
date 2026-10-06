@@ -40,7 +40,7 @@ public class LootNotificationUI : MonoBehaviour
             return;
 
         string message = $"+1 {item.DisplayName}";
-        ShowNotification(message, Color.white, item.icon);
+        ShowNotification(message, UIPalette.Cream, item.icon);
     }
 
     public void ShowMessage(string message, Color color)

@@ -51,15 +51,7 @@ public class ItemData : ScriptableObject
 
     public Color GetRarityColor()
     {
-        return rarity switch
-        {
-            Rarity.Common => new Color(0.8f, 0.8f, 0.8f),
-            Rarity.Rare => new Color(0.2f, 0.5f, 1f),
-            Rarity.Epic => new Color(0.8f, 0.2f, 0.8f),
-            Rarity.Legendary => new Color(1f, 0.6f, 0f),
-            Rarity.Godly => new Color(1f, 0.15f, 0.15f),
-            _ => Color.white
-        };
+        return UIPalette.ForRarity(rarity);
     }
 
     public float GetRarityMultiplier()
