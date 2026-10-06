@@ -25,10 +25,11 @@ public enum SceneProgress
 
 public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 {
-    private static readonly int DialoguePanelCloseHash = Animator.StringToHash("DialoguePanelClose");
+    private static readonly WaitForSecondsRealtime _waitForSecondsRealtime0_6 = new(0.6f);
     private static readonly WaitForSecondsRealtime _waitForSecondsRealtime0_12 = new(0.12f);
     private static readonly WaitForSecondsRealtime _bgSwapPause = new(0.2f);
     public static SceneEvent Instance { get; private set; }
+    private static readonly int DialoguePanelCloseHash = Animator.StringToHash("DialoguePanelClose");
     private SceneProgress progress = SceneProgress.Scene1;
     private int currentMapIndex;
     private int _validMapCursor;
@@ -43,13 +44,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     private int _lastCharIndex = -1;
     private string _currentQuestLocation;
     private bool dayScenarioPending;
-
-    public bool DayScenarioPending
-    {
-        get => dayScenarioPending;
-        set => dayScenarioPending = value;
-    }
-
+    private float _transitionBusySince = -1f;
     private bool _sceneCharacterActive;
     private bool _doorClicked;
     private TimePhase _lastObservedPhase = TimePhase.Morning;
@@ -66,6 +61,37 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public ItemDatabase itemDatabase;
     public TMP_Text mapTitleText;
     public GameObject townNpc;
+    private Coroutine _hudRoutine;
+    public bool IsHudReturning => _hudRoutine != null;
+    private const float HudRevealDelay = 0.3f;
+    private bool _wasInCombat;
+    private bool _keepingSpeaker;
+    public bool IsSleeping => sleepingPanel != null && sleepingPanel.activeSelf;
+    public bool IsShowingQuestLocation => !string.IsNullOrEmpty(_currentQuestLocation);
+    public bool IsInTownSquare => _lastBgIndex == 0 && !IsShowingQuestLocation;
+    public bool IsDayStoryWaiting => (dayScenarioPending && TimeUI.Instance != null && TimeUI.Instance.GetCurrentDay() >= 2 && HasUnplayedDayScenario()) || (ScenarioManager.Instance != null && ScenarioManager.Instance.IsWaitingAfterRetreat);
+    public bool IsSceneDarkened => _transitionDepth > 0 || (_sceneFade != null && _sceneFade.gameObject.activeSelf && _sceneFade.color.a > 0.05f);
+    private const float SceneDipOut = 0.35f;
+    private const float SceneDipIn = 0.4f;
+    private Image _sceneFade;
+    private Coroutine _sceneFadeRoutine;
+    private Image _holdFrame;
+    private Sprite _holdSprite;
+    private int _transitionDepth;
+    public bool IsHoldingScene => _holdFrame != null && _holdFrame.gameObject.activeSelf;
+    private const int BedroomBackground = 13;
+    private static readonly string[] LastDayQuests = { "q10_acik_hesap", "q11_fincan_basinda" };
+    public const string EndingDoorHeld = "ending_door_held";
+    public const string EndingOpenAccount = "ending_open_account";
+    public const string EndingTwoInTheDoor = "ending_two_in_the_door";
+    private const string SharedEpilogueScenario = "ashenveil_red_saint";
+    private const string SharedEpilogueStartFlag = "red_saint_start";
+
+    public bool DayScenarioPending
+    {
+        get => dayScenarioPending;
+        set => dayScenarioPending = value;
+    }
 
     public SceneProgress Progress
     {
@@ -135,10 +161,18 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     {
         public string name;
         public Sprite sprite;
+        public Sprite noonSprite;
         public Sprite eveningSprite;
+        public Sprite nightSprite;
 
         public readonly Sprite Resolve(TimePhase phase)
         {
+            if (phase == TimePhase.Noon && noonSprite != null)
+                return noonSprite;
+
+            if (phase == TimePhase.Night && nightSprite != null)
+                return nightSprite;
+
             bool dusk = phase == TimePhase.Evening || phase == TimePhase.Night;
             return dusk && eveningSprite != null ? eveningSprite : sprite;
         }
@@ -238,6 +272,24 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     [Header("Dialogue Character Layout")]
     public Vector2 dialogueCharacterPosition = new(0f, 0f);
     public Vector2 dialogueCharacterSize = new(700f, 700f);
+
+    [System.Serializable]
+    public struct CharacterLayoutOverride
+    {
+        [Tooltip("Name of the dialogue background sprite this layout applies to.")]
+        public string backgroundName;
+        public Vector2 position;
+        public Vector2 size;
+    }
+
+    static readonly string[] HalfBodyCharacterSprites = { "char_mireya_00001_" };
+
+    static readonly CharacterLayoutOverride[] DialogueCharacterLayoutOverrides =
+    {
+        new() { backgroundName = "ComfyUI_01231_", position = new Vector2(0f, -260f), size = new Vector2(1000f, 1000f) },
+        new() { backgroundName = "ComfyUI_01241_", position = new Vector2(0f, -260f), size = new Vector2(1000f, 1000f) },
+        new() { backgroundName = "bg26_morning", position = new Vector2(250f, -260f), size = new Vector2(1000f, 1000f) },
+    };
 
     [Header("Dialogues")]
     public DialogueNode[] sceneStartDialogueNodes;
@@ -391,6 +443,34 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     {
         if (Input.GetKeyDown(KeyCode.M))
             TogglePanel(mapPanel, "Map");
+
+        GuardSceneFade();
+        WatchCombatEnd();
+    }
+
+    void GuardSceneFade()
+    {
+        bool idle = _sceneFadeRoutine == null && charFadeCoroutine == null;
+
+        if (idle && !IsHoldingScene && _transitionDepth == 0 && _sceneFade != null && _sceneFade.gameObject.activeSelf && _sceneFade.color.a > 0f)
+            StartCoroutine(RunSceneFade(0f, SceneDipIn));
+
+        if (_transitionDepth > 0)
+        {
+            if (_transitionBusySince < 0f)
+                _transitionBusySince = Time.unscaledTime;
+            else if (Time.unscaledTime - _transitionBusySince > 6f)
+            {
+                _transitionDepth = 0;
+
+                if (_holdFrame != null)
+                    _holdFrame.gameObject.SetActive(false);
+            }
+        }
+        else
+        {
+            _transitionBusySince = -1f;
+        }
     }
 
     void OnEnable()
@@ -415,6 +495,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     {
         UnsubscribeDialogue();
         UnsubscribeHoverEffects();
+        _hudRoutine = null;
 
         if (TimePhaseManager.Instance != null)
             TimePhaseManager.Instance.OnPhaseChanged -= OnPhaseChanged;
@@ -703,6 +784,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             if (s != null)
             {
                 charImage.sprite = s;
+                FitCharacterWidth();
                 _sceneCharacterActive = true;
                 _charImageFromDialogue = false;
 
@@ -723,7 +805,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         ClearDialogueBackground();
         SetActive(townNpc, index == 0);
 
-        if (index == 0)
+        if (index == 0 && !SaveSystem.IsLoading && ScenarioManager.Instance != null && ScenarioManager.Instance.IsWaitingAfterRetreat)
+            ScenarioManager.Instance.ResumeAfterRetreat();
+        else if (index == 0)
             TryStartDayScenario();
 
         OnBackgroundChanged?.Invoke(index);
@@ -781,6 +865,21 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                     SetCharacter(29);
             }
         }
+    }
+
+    public Sprite PhaseVariantOf(Sprite sprite)
+    {
+        if (sprite == null)
+            return null;
+
+        TimePhase phase = TimePhaseManager.Instance != null ? TimePhaseManager.Instance.currentPhase : TimePhase.Morning;
+
+        if (questLocationBackgrounds != null)
+            foreach (var q in questLocationBackgrounds)
+                if (sprite == q.sprite || sprite == q.noonSprite || sprite == q.eveningSprite || sprite == q.nightSprite)
+                    return q.Resolve(phase) ?? sprite;
+
+        return sprite;
     }
 
     private Sprite ResolveBg(int index)
@@ -858,7 +957,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             bool visible = group.HasValue && loc.group == group.Value;
 
             if (!string.IsNullOrEmpty(loc.questID))
-                visible = visible && IsQuestIconActive(loc) && !IsNight();
+                visible = visible && IsQuestIconActive(loc) && (!IsNight() || !IsCurrentDayContentComplete());
 
             SetActive(loc.icon, visible);
 
@@ -1060,9 +1159,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 charFadeCoroutine = null;
             }
 
+            bool wasFadingOut = _charFadingOut;
             _charFadingOut = false;
 
-            if (charImage.gameObject.activeSelf)
+            if (charImage.gameObject.activeSelf && !wasFadingOut)
             {
                 Color cc = charImage.color;
                 charImage.color = new Color(cc.r, cc.g, cc.b, 1f);
@@ -1070,7 +1170,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
             if (node != null && node.characterImage != null)
             {
-                _dialogueBgPending = node.backgroundImage;
+                _dialogueBgPending = PhaseVariantOf(node.backgroundImage);
                 ShowCharacterFaded(node.characterImage);
             }
             else if (_sceneCharacterActive)
@@ -1093,6 +1193,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 }
             }
 
+            else if (charImage.gameObject.activeSelf && charImage.color.a > 0.05f)
+            {
+                charFadeCoroutine = StartCoroutine(FadeOutSpeaker(0.3f));
+            }
             else
             {
                 charImage.gameObject.SetActive(false);
@@ -1105,7 +1209,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (charImage == null || node == null || node.characterImage == null)
             return;
 
-        _dialogueBgPending = node.backgroundImage;
+        _dialogueBgPending = PhaseVariantOf(node.backgroundImage);
         ShowCharacterFaded(node.characterImage);
     }
 
@@ -1126,12 +1230,18 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             }
 
             _charFadingOut = false;
+            bool bgChanged = _dialogueBgPending != null && _dialogueBgPending != _dialogueBgCurrent;
+
+            if (bgChanged && visible && DialogueCharacterLayout(_dialogueBgPending, sprite) != DialogueCharacterLayout(_dialogueBgCurrent, sprite))
+            {
+                charFadeCoroutine = StartCoroutine(SwapCharacter(sprite));
+                return;
+            }
+
             charImage.gameObject.SetActive(true);
             Color c = charImage.color;
             charImage.color = new Color(c.r, c.g, c.b, 1f);
             ApplyDialogueCharacterLayout();
-
-            bool bgChanged = _dialogueBgPending != null && _dialogueBgPending != _dialogueBgCurrent;
 
             if (bgChanged && visible)
             {
@@ -1164,18 +1274,26 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
             charFadeCoroutine = StartCoroutine(SwapCharacter(sprite));
         }
+        else if (IsHoldingScene)
+        {
+            if (_dialogueBgPending != null)
+                SetBackdrop(_dialogueBgPending);
+
+            charImage.sprite = sprite;
+            ApplyDialogueCharacterLayout();
+            Color c = charImage.color;
+            charImage.color = new Color(c.r, c.g, c.b, 0f);
+            charImage.gameObject.SetActive(true);
+            charFadeCoroutine = StartCoroutine(FadeCharacterInAfterHold());
+        }
+        else if (_dialogueBgPending != null && _dialogueBgPending != VisibleBackdrop())
+        {
+            charFadeCoroutine = StartCoroutine(DipToScene(_dialogueBgPending, sprite));
+        }
         else
         {
             if (_dialogueBgPending != null)
-            {
-                _dialogueBgCurrent = _dialogueBgPending;
-
-                if (DialogueManager.Instance != null && DialogueManager.Instance.backgroundImage != null)
-                {
-                    DialogueManager.Instance.backgroundImage.sprite = _dialogueBgPending;
-                    DialogueManager.Instance.backgroundImage.enabled = true;
-                }
-            }
+                SetBackdrop(_dialogueBgPending);
 
             charFadeCoroutine = StartCoroutine(FadeInCharacter(sprite));
         }
@@ -1183,15 +1301,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     IEnumerator SwapBackgroundOnly(Sprite newBg)
     {
-        yield return _bgSwapPause;
+        yield return RunSceneFade(1f, SceneDipOut);
 
-        if (newBg != null && DialogueManager.Instance != null && DialogueManager.Instance.backgroundImage != null)
-        {
-            DialogueManager.Instance.backgroundImage.sprite = newBg;
-            DialogueManager.Instance.backgroundImage.enabled = true;
-        }
+        if (newBg != null)
+            SetBackdrop(newBg);
 
-        _dialogueBgCurrent = newBg;
+        yield return RunSceneFade(0f, SceneDipIn);
         charFadeCoroutine = null;
     }
 
@@ -1212,21 +1327,25 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         _charFadingOut = false;
         charImage.color = new Color(col.r, col.g, col.b, 0f);
         charImage.gameObject.SetActive(false);
-        yield return _bgSwapPause;
+        bool placeChanges = _dialogueBgPending != null && _dialogueBgPending != VisibleBackdrop();
 
-        if (_dialogueBgPending != null && DialogueManager.Instance != null && DialogueManager.Instance.backgroundImage != null)
+        if (placeChanges)
+            yield return RunSceneFade(1f, SceneDipOut);
+        else
         {
-            DialogueManager.Instance.backgroundImage.sprite = _dialogueBgPending;
-            DialogueManager.Instance.backgroundImage.enabled = true;
+            yield return _bgSwapPause;
         }
 
         if (_dialogueBgPending != null)
-            _dialogueBgCurrent = _dialogueBgPending;
+            SetBackdrop(_dialogueBgPending);
 
         charImage.sprite = newSprite;
         ApplyDialogueCharacterLayout();
         charImage.gameObject.SetActive(true);
         charImage.color = new Color(col.r, col.g, col.b, 0f);
+
+        if (placeChanges)
+            yield return RunSceneFade(0f, SceneDipIn);
 
         for (float e = 0f; e < 0.28f; e += Time.deltaTime)
         {
@@ -1303,10 +1422,11 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         _charFadingOut = false;
 
         if (endedNode != null)
-        {
-            HandleSceneTransition(endedNode);
-            ClearDialogueBackground();
-        }
+            TransitionScene(() =>
+            {
+                HandleSceneTransition(endedNode);
+                ClearDialogueBackground();
+            });
         else if (CombatManager.Instance == null || !CombatManager.Instance.inCombat)
         {
             ShowHudPanels();
@@ -1324,8 +1444,34 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         rt.anchorMax = new Vector2(0.5f, 0f);
         rt.pivot = new Vector2(0.5f, 0f);
         rt.localScale = Vector3.one;
-        rt.anchoredPosition = dialogueCharacterPosition;
-        rt.sizeDelta = dialogueCharacterSize;
+        Sprite bg = _dialogueBgPending != null ? _dialogueBgPending : DialogueManager.Instance != null && DialogueManager.Instance.backgroundImage != null ? DialogueManager.Instance.backgroundImage.sprite : null;
+        var (position, size) = DialogueCharacterLayout(bg, charImage.sprite);
+        rt.anchoredPosition = position;
+        rt.sizeDelta = size;
+        FitCharacterWidth();
+    }
+
+    void FitCharacterWidth()
+    {
+        if (charImage == null || charImage.sprite == null)
+            return;
+
+        RectTransform rt = charImage.rectTransform;
+        Rect r = charImage.sprite.rect;
+        float width = rt.sizeDelta.y * r.width / r.height;
+
+        if (width > rt.sizeDelta.x)
+            rt.sizeDelta = new Vector2(width, rt.sizeDelta.y);
+    }
+
+    (Vector2 position, Vector2 size) DialogueCharacterLayout(Sprite bg, Sprite character)
+    {
+        if (bg != null && !(character != null && System.Array.IndexOf(HalfBodyCharacterSprites, character.name) >= 0))
+            foreach (var o in DialogueCharacterLayoutOverrides)
+                if (o.backgroundName == bg.name)
+                    return (o.position, o.size);
+
+        return (dialogueCharacterPosition, dialogueCharacterSize);
     }
 
     void ApplySceneCharacterLayout()
@@ -1341,6 +1487,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         rt.anchoredPosition = new Vector2(0f, 375f);
         rt.sizeDelta = new Vector2(75f, 75f);
         rt.localScale = new Vector3(10f, 10f, 10f);
+        FitCharacterWidth();
     }
 
     bool IsInDialogue() => DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue();
@@ -1357,6 +1504,59 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     }
 
     public void ShowHudPanels()
+    {
+        if (!isActiveAndEnabled)
+        {
+            ShowHudPanelsNow();
+            return;
+        }
+
+        _hudRoutine ??= StartCoroutine(ShowHudWhenSettled());
+    }
+
+    IEnumerator ShowHudWhenSettled()
+    {
+        var dm = DialogueManager.Instance;
+        float busyFor = 0f;
+        float quietFor = 0f;
+
+        while (quietFor < HudRevealDelay)
+        {
+            if (CombatOpen() || (dm != null && dm.IsInDialogue()))
+            {
+                busyFor = 0f;
+                quietFor = 0f;
+            }
+            else if (dm != null && (dm.IsConversationBusy() || dm.IsSceneTransitionBusy()) && busyFor < 3f)
+            {
+                busyFor += Time.unscaledDeltaTime;
+                quietFor = 0f;
+            }
+            else
+            {
+                quietFor += Time.unscaledDeltaTime;
+            }
+
+            yield return null;
+        }
+
+        _hudRoutine = null;
+        ShowHudPanelsNow();
+    }
+
+    static bool CombatOpen() => (CombatManager.Instance != null && CombatManager.Instance.inCombat) || (CombatUI.Instance != null && CombatUI.Instance.combatPanel != null && CombatUI.Instance.combatPanel.activeSelf);
+
+    void WatchCombatEnd()
+    {
+        bool inCombat = CombatOpen();
+
+        if (_wasInCombat && !inCombat)
+            ShowHudPanels();
+
+        _wasInCombat = inCombat;
+    }
+
+    void ShowHudPanelsNow()
     {
         SetActive(settingsIconPanel, true);
         SetActive(timePanel, true);
@@ -1400,11 +1600,18 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 charFadeCoroutine = null;
             }
 
+            if (!isFinal && NextDialogueKeepsSpeaker())
+            {
+                _keepingSpeaker = true;
+                StartCoroutine(KeepSpeakerForNextDialogue());
+                return;
+            }
+
             charFadeCoroutine = StartCoroutine(DeferredFadeOut(0.5f, isFinal ? endedNode : null));
         }
         else if (isFinal)
         {
-            HandleSceneTransition(endedNode);
+            TransitionScene(() => HandleSceneTransition(endedNode));
         }
         else if (CombatManager.Instance == null || !CombatManager.Instance.inCombat)
         {
@@ -1420,6 +1627,45 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             MarketUI.Instance.OpenMarket();
     }
 
+    bool NextDialogueKeepsSpeaker()
+    {
+        var sm = ScenarioManager.Instance;
+        var dm = DialogueManager.Instance;
+
+        if (sm == null || dm == null || charImage == null || charImage.sprite == null || charImage.color.a < 0.5f || _charFadingOut)
+            return false;
+
+        DialogueNode next = sm.PeekFollowUpDialogue(dm.LastStartNode);
+
+        if (next == null || next.characterImage == null || next.characterImage != charImage.sprite)
+            return false;
+
+        return next.backgroundImage == null || PhaseVariantOf(next.backgroundImage) == VisibleBackdrop();
+    }
+
+    IEnumerator KeepSpeakerForNextDialogue()
+    {
+        var dm = DialogueManager.Instance;
+
+        for (float t = 0f; t < 2f; t += Time.unscaledDeltaTime)
+        {
+            if (dm == null || dm.IsInDialogue())
+            {
+                _keepingSpeaker = false;
+                yield break;
+            }
+
+            yield return null;
+        }
+
+        _keepingSpeaker = false;
+
+        if (charImage != null && charImage.gameObject.activeSelf)
+            charFadeCoroutine = StartCoroutine(DeferredFadeOut(0.5f, null));
+        else
+            ShowHudPanels();
+    }
+
     IEnumerator DeferredFadeOut(float duration, DialogueNode endedNode)
     {
         _charFadingOut = true;
@@ -1427,10 +1673,36 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         yield return FadeOutCharacter(duration, endedNode);
     }
 
-    void OnScenarioStarted(ScenarioData scenario) => ForceHideSceneCharacter();
+    void OnScenarioStarted(ScenarioData scenario)
+    {
+        DialogueNode first = scenario == null ? null : scenario.introDialogue != null ? scenario.introDialogue : scenario.steps != null && scenario.steps.Length > 0 && scenario.steps[0].type == ScenarioStepType.Dialogue ? scenario.steps[0].dialogue : null;
+
+        if (charImage != null && charImage.gameObject.activeSelf && charImage.color.a > 0.05f && !_charFadingOut && first != null && first.characterImage != null && first.characterImage == charImage.sprite)
+            return;
+
+        if (charImage != null && charImage.gameObject.activeSelf && charImage.color.a > 0.05f)
+        {
+            _sceneCharacterActive = false;
+            _charImageFromDialogue = false;
+
+            if (!_charFadingOut)
+            {
+                if (charFadeCoroutine != null)
+                    StopCoroutine(charFadeCoroutine);
+
+                charFadeCoroutine = StartCoroutine(FadeOutSpeaker(0.3f));
+            }
+
+            return;
+        }
+
+        ForceHideSceneCharacter();
+    }
 
     void OnScenarioCompleted(ScenarioData scenario)
     {
+        StartCoroutine(TryStartDayScenarioAfterScenario());
+
         if (charImage == null)
             return;
 
@@ -1448,6 +1720,31 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             charImage.gameObject.SetActive(false);
             ShowHudPanels();
         }
+    }
+
+    IEnumerator TryStartDayScenarioAfterScenario()
+    {
+        yield return null;
+
+        while (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue())
+            yield return null;
+
+        if (_lastBgIndex == 0 && string.IsNullOrEmpty(_currentQuestLocation))
+            TryStartDayScenario();
+    }
+
+    bool HasUnplayedDayScenario()
+    {
+        ScenarioManager sm = ScenarioManager.Instance;
+
+        if (sm == null || sm.availableScenarios == null)
+            return false;
+
+        foreach (ScenarioData scenario in sm.availableScenarios)
+            if (scenario != null && !string.IsNullOrEmpty(scenario.scenarioID) && scenario.scenarioID.StartsWith("ashenveil_day") && !sm.IsScenarioCompleted(scenario.scenarioID))
+                return true;
+
+        return false;
     }
 
     void ForceHideSceneCharacter()
@@ -1470,6 +1767,18 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         charImage.gameObject.SetActive(false);
     }
 
+    static bool IsReachableFrom(DialogueNode root, DialogueNode node, int depth)
+    {
+        if (root == null || node == null || depth <= 0 || root.choices == null)
+            return false;
+
+        foreach (var choice in root.choices)
+            if (choice != null && choice.nextNode != null && (choice.nextNode == node || IsReachableFrom(choice.nextNode, node, depth - 1)))
+                return true;
+
+        return false;
+    }
+
     void HandleSceneTransition(DialogueNode endedNode)
     {
         switch (endedNode.sceneContext)
@@ -1487,7 +1796,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 break;
 
             case SceneProgress.Scene5:
-                if (endedNode == sceneStartDialogueNodes[4])
+                if (endedNode == sceneStartDialogueNodes[4] || IsReachableFrom(sceneStartDialogueNodes[4], endedNode, 3))
                     TriggerScene6();
 
                 break;
@@ -1555,7 +1864,258 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     public float DialogueOpenAnimationDuration() => 0f;
 
-    public bool IsSceneTransitionActive() => charFadeCoroutine != null;
+    public bool IsSceneTransitionActive() => charFadeCoroutine != null || _transitionDepth > 0;
+
+    Image SceneFade()
+    {
+        if (_sceneFade == null)
+        {
+            Transform root = charImage != null ? charImage.canvas.rootCanvas.transform : transform;
+            var go = new GameObject("SceneFade", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(root, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            _sceneFade = go.GetComponent<Image>();
+            _sceneFade.color = new Color(0f, 0f, 0f, 0f);
+            _sceneFade.raycastTarget = false;
+            go.SetActive(false);
+        }
+
+        _sceneFade.transform.SetAsLastSibling();
+        return _sceneFade;
+    }
+
+    IEnumerator FadeSceneTo(float target, float duration)
+    {
+        Image img = SceneFade();
+        img.gameObject.SetActive(true);
+        float from = img.color.a;
+
+        for (float t = 0f; t < duration; t += Time.unscaledDeltaTime)
+        {
+            img.color = new Color(0f, 0f, 0f, Mathf.Lerp(from, target, t / duration));
+            yield return null;
+        }
+
+        img.color = new Color(0f, 0f, 0f, target);
+
+        if (target <= 0f)
+            img.gameObject.SetActive(false);
+    }
+
+    IEnumerator RunSceneFade(float target, float duration)
+    {
+        if (_sceneFadeRoutine != null)
+            StopCoroutine(_sceneFadeRoutine);
+
+        _sceneFadeRoutine = StartCoroutine(FadeSceneTo(target, duration));
+        yield return _sceneFadeRoutine;
+        _sceneFadeRoutine = null;
+    }
+
+    Sprite ShownBackdrop()
+    {
+        Image img = DialogueManager.Instance != null ? DialogueManager.Instance.backgroundImage : null;
+        return img != null && img.enabled ? img.sprite : null;
+    }
+
+    Sprite VisibleBackdrop() => ShownBackdrop() != null ? ShownBackdrop() : (backgroundImage != null && backgroundImage.enabled ? backgroundImage.sprite : null);
+
+    void SetBackdrop(Sprite sprite)
+    {
+        Image img = DialogueManager.Instance != null ? DialogueManager.Instance.backgroundImage : null;
+
+        if (img == null)
+            return;
+
+        img.sprite = sprite;
+        img.enabled = sprite != null;
+        _dialogueBgCurrent = sprite;
+    }
+
+    public void ShowDialogueBackdrop(Sprite sprite)
+    {
+        if (DialogueManager.Instance == null || DialogueManager.Instance.backgroundImage == null)
+            return;
+
+        _dialogueBgPending = sprite;
+
+        if (sprite == ShownBackdrop() || sprite == VisibleBackdrop() || IsHoldingScene)
+        {
+            SetBackdrop(sprite);
+            return;
+        }
+
+        StartCoroutine(BackdropAfterTransition(sprite));
+    }
+
+    IEnumerator BackdropAfterTransition(Sprite sprite)
+    {
+        _transitionDepth++;
+
+        while (charFadeCoroutine != null || _sceneFadeRoutine != null)
+            yield return null;
+
+        if (_dialogueBgPending == sprite && sprite != ShownBackdrop())
+        {
+            if (sprite != VisibleBackdrop())
+            {
+                yield return RunSceneFade(1f, SceneDipOut);
+                SetBackdrop(sprite);
+                yield return RunSceneFade(0f, SceneDipIn);
+            }
+            else
+                SetBackdrop(sprite);
+        }
+
+        _transitionDepth--;
+    }
+
+    IEnumerator FadeOutSpeaker(float duration)
+    {
+        _charFadingOut = true;
+        Color c = charImage.color;
+        float from = c.a;
+
+        for (float t = 0f; t < duration; t += Time.deltaTime)
+        {
+            charImage.color = new Color(c.r, c.g, c.b, Mathf.Lerp(from, 0f, t / duration));
+            yield return null;
+        }
+
+        charImage.gameObject.SetActive(false);
+        charImage.color = new Color(c.r, c.g, c.b, 1f);
+        _charFadingOut = false;
+        charFadeCoroutine = null;
+    }
+
+    IEnumerator FadeCharacterInAfterHold()
+    {
+        while (IsHoldingScene || _sceneFadeRoutine != null)
+            yield return null;
+
+        yield return FadeCharacterIn(0.28f);
+        charFadeCoroutine = null;
+    }
+
+    IEnumerator DipToScene(Sprite backdrop, Sprite character)
+    {
+        yield return RunSceneFade(1f, SceneDipOut);
+        SetBackdrop(backdrop);
+
+        if (character != null && charImage != null)
+        {
+            charImage.sprite = character;
+            ApplyDialogueCharacterLayout();
+            Color c = charImage.color;
+            charImage.color = new Color(c.r, c.g, c.b, 0f);
+            charImage.gameObject.SetActive(true);
+        }
+
+        yield return RunSceneFade(0f, SceneDipIn);
+
+        if (character != null && charImage != null)
+            yield return FadeCharacterIn(0.28f);
+
+        charFadeCoroutine = null;
+    }
+
+    IEnumerator FadeCharacterIn(float duration)
+    {
+        _charImageFromDialogue = true;
+        _sceneCharacterActive = false;
+        Color c = charImage.color;
+        charImage.gameObject.SetActive(true);
+
+        for (float t = 0f; t < duration; t += Time.deltaTime)
+        {
+            charImage.color = new Color(c.r, c.g, c.b, Mathf.Lerp(0f, 1f, t / duration));
+            yield return null;
+        }
+
+        charImage.color = new Color(c.r, c.g, c.b, 1f);
+    }
+
+    public void BeginSceneHold()
+    {
+        Sprite shown = ShownBackdrop();
+
+        if (shown == null || DialogueManager.Instance == null || IsHoldingScene)
+            return;
+
+        Image src = DialogueManager.Instance.backgroundImage;
+
+        if (_holdFrame == null)
+        {
+            var go = new GameObject("SceneHold", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(src.canvas.rootCanvas.transform, false);
+            _holdFrame = go.GetComponent<Image>();
+            _holdFrame.raycastTarget = false;
+        }
+
+        var rt = (RectTransform)_holdFrame.transform;
+        var srt = src.rectTransform;
+        rt.anchorMin = srt.anchorMin;
+        rt.anchorMax = srt.anchorMax;
+        rt.pivot = srt.pivot;
+        rt.position = srt.position;
+        rt.sizeDelta = srt.sizeDelta;
+        rt.localScale = srt.localScale;
+        _holdFrame.sprite = shown;
+        _holdFrame.preserveAspect = src.preserveAspect;
+        _holdFrame.color = src.color;
+        _holdFrame.gameObject.SetActive(true);
+        _holdFrame.transform.SetAsLastSibling();
+        _holdSprite = shown;
+        _transitionDepth++;
+    }
+
+    public void EndSceneHold()
+    {
+        if (_holdFrame == null || !_holdFrame.gameObject.activeSelf)
+            return;
+
+        Sprite now = ShownBackdrop() != null ? ShownBackdrop() : (backgroundImage != null ? backgroundImage.sprite : null);
+
+        if (now == _holdSprite)
+        {
+            _holdFrame.gameObject.SetActive(false);
+            _transitionDepth--;
+            return;
+        }
+
+        StartCoroutine(DipOutOfHold());
+    }
+
+    IEnumerator DipOutOfHold()
+    {
+        yield return RunSceneFade(1f, SceneDipOut);
+        _holdFrame.gameObject.SetActive(false);
+        yield return RunSceneFade(0f, SceneDipIn);
+        _transitionDepth--;
+    }
+
+    public void TransitionScene(System.Action change)
+    {
+        if (_keepingSpeaker)
+        {
+            change?.Invoke();
+            return;
+        }
+
+        BeginSceneHold();
+        change?.Invoke();
+        StartCoroutine(EndHoldNextFrame());
+    }
+
+    IEnumerator EndHoldNextFrame()
+    {
+        yield return null;
+        EndSceneHold();
+    }
 
     public float DialogueCloseAnimationDuration()
     {
@@ -1784,7 +2344,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (string.IsNullOrEmpty(node.speakerName))
         {
             node = Instantiate(node);
-            node.speakerName = ProfileManager.Instance != null && ProfileManager.Instance.profile != null ? ProfileManager.Instance.profile.playerName : "You";
+            node.speakerName = ProfileManager.Instance != null && ProfileManager.Instance.profile != null ? ProfileManager.Instance.profile.playerName : Loc.T("You", "Sen");
         }
 
         DialogueManager.Instance.StartDialogue(node, onDone);
@@ -1803,42 +2363,75 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 return;
 
             Action onDefeat = null;
+            Action onFlee = null;
             Action<EnemyData> onVictory = null;
+            string location = _currentQuestLocation;
 
             void Cleanup()
             {
                 CombatManager.Instance.OnCombatDefeat -= onDefeat;
+                CombatManager.Instance.OnCombatFled -= onFlee;
                 CombatManager.Instance.OnCombatVictory -= onVictory;
             }
 
             onDefeat = () =>
             {
                 Cleanup();
-
-                if (region != null)
-                    region.SetActive(true);
+                StartCoroutine(RestoreQuestLocationAfterLostCombat(location, region));
             };
+
+            onFlee = onDefeat;
 
             onVictory = (_) =>
             {
                 Cleanup();
+                StartCoroutine(CountGroupFight(entry));
                 StartCoroutine(RestoreHudAfterQuestCombat());
             };
 
             CombatManager.Instance.OnCombatDefeat += onDefeat;
+            CombatManager.Instance.OnCombatFled += onFlee;
             CombatManager.Instance.OnCombatVictory += onVictory;
             CombatManager.Instance.StartCombat(entry.questEnemy);
         });
+    }
+
+    private IEnumerator RestoreQuestLocationAfterLostCombat(string location, GameObject region)
+    {
+        yield return new WaitUntil(() => (CombatManager.Instance == null || !CombatManager.Instance.inCombat) && (CombatUI.Instance == null || CombatUI.Instance.combatPanel == null || !CombatUI.Instance.combatPanel.activeSelf));
+
+        if (PlayerStats.Instance != null)
+            PlayerStats.Instance.FullRestore();
+
+        if (!string.IsNullOrEmpty(location))
+            ShowQuestLocation(location);
+        else if (region != null)
+            region.SetActive(true);
+
+        ShowHudPanels();
+    }
+
+    private IEnumerator CountGroupFight(HoverRegionEntry entry)
+    {
+        yield return null;
+
+        var qm = QuestManager.Instance;
+
+        if (qm == null || entry.questProgressAmount <= 1 || string.IsNullOrEmpty(entry.questID) || string.IsNullOrEmpty(entry.questObjectiveTag))
+            yield break;
+
+        var state = qm.GetObjectiveState(entry.questID, entry.questObjectiveTag);
+
+        if (state != null && !state.isCompleted && state.currentProgress < entry.questProgressAmount)
+            qm.UpdateObjectiveProgress(entry.questID, entry.questObjectiveTag, entry.questProgressAmount - state.currentProgress);
+
+        ApplyHoverVisibility(IsShowingQuestLocation ? -1 : _lastBgIndex);
     }
 
     private IEnumerator RestoreHudAfterQuestCombat()
     {
         yield return null;
         yield return null;
-
-        if ((CombatManager.Instance != null && CombatManager.Instance.inCombat) || (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue()))
-            yield break;
-
         ShowHudPanels();
     }
 
@@ -2024,6 +2617,16 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             if (resolved != null)
                 backgroundImage.sprite = resolved;
         }
+        else if (backgroundImage != null && !string.IsNullOrEmpty(_currentQuestLocation))
+        {
+            Sprite resolved = ResolveQuestLocationBg(_currentQuestLocation, newPhase);
+
+            if (resolved != null)
+                backgroundImage.sprite = resolved;
+
+            ApplyHoverVisibility(-1);
+            ApplyItemVisibility(-1);
+        }
 
         ClearDialogueBackground();
 
@@ -2042,7 +2645,10 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             Sprite s = characters[_lastCharIndex].Resolve(phase);
 
             if (s != null)
+            {
                 charImage.sprite = s;
+                FitCharacterWidth();
+            }
         }
 
         if (_lastBgIndex >= 0)
@@ -2128,8 +2734,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     private void StartCombatForScene4()
     {
-        StartCombatForScene(
-            enemyIndex: 0,
+        StartCombatForScene(enemyIndex: 0,
             onVictory: (enemy) =>
             {
                 SetFleeDisabled(false);
@@ -2174,6 +2779,28 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         ResetSceneProgress();
     }
 
+    public void WakeUpInBedToRetryDay() => StartCoroutine(WakeUpInBedRoutine());
+
+    IEnumerator WakeUpInBedRoutine()
+    {
+        _transitionDepth++;
+        yield return RunSceneFade(1f, SceneDipOut);
+        HideAllPanels();
+
+        if (TimePhaseManager.Instance != null)
+            TimePhaseManager.Instance.SetPhase(TimePhase.Morning);
+
+        dayScenarioPending = true;
+        Progress = SceneProgress.SceneHome;
+        SetBackground(BedroomBackground);
+        yield return _waitForSecondsRealtime0_6;
+        yield return RunSceneFade(0f, SceneDipIn);
+        _transitionDepth--;
+        ShowHudPanels();
+        ShowForegroundMessage(Loc.T("You wake up in your bed, aching all over. The day begins again.", "Yatağında, her yerin sızlayarak uyanıyorsun. Gün yeniden başlıyor."), 4f);
+        SaveSystem.SaveGame();
+    }
+
     public void SkipToNextDay()
     {
         if (TimePhaseManager.Instance == null)
@@ -2185,9 +2812,19 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             return;
         }
 
+        if (ScenarioManager.Instance != null && ScenarioManager.Instance.IsWaitingAfterRetreat)
+        {
+            ShowForegroundMessage(Loc.T("Not yet. The fight you ran from is waiting for you in the village square.", "Henüz değil. Kaçtığın dövüş seni köy meydanında bekliyor."), 3f);
+            return;
+        }
+
         if (!IsCurrentDayContentComplete())
         {
-            ShowForegroundMessage(Loc.T("You should finish today's events before resting.", "Dinlenmeden önce bugünün olaylarını bitirmelisin."), 2.5f);
+            if (IsDayStoryWaiting && GetNextDayScenario() != null)
+                ShowForegroundMessage(Loc.T("Not yet. Today's story is waiting for you in the village square.", "Henüz değil. Bugünün hikayesi seni köy meydanında bekliyor."), 3f);
+            else
+                ShowForegroundMessage(Loc.T("Not yet. Finish the quests in your journal before resting.", "Henüz değil. Dinlenmeden önce günlüğündeki görevleri bitir."), 3f);
+
             return;
         }
 
@@ -2219,7 +2856,15 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (sm.GetScenarioByID(scenarioID) == null)
             return true;
 
-        return sm.IsScenarioCompleted(scenarioID);
+        if (!sm.IsScenarioCompleted(scenarioID))
+            return false;
+
+        if (sm.GetScenarioByID($"ashenveil_day{day + 1}") == null && QuestManager.Instance != null)
+            foreach (string questID in LastDayQuests)
+                if (QuestManager.Instance.IsQuestActive(questID))
+                    return false;
+
+        return true;
     }
 
     private void SyncTimePhaseToScene(SceneProgress scene)
@@ -2258,7 +2903,14 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             return;
         }
 
+        if (OriginManager.Instance != null && OriginManager.Instance.ShouldHoldDayScenario(scenario.scenarioID))
+            return;
+
         dayScenarioPending = false;
+
+        if (TimePhaseManager.Instance != null && TimePhaseManager.Instance.currentPhase != TimePhase.Morning)
+            TimePhaseManager.Instance.SetPhase(TimePhase.Morning);
+
         ScenarioManager.Instance.StartScenario(scenario);
     }
 
@@ -2266,12 +2918,39 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     {
         const string finaleFlag = "ashenveil_finale_shown";
 
-        if (finaleCutsceneNode == null || DialogueManager.Instance == null || StoryFlags.Has(finaleFlag) || !AllDayScenariosCompleted())
+        if (finaleCutsceneNode == null || DialogueManager.Instance == null || StoryFlags.Has(finaleFlag) || !AllDayScenariosCompleted() || TryStartSharedEpilogue())
             return;
 
         dayScenarioPending = false;
         StoryFlags.Add(finaleFlag);
+        StoryFlags.Add(ChooseEnding());
         DialogueManager.Instance.StartDialogue(finaleCutsceneNode);
+    }
+
+    static string ChooseEnding()
+    {
+        int serena = AffinityManager.Instance != null ? AffinityManager.Instance.Get("Serena") : 0;
+
+        if (StoryFlags.Has(AshenveilVossWeakPoint.SerenaBondBroken) && serena >= 35)
+            return EndingTwoInTheDoor;
+
+        return StoryFlags.Has("court_parley") ? EndingOpenAccount : EndingDoorHeld;
+    }
+
+    private bool TryStartSharedEpilogue()
+    {
+        ScenarioManager sm = ScenarioManager.Instance;
+        ScenarioData epilogue = sm != null ? sm.GetScenarioByID(SharedEpilogueScenario) : null;
+
+        if (epilogue == null || sm.IsScenarioCompleted(SharedEpilogueScenario))
+            return false;
+
+        StoryFlags.Add(SharedEpilogueStartFlag);
+
+        if (!sm.IsScenarioActive() && sm.CanStartScenario(epilogue))
+            sm.StartScenario(epilogue);
+
+        return sm.IsScenarioActive();
     }
 
     private bool AllDayScenariosCompleted()
@@ -2342,21 +3021,23 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
 
     public void ShowPool() => SetBackground(39);
 
+    private Sprite ResolveQuestLocationBg(string bgName, TimePhase phase)
+    {
+        if (questLocationBackgrounds != null)
+            foreach (var qb in questLocationBackgrounds)
+                if (qb.name == bgName)
+                    return qb.Resolve(phase);
+
+        return null;
+    }
+
     public void ShowQuestLocation(string bgName)
     {
         if (string.IsNullOrEmpty(bgName) || backgroundImage == null)
             return;
 
-        Sprite spr = null;
         TimePhase phase = TimePhaseManager.Instance != null ? TimePhaseManager.Instance.currentPhase : TimePhase.Morning;
-
-        if (questLocationBackgrounds != null)
-            foreach (var qb in questLocationBackgrounds)
-                if (qb.name == bgName)
-                {
-                    spr = qb.Resolve(phase);
-                    break;
-                }
+        Sprite spr = ResolveQuestLocationBg(bgName, phase);
 
         if (spr == null)
             return;
@@ -2454,7 +3135,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
         if (tea != null)
             inv.AddItem(tea);
 
-        ShowForegroundMessage(Loc.T("The tea is brewed — you got a cup of apple tea.", "Çay demlendi — bir fincan elma çayı aldın."), 3f);
+        ShowForegroundMessage(Loc.T("The tea is brewed. Use the cup from your inventory to give it to Maren.", "Çay demlendi. Maren'e vermek için fincanı envanterden kullan."), 3.5f);
     }
 
     void HandleItemUsed(ItemData item)
