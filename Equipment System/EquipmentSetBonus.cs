@@ -21,7 +21,7 @@ public class EquipmentSetBonus
 
         foreach (var bonus in data.bonuses)
             if (pieces >= bonus.requiredPieces)
-                desc += $"<color=#FFD966>{bonus.requiredPieces}-Piece:</color> " + $"+{bonus.value} {bonus.stat}\n";
+                desc += $"<color={UIPalette.Hex(UIPalette.Gold)}>{Loc.T($"{bonus.requiredPieces}-Piece", $"{bonus.requiredPieces} Parça")}:</color> +{bonus.value} {bonus.stat.Display()}\n";
 
         return desc;
     }

@@ -50,7 +50,7 @@ public class EquipmentTooltip : MonoBehaviour
         canvasGroup.alpha = 1f;
         canvasGroup.blocksRaycasts = false;
         nameText.text = equipment.DisplayName;
-        rarityText.text = equipment.rarity.ToString();
+        rarityText.text = equipment.rarity.Display();
         statsText.text = equipment.GetStatsDescription();
         requirementsText.text = GetRequirementsText(equipment);
         Color rarityColor = equipment.GetRarityColor();

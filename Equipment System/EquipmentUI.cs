@@ -238,10 +238,40 @@ public class EquipmentUI : HotkeyPanelUI
             return;
 
         if (totalDamageText != null)
-            totalDamageText.text = $"{Loc.T("Total Damage", "Toplam Hasar")}: +{EquipmentManager.Instance.GetTotalDamageBonus()}";
+        {
+            var totals = new List<(StatType stat, int value)>();
+
+            foreach (EquipmentSlot slot in System.Enum.GetValues(typeof(EquipmentSlot)))
+            {
+                var inst = EquipmentManager.Instance.GetEquipped(slot);
+
+                if (inst == null || inst.baseData == null)
+                    continue;
+
+                foreach (var (stat, value) in inst.GetStatTotals())
+                {
+                    int i = totals.FindIndex(t => t.stat == stat);
+
+                    if (i >= 0)
+                        totals[i] = (stat, totals[i].value + value);
+                    else
+                        totals.Add((stat, value));
+                }
+            }
+
+            string text = $"<b><color={UIPalette.Hex(UIPalette.Gold)}>{Loc.T("Gear Totals", "Ekipman Toplamı")}</color></b>\n";
+
+            if (totals.Count == 0)
+                text += $"\n<color={UIPalette.Hex(UIPalette.Muted)}>{Loc.T("Nothing equipped", "Kuşanılmış eşya yok")}</color>";
+
+            foreach (var (stat, value) in totals)
+                text += $"\n{stat.Display()}: +{value}";
+
+            totalDamageText.text = text;
+        }
 
         if (totalDefenseText != null)
-            totalDefenseText.text = $"{Loc.T("Total Defense", "Toplam Savunma")}: +{EquipmentManager.Instance.GetTotalDefenseBonus()}";
+            totalDefenseText.gameObject.SetActive(false);
     }
 
     void RefreshSetBonuses()
@@ -249,14 +279,18 @@ public class EquipmentUI : HotkeyPanelUI
         if (setBonusesParent == null || setBonusTextPrefab == null || EquipmentManager.Instance == null)
             return;
 
-        var bonuses = EquipmentManager.Instance.GetActiveSetBonusDescriptions();
+        var bonuses = new List<string> { $"<b><color={UIPalette.Hex(UIPalette.Gold)}>{Loc.T("Set Bonuses", "Set Bonusları")}</color></b>" };
+        var active = EquipmentManager.Instance.GetActiveSetBonusDescriptions();
 
-        if (bonuses.Count == 0)
-            bonuses = new System.Collections.Generic.List<string> { "<color=#888888>No set bonuses active</color>" };
+        if (active.Count == 0)
+            bonuses.Add($"<color={UIPalette.Hex(UIPalette.Muted)}>{Loc.T("No set bonuses active", "Etkin set bonusu yok")}</color>");
+        else
+            bonuses.AddRange(active);
 
         while (setBonusTexts.Count < bonuses.Count)
         {
             var t = Instantiate(setBonusTextPrefab, setBonusesParent);
+            t.alignment = TMPro.TextAlignmentOptions.Center;
             setBonusTexts.Add(t);
         }
 

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 using UnityEngine;
 
@@ -25,24 +26,52 @@ public class EquipmentInstance
 
     public string GetDisplayName() => upgradeLevel > 0 ? $"{baseData.DisplayName} +{upgradeLevel}" : baseData.DisplayName;
 
+    public List<(StatType stat, int value)> GetStatTotals()
+    {
+        var totals = new List<(StatType stat, int value)>();
+
+        void Add(StatType stat, int value)
+        {
+            if (value <= 0)
+                return;
+
+            for (int i = 0; i < totals.Count; i++)
+            {
+                if (totals[i].stat == stat)
+                {
+                    totals[i] = (stat, totals[i].value + value);
+                    return;
+                }
+            }
+
+            totals.Add((stat, value));
+        }
+
+        Add(StatType.Damage, GetDamageBonus());
+        Add(StatType.Defense, GetDefenseBonus());
+        Add(baseData.primaryStat, GetPrimaryBonus());
+        Add(baseData.secondaryStat, GetSecondaryBonus());
+        return totals;
+    }
+
+    public int GetStatTotal(StatType stat)
+    {
+        foreach (var (s, v) in GetStatTotals())
+            if (s == stat)
+                return v;
+
+        return 0;
+    }
+
     public string GetStatsDescription()
     {
         string desc = "";
 
-        if (GetDamageBonus() > 0)
-            desc += $"Damage: +{GetDamageBonus()}\n";
-
-        if (GetDefenseBonus() > 0)
-            desc += $"Defense: +{GetDefenseBonus()}\n";
-
-        if (GetPrimaryBonus() > 0)
-            desc += $"{baseData.primaryStat}: +{GetPrimaryBonus()}\n";
-
-        if (GetSecondaryBonus() > 0)
-            desc += $"{baseData.secondaryStat}: +{GetSecondaryBonus()}\n";
+        foreach (var (stat, value) in GetStatTotals())
+            desc += $"{stat.Display()}: +{value}\n";
 
         if (upgradeLevel > 0)
-            desc += $"<color=#FFD700>Upgrade: +{upgradeLevel}</color>";
+            desc += $"<color={UIPalette.Hex(UIPalette.Gold)}>{Loc.T("Upgrade", "Geliştirme")}: +{upgradeLevel}</color>";
 
         return desc;
     }

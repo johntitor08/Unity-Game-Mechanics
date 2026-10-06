@@ -33,6 +33,20 @@ public class EquipmentInfoPanel : MonoBehaviour
 
         if (panel != null)
             panel.SetActive(false);
+
+        FitToBox(statsText);
+        FitToBox(comparisonText);
+    }
+
+    static void FitToBox(TextMeshProUGUI text)
+    {
+        if (text == null || text.enableAutoSizing)
+            return;
+
+        text.fontSizeMax = text.fontSize;
+        text.fontSizeMin = Mathf.Min(16f, text.fontSize);
+        text.enableAutoSizing = true;
+        text.overflowMode = TextOverflowModes.Truncate;
     }
 
     void Start()
@@ -95,7 +109,11 @@ public class EquipmentInfoPanel : MonoBehaviour
         bool isEquipped = slotInst != null && slotInst.baseData.itemID == instance.baseData.itemID && slotInst.upgradeLevel == instance.upgradeLevel;
         ConfigureButtons(isEquipped, instance);
         DisplayRequirements(instance.baseData);
-        DisplayComparison(instance);
+
+        if (isEquipped)
+            DisplayDescriptionInComparison(instance.baseData);
+        else
+            DisplayComparison(instance);
     }
 
     public void ShowPanel(EquipmentData data)
@@ -130,7 +148,7 @@ public class EquipmentInfoPanel : MonoBehaviour
         if (rarityBackground != null)
         {
             Color c = data.GetRarityColor();
-            c.a = 0.3f;
+            c.a = 0.85f;
             rarityBackground.color = c;
         }
     }
@@ -140,15 +158,15 @@ public class EquipmentInfoPanel : MonoBehaviour
         if (requirementsText == null)
             return;
 
-        string req = $"Level {data.requiredLevel} Required";
+        string req = Loc.T($"Level {data.requiredLevel} Required", $"Seviye {data.requiredLevel} gerekli");
 
         if (data.requiredStatValue > 0)
-            req += $"\n{data.requiredStat} {data.requiredStatValue} Required";
+            req += "\n" + Loc.T($"{data.requiredStat.Display()} {data.requiredStatValue} Required", $"{data.requiredStat.Display()} {data.requiredStatValue} gerekli");
 
         bool meetsLevel = ProfileManager.Instance == null || ProfileManager.Instance.profile.level >= data.requiredLevel;
         bool meetsStat = data.requiredStatValue <= 0 || PlayerStats.Instance == null || PlayerStats.Instance.Get(data.requiredStat) >= data.requiredStatValue;
         requirementsText.text = req;
-        requirementsText.color = (meetsLevel && meetsStat) ? Color.green : Color.red;
+        requirementsText.color = (meetsLevel && meetsStat) ? UIPalette.Good : UIPalette.Bad;
         requirementsText.gameObject.SetActive(true);
     }
 
@@ -162,15 +180,35 @@ public class EquipmentInfoPanel : MonoBehaviour
 
         if (current == null)
         {
-            comparisonText.text = "<color=green>No item equipped in this slot</color>";
+            comparisonText.text = $"<color={UIPalette.Hex(UIPalette.Muted)}>{Loc.T("No item equipped in this slot", "Bu yuvada kuşanılmış eşya yok")}</color>";
             return;
         }
 
         string text = $"<b>{current.GetDisplayName()}</b>\n";
-        text += CompareValue("Damage", current.GetDamageBonus(), incoming.GetDamageBonus());
-        text += CompareValue("Defense", current.GetDefenseBonus(), incoming.GetDefenseBonus());
-        text += CompareValue(current.baseData.primaryStat.ToString(), current.GetPrimaryBonus(), incoming.GetPrimaryBonus());
+        var stats = new System.Collections.Generic.List<StatType>();
+
+        foreach (var (stat, _) in current.GetStatTotals())
+            if (!stats.Contains(stat))
+                stats.Add(stat);
+
+        foreach (var (stat, _) in incoming.GetStatTotals())
+            if (!stats.Contains(stat))
+                stats.Add(stat);
+
+        foreach (StatType stat in stats)
+            text += CompareValue(stat.Display(), current.GetStatTotal(stat), incoming.GetStatTotal(stat));
+
         comparisonText.text = text;
+    }
+
+    void DisplayDescriptionInComparison(EquipmentData data)
+    {
+        if (comparisonText == null)
+            return;
+
+        string desc = data.DisplayDescription;
+        comparisonText.gameObject.SetActive(!string.IsNullOrEmpty(desc));
+        comparisonText.text = $"<i><color={UIPalette.Hex(UIPalette.Muted)}>{desc}</color></i>";
     }
 
     static string CompareValue(string statName, int current, int newVal)
@@ -179,7 +217,7 @@ public class EquipmentInfoPanel : MonoBehaviour
             return "";
 
         int diff = newVal - current;
-        string col = diff > 0 ? "green" : (diff < 0 ? "red" : "white");
+        string col = UIPalette.Hex(diff > 0 ? UIPalette.Good : diff < 0 ? UIPalette.Bad : UIPalette.Cream);
         string arrow = diff > 0 ? "↑" : (diff < 0 ? "↓" : "=");
         return $"{statName}: {current} → <color={col}>{newVal} {arrow} {Mathf.Abs(diff)}</color>\n";
     }

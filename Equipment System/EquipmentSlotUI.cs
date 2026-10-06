@@ -198,16 +198,7 @@ public class EquipmentSlotUI : MonoBehaviour
         OnDetailClicked?.Invoke(currentInstance);
     }
 
-    static string GetSlotDisplayName(EquipmentSlot slot) => slot switch
-    {
-        EquipmentSlot.Weapon => "Weapon",
-        EquipmentSlot.Armor => "Armor",
-        EquipmentSlot.Helmet => "Helmet",
-        EquipmentSlot.Accessory => "Accessory",
-        EquipmentSlot.Shield => "Shield",
-        EquipmentSlot.Boots => "Boots",
-        _ => "Unknown"
-    };
+    static string GetSlotDisplayName(EquipmentSlot slot) => slot.Display();
 
     public EquipmentData GetEquippedItem() => currentInstance?.baseData;
 
