@@ -173,20 +173,30 @@ public class MainMenuManager : MonoBehaviour
 
     void ResetGameManagers()
     {
-        if (PlayerStats.Instance != null)
-            PlayerStats.Instance.ResetAllToBase();
-        else
-            Debug.LogWarning("[MainMenuManager] PlayerStats.Instance is null — skipping reset.");
-
-        if (InventoryManager.Instance != null)
-            InventoryManager.Instance.Clear();
-        else
-            Debug.LogWarning("[MainMenuManager] InventoryManager.Instance is null — skipping reset.");
-
+        DestroyPersistent(TimePhaseManager.Instance);
+        DestroyPersistent(CurrencyManager.Instance);
+        DestroyPersistent(EquipmentManager.Instance);
+        DestroyPersistent(InventoryManager.Instance);
+        DestroyPersistent(ShopManager.Instance);
+        DestroyPersistent(ScenarioManager.Instance);
+        DestroyPersistent(QuestManager.Instance);
+        DestroyPersistent(QuestTrackerUI.Instance);
+        DestroyPersistent(ProfileManager.Instance);
+        DestroyPersistent(OriginManager.Instance);
+        DestroyPersistent(PlayerStats.Instance);
+        DestroyPersistent(PlayerBuffManager.Instance);
+        DestroyPersistent(CombatManager.Instance);
+        DestroyPersistent(DialogueManager.Instance);
         StoryFlags.Reset();
         AffinityManager.ResetAll();
         GuideManager.ResetAll();
         Achievements.Wins = 0;
+    }
+
+    static void DestroyPersistent(MonoBehaviour manager)
+    {
+        if (manager != null)
+            Destroy(manager.transform.root.gameObject);
     }
 
     IEnumerator LoadSceneAsync(string sceneName)
