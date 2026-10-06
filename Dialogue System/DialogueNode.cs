@@ -7,7 +7,7 @@ public class DialogueNode : ScriptableObject
     [Header("Speaker")]
     public string speakerName = "NPC";
     public Sprite speakerPortrait;
-    public Color speakerNameColor = Color.gold;
+    public Color speakerNameColor = UIPalette.Gold;
 
     [Header("Dialogue Lines")]
     [TextArea(2, 5)]
@@ -43,6 +43,9 @@ public class DialogueNode : ScriptableObject
 
     public string[] flagsToSetOnExit;
     public bool isFinalNode;
+
+    [Header("Lines That Depend On The Story So Far")]
+    public ConditionalLine[] conditionalLines;
     public string DisplaySpeaker => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(speakerNameTR) ? speakerNameTR : speakerName;
 
     public string GetDisplayLine(int i)
@@ -51,6 +54,50 @@ public class DialogueNode : ScriptableObject
             return linesTR[i];
 
         return (lines != null && i >= 0 && i < lines.Length) ? lines[i] : "";
+    }
+}
+
+[System.Serializable]
+public class ConditionalLine
+{
+    public int insertBefore = -1;
+    public string requiredFlag;
+    public string blockedByFlag;
+    public string requiredOrigin;
+    public string affinityCharacter;
+    public int minAffinity;
+    public int maxAffinity = 9999;
+    [TextArea(2, 5)]
+    public string line;
+    [TextArea(2, 5)]
+    public string lineTR;
+    public string DisplayLine => LanguageManager.Current == GameLanguage.TR && !string.IsNullOrEmpty(lineTR) ? lineTR : line;
+
+    public bool Applies()
+    {
+        if (!string.IsNullOrEmpty(requiredFlag) && !StoryFlags.Has(requiredFlag))
+            return false;
+
+        if (!string.IsNullOrEmpty(blockedByFlag) && StoryFlags.Has(blockedByFlag))
+            return false;
+
+        if (!string.IsNullOrEmpty(requiredOrigin))
+        {
+            var origin = OriginManager.Instance != null ? OriginManager.Instance.CurrentOrigin : null;
+
+            if (origin == null || origin.originID != requiredOrigin)
+                return false;
+        }
+
+        if (!string.IsNullOrEmpty(affinityCharacter))
+        {
+            int value = AffinityManager.Instance != null ? AffinityManager.Instance.Get(affinityCharacter) : 0;
+
+            if (value < minAffinity || value > maxAffinity)
+                return false;
+        }
+
+        return !string.IsNullOrEmpty(line);
     }
 }
 
@@ -83,6 +130,11 @@ public class DialogueChoice
     [Header("Affinity")]
     public string affinityTarget;
     public int affinityDelta;
+
+    [Header("Stat Effect")]
+    public bool changeStat;
+    public StatType statToChange;
+    public int statDelta;
 
     [Header("Affinity Requirement")]
     public bool requiresAffinity;

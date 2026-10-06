@@ -7,7 +7,7 @@ public class NPCDialogue : MonoBehaviour, IPointerClickHandler
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (DialogueManager.Instance == null || DialogueManager.Instance.State != DialogueState.Idle)
+        if (DialogueManager.Instance == null || DialogueManager.WorldClicksBlocked)
             return;
 
         DialogueManager.Instance.StartDialogue(startNode);

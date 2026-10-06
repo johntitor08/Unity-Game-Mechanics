@@ -23,7 +23,7 @@ public class AmbientDialoguePool : ScriptableObject
     [Header("Speaker")]
     public string speakerName = "NPC";
     public Sprite speakerPortrait;
-    public Color speakerNameColor = Color.gold;
+    public Color speakerNameColor = UIPalette.Gold;
 
     [Header("Lines")]
     public AmbientDialogueLine[] lines;

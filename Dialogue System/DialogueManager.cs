@@ -41,6 +41,13 @@ public class DialogueManager : MonoBehaviour
     public event Action<DialogueNode, int> OnLineShown;
     public event Action<DialogueNode> OnNodeAdvanced;
     public IDialoguePanelAnimator PanelAnimator { get; set; }
+    const float ConversationSettleSeconds = 0.4f;
+    float _lastDialogueEndTime = -10f;
+    public static bool WorldClicksBlocked => Instance != null && Instance.IsConversationBusy();
+    private bool _endCallbackPending;
+    private Action _pendingEndCallback;
+    private readonly System.Collections.Generic.List<string> _lines = new();
+    public DialogueNode LastStartNode { get; private set; }
 
     [Header("UI")]
     public GameObject dialoguePanel;
@@ -109,11 +116,12 @@ public class DialogueManager : MonoBehaviour
             return;
 
         currentNode = relocalized;
+        ResolveLines();
         SetupVisuals();
 
         if (State == DialogueState.Choices)
             ShowChoicesOrEnd();
-        else if (currentLineIndex < currentNode.lines.Length)
+        else if (currentLineIndex < _lines.Count)
             ShowLine();
     }
 
@@ -237,19 +245,33 @@ public class DialogueManager : MonoBehaviour
 
         if (backgroundImage != null && currentNode.characterImage == null)
         {
-            backgroundImage.sprite = currentNode.backgroundImage;
-            backgroundImage.enabled = currentNode.backgroundImage != null;
+            if (SceneEvent.Instance != null)
+            {
+                SceneEvent.Instance.ShowDialogueBackdrop(SceneEvent.Instance.PhaseVariantOf(currentNode.backgroundImage));
+            }
+            else
+            {
+                backgroundImage.sprite = currentNode.backgroundImage;
+                backgroundImage.enabled = currentNode.backgroundImage != null;
+            }
         }
     }
 
     public void StartDialogue(DialogueNode startNode, Action callback = null)
     {
-        if (startNode == null || State != DialogueState.Idle)
+        if (startNode == null)
+            return;
+
+        FlushPendingEndCallback();
+
+        if (State != DialogueState.Idle)
             return;
 
         StopAllCoroutines();
         autoAdvanceCoroutine = null;
+        LastStartNode = startNode;
         currentNode = Localize(startNode);
+        ResolveLines();
         currentLineIndex = 0;
         onDialogueEnd = callback;
         State = DialogueState.Opening;
@@ -292,9 +314,33 @@ public class DialogueManager : MonoBehaviour
         ShowLine();
     }
 
+    IEnumerator ReopenPanelForNextNode()
+    {
+        if (dialogueText != null)
+            dialogueText.text = "";
+
+        if (IsPanelAnimatorAlive())
+        {
+            PanelAnimator.CloseDialoguePanel();
+            yield return new WaitForSeconds(PanelAnimator.DialogueCloseAnimationDuration());
+        }
+
+        yield return WaitForSceneTransition();
+        SetupVisuals();
+        float openDuration = 0f;
+
+        if (IsPanelAnimatorAlive())
+        {
+            PanelAnimator.OpenDialoguePanel();
+            openDuration = PanelAnimator.DialogueOpenAnimationDuration();
+        }
+
+        yield return WaitThenShowLine(openDuration);
+    }
+
     IEnumerator WaitForSceneTransition()
     {
-        const float maxWait = 1.2f;
+        const float maxWait = 3f;
         float t = 0f;
 
         while (IsPanelAnimatorAlive() && PanelAnimator.IsSceneTransitionActive() && t < maxWait)
@@ -306,12 +352,16 @@ public class DialogueManager : MonoBehaviour
 
     public bool IsInDialogue() => State != DialogueState.Idle;
 
+    public bool IsConversationBusy() => IsInDialogue() || _endCallbackPending || Time.unscaledTime - _lastDialogueEndTime < ConversationSettleSeconds || (ScenarioManager.Instance != null && ScenarioManager.Instance.IsPlayingSequence());
+
+    public bool IsSceneTransitionBusy() => _endCallbackPending || (IsPanelAnimatorAlive() && PanelAnimator.IsSceneTransitionActive());
+
     void ShowLine()
     {
         if (currentNode == null)
             return;
 
-        if (currentLineIndex >= currentNode.lines.Length)
+        if (currentLineIndex >= _lines.Count)
         {
             ShowChoicesOrEnd();
             return;
@@ -411,7 +461,7 @@ public class DialogueManager : MonoBehaviour
 
             if (locked)
             {
-                lbl.text = $"{capturedChoice.DisplayChoiceText}  <color=#9A8C78>({Loc.T("needs", "gerekli")} {capturedChoice.affinityCharacter} {capturedChoice.requiredAffinity})</color>";
+                lbl.text = $"{capturedChoice.DisplayChoiceText}  <color={UIPalette.Hex(UIPalette.Muted)}>({Loc.T("needs", "gerekli")} {capturedChoice.affinityCharacter} {capturedChoice.requiredAffinity})</color>";
                 btn.interactable = false;
             }
             else
@@ -451,17 +501,28 @@ public class DialogueManager : MonoBehaviour
         if (!string.IsNullOrEmpty(choice.affinityTarget) && choice.affinityDelta != 0 && AffinityManager.Instance != null)
             AffinityManager.Instance.Add(choice.affinityTarget, choice.affinityDelta);
 
+        if (choice.changeStat && choice.statDelta != 0 && PlayerStats.Instance != null)
+        {
+            PlayerStats.Instance.Modify(choice.statToChange, choice.statDelta, true);
+
+            if (SceneEvent.Instance != null)
+                SceneEvent.Instance.ShowForegroundMessage($"{choice.statToChange.Display()} {(choice.statDelta > 0 ? "+" : "")}{choice.statDelta}", 3f);
+        }
+
         currentNode.onExit?.Invoke();
         ApplyExitFlags(currentNode);
 
         if (choice.nextNode != null)
         {
+            Sprite previousCharacter = currentNode.characterImage;
             currentNode = Localize(choice.nextNode);
+            ResolveLines();
             currentLineIndex = 0;
             currentNode.onEnter?.Invoke();
             OnNodeAdvanced?.Invoke(currentNode);
             State = DialogueState.Opening;
-            StartCoroutine(WaitTransitionThenSetupAndShow());
+            bool characterChanges = currentNode.characterImage != null && currentNode.characterImage != previousCharacter;
+            StartCoroutine(characterChanges ? ReopenPanelForNextNode() : WaitTransitionThenSetupAndShow());
         }
         else
         {
@@ -519,32 +580,99 @@ public class DialogueManager : MonoBehaviour
             dialoguePanel.SetActive(false);
 
         State = DialogueState.Idle;
+        _lastDialogueEndTime = Time.unscaledTime;
         DialogueNode endedNode = _closingNode;
         Action callback = _closingCallback;
         _closingNode = null;
         _closingCallback = null;
         OnDialogueEnd?.Invoke(endedNode);
+
+        if (callback == null)
+            return;
+
+        _endCallbackPending = true;
+        _pendingEndCallback = callback;
+        StartCoroutine(InvokeEndCallbackAfterTransition());
+    }
+
+    IEnumerator InvokeEndCallbackAfterTransition()
+    {
+        yield return WaitForSceneTransition();
+
+        if (!_endCallbackPending)
+            yield break;
+
+        Action callback = _pendingEndCallback;
+        _endCallbackPending = false;
+        _pendingEndCallback = null;
+
+        if (SceneEvent.Instance != null)
+            SceneEvent.Instance.TransitionScene(callback);
+        else
+            callback?.Invoke();
+    }
+
+    void FlushPendingEndCallback()
+    {
+        if (!_endCallbackPending)
+            return;
+
+        Action callback = _pendingEndCallback;
+        _endCallbackPending = false;
+        _pendingEndCallback = null;
         callback?.Invoke();
     }
 
     void ClearChoices()
     {
+        if (choicesPanel != null)
+            choicesPanel.SetActive(false);
+
         if (choicesContainer == null)
             return;
 
         foreach (Transform child in choicesContainer)
+        {
+            child.gameObject.SetActive(false);
             Destroy(child.gameObject);
+        }
+    }
+
+    void ResolveLines()
+    {
+        _lines.Clear();
+
+        if (currentNode == null)
+            return;
+
+        int baseCount = currentNode.lines != null ? currentNode.lines.Length : 0;
+        var extra = new System.Collections.Generic.List<ConditionalLine>();
+
+        if (currentNode.conditionalLines != null)
+            foreach (var c in currentNode.conditionalLines)
+                if (c != null && c.Applies())
+                    extra.Add(c);
+
+        for (int i = 0; i <= baseCount; i++)
+        {
+            foreach (var c in extra)
+                if ((c.insertBefore < 0 || c.insertBefore > baseCount ? baseCount : c.insertBefore) == i)
+                    _lines.Add(c.DisplayLine);
+
+            if (i < baseCount)
+                _lines.Add(currentNode.GetDisplayLine(i));
+        }
     }
 
     string ParseLine()
     {
-        if (currentNode == null || currentNode.lines == null || currentLineIndex < 0 || currentLineIndex >= currentNode.lines.Length)
+        if (currentNode == null || currentLineIndex < 0 || currentLineIndex >= _lines.Count)
         {
             Debug.LogWarning("[DialogueManager] ParseLine called with invalid index.");
             return "";
         }
 
-        string line = currentNode.GetDisplayLine(currentLineIndex);
+        string line = _lines[currentLineIndex];
 
         if (ProfileManager.Instance != null)
             line = line.Replace("{playerName}", ProfileManager.Instance.profile.playerName);
