@@ -3,6 +3,8 @@ using UnityEngine;
 public class SinnedGuardianQuestController : MonoBehaviour
 {
     private static bool IsGuardian => StoryFlags.Has(QuestFlags.SinnedGuardianStart);
+    public static bool HasCorvinBonus => StoryFlags.Has(QuestFlags.CorvinOptionalSpoken);
+    public static bool KnowsReversalClue => StoryFlags.Has(QuestFlags.VossReversalClauseHinted);
 
     public void OnOpeningSceneComplete()
     {
@@ -120,10 +122,6 @@ public class SinnedGuardianQuestController : MonoBehaviour
 
         Debug.Log("[GuardianQuest] Quest 1 complete.");
     }
-
-    public static bool HasCorvinBonus => StoryFlags.Has(QuestFlags.CorvinOptionalSpoken);
-
-    public static bool KnowsReversalClue => StoryFlags.Has(QuestFlags.VossReversalClauseHinted);
 
     private static void TryAutoStartQuest(string questID)
     {

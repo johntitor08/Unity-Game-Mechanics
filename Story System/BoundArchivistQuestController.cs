@@ -3,6 +3,8 @@ using UnityEngine;
 public class BoundArchivistQuestController : MonoBehaviour
 {
     private static bool IsBoundArchivist => StoryFlags.Has(QuestFlags.BoundArchivistStart);
+    public static bool HasElisNotes => StoryFlags.Has(QuestFlags.ThreeLocationsKnown);
+    public static bool HasEowToken => StoryFlags.Has(QuestFlags.BoundArchivistEowToken);
 
     public void OnOpeningSceneComplete()
     {
@@ -109,10 +111,6 @@ public class BoundArchivistQuestController : MonoBehaviour
 
         Debug.Log($"[BoundArchivistQuest] Quest 1 complete. EoW invited: {branchC_eowInvited}");
     }
-
-    public static bool HasElisNotes => StoryFlags.Has(QuestFlags.ThreeLocationsKnown);
-
-    public static bool HasEowToken => StoryFlags.Has(QuestFlags.BoundArchivistEowToken);
 
     public static string GetPreferredWitness()
     {

@@ -68,7 +68,7 @@ public class ScenarioDebug : MonoBehaviour
 
         SceneEvent sceneEvent = null;
 
-        foreach (var se in FindObjectsOfType<SceneEvent>())
+        foreach (var se in FindObjectsByType<SceneEvent>())
         {
             if (se.finaleCutsceneNode != null)
             {

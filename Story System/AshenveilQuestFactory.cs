@@ -5,6 +5,8 @@ public class AshenveilQuestFactory : MonoBehaviour
 {
     private static AshenveilQuestFactory _instance;
     private readonly List<QuestData> _builtQuests = new();
+    private const string Q10 = "q10_acik_hesap";
+    private ScenarioManager _scenarioHooked;
 
     [Header("Asset References")]
     public AshenveilAssetRegistry assets;
@@ -14,7 +16,13 @@ public class AshenveilQuestFactory : MonoBehaviour
     void OnDestroy()
     {
         if (QuestManager.Instance != null)
+        {
             QuestManager.Instance.OnQuestCompleted -= HandleQuestCompleted;
+            QuestManager.Instance.OnObjectiveCompleted -= HandleObjectiveCompleted;
+        }
+
+        if (_scenarioHooked != null)
+            _scenarioHooked.OnStepComplete -= HandleScenarioStepComplete;
 
         if (_instance == this)
             _instance = null;
@@ -33,9 +41,49 @@ public class AshenveilQuestFactory : MonoBehaviour
         InjectIntoQuestManager();
         TryAutoStartAvailableQuests();
         QuestManager.Instance.OnQuestCompleted += HandleQuestCompleted;
+        QuestManager.Instance.OnObjectiveCompleted += HandleObjectiveCompleted;
+        _scenarioHooked = ScenarioManager.Instance;
+
+        if (_scenarioHooked != null)
+            _scenarioHooked.OnStepComplete += HandleScenarioStepComplete;
+
+        CheckWarehouseCleared();
     }
 
     void HandleQuestCompleted(QuestData _) => TryAutoStartAvailableQuests();
+
+    void HandleObjectiveCompleted(QuestData quest, QuestObjective _)
+    {
+        if (quest != null && quest.questID == Q10)
+            CheckWarehouseCleared();
+    }
+
+    static void CheckWarehouseCleared()
+    {
+        var qm = QuestManager.Instance;
+
+        if (qm == null || StoryFlags.Has(QuestFlags.Q10WarehouseCleared) || !qm.IsQuestActive(Q10))
+            return;
+
+        var guards = qm.GetObjectiveState(Q10, "q10_obj1");
+        var cages = qm.GetObjectiveState(Q10, "q10_obj2");
+
+        if (guards != null && guards.isCompleted && cages != null && cages.isCompleted)
+            StoryFlags.Add(QuestFlags.Q10WarehouseCleared);
+    }
+
+    void HandleScenarioStepComplete(ScenarioStep step)
+    {
+        var current = _scenarioHooked != null ? _scenarioHooked.GetCurrentScenario() : null;
+
+        if (step == null || current == null || current.scenarioID != "ashenveil_day3" || QuestManager.Instance == null)
+            return;
+
+        if (step.stepName == "d3_confront")
+            QuestManager.Instance.UpdateObjectiveProgress(Q10, "q10_obj3");
+        else if (step.stepName == "d3_voss")
+            QuestManager.Instance.UpdateObjectiveProgress(Q10, "q10_obj4");
+    }
 
     void ApplySequentialGating()
     {
@@ -195,7 +243,7 @@ public class AshenveilQuestFactory : MonoBehaviour
             Collect("q01_obj1", "Pick 1 Fresh Apple from the garden", assets != null ? assets.freshApple : null, 1),
             Collect("q01_obj2", "Take 1 Cinnamon from the kitchen shelf", assets != null ? assets.cinnamon : null, 1),
             Interact("q01_obj3", "Brew the tea at the stove"),
-            Interact("q01_obj4", "Take the cup to Maren")
+            Interact("q01_obj4", "Give Maren the cup (use it from your inventory)")
         };
 
         q.itemRewards = assets != null ? new ItemData[] { assets.marenNecklace } : new ItemData[0];
@@ -341,14 +389,14 @@ public class AshenveilQuestFactory : MonoBehaviour
 
     QuestData BuildQuest10()
     {
-        var q = Make("q10_acik_hesap", "Open Account", "You've entered Voss's warehouse. Take out the guards, free the captives, and confront Voss.", QuestType.Main, requiredFlags: new[] { QuestFlags.ElderTruthKnown, QuestFlags.Q09VossWarehouseFound }, flagsOnComplete: new[] { QuestFlags.VossDefeatedClean });
+        var q = Make("q10_acik_hesap", "Open Account", "You've entered Voss's warehouse. Take out the guards and free the captives. Then Voss will come for you.", QuestType.Main, requiredFlags: new[] { QuestFlags.ElderTruthKnown, QuestFlags.Q09VossWarehouseFound }, flagsOnComplete: new[] { QuestFlags.VossDefeatedClean });
 
         q.objectives = new[]
         {
             Kill("q10_obj1", "Kill the 3 Shadow Guards in the warehouse", assets != null ? assets.shadowGuard : null, 3),
             Interact("q10_obj2", "Free the captives in the cages"),
-            Talk("q10_obj3", "Confront Voss"),
-            Kill("q10_obj4", "Kill Voss (boss)", assets != null ? assets.vossBoss : null, 1)
+            Talk("q10_obj3", "Return to the village square to confront Voss"),
+            Kill("q10_obj4", "Defeat Voss (boss)", assets != null ? assets.vossBoss : null, 1)
         };
 
         q.experienceReward = 500;
@@ -384,8 +432,7 @@ public class AshenveilQuestFactory : MonoBehaviour
             Interact("q_sg01_obj4", "Learn the village's western edge (2 of 3 locations)"),
             Interact("q_sg01_obj5", "Track Voss from the western road"),
             Talk("q_sg01_obj6", "Speak with Voss"),
-            Interact("q_sg01_obj7", "Find the second wall east of Dragsimo"),
-            Interact("q_sg01_obj8", "Examine what is behind the second wall"),
+            Interact("q_sg01_obj7", "Find the second wall east of Dragsimo and see what it hides"),
             Talk("q_sg01_obj9", "Return to Aslude with the discovery")
         };
 

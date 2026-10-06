@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 
 public class OriginManager : MonoBehaviour
@@ -9,9 +8,10 @@ public class OriginManager : MonoBehaviour
     public const string OriginBoundArchivist = "bound_archivist";
     public const string OriginForeignEcho = "foreign_echo";
     public const string OriginSinnedGuardian = "sinned_guardian";
-    static readonly string[] DayScenarioIDs = { "ashenveil_day2", "ashenveil_day3", "ashenveil_day4" };
+    const string OriginStoryUnlockScenario = "ashenveil_day2";
+    const float ChapterPollInterval = 0.5f;
     bool _originStoryPending;
-    Coroutine _pendingStoryCoroutine;
+    float _chapterPollTimer;
 
     [Header("All Origins")]
     public PlayerOriginData[] allOrigins;
@@ -62,14 +62,14 @@ public class OriginManager : MonoBehaviour
         ApplyStats(origin);
         GrantStartingItems(origin);
 
-        if (AreDayScenariosCompleted())
+        if (IsOriginStoryUnlocked())
         {
             StartOriginStory(origin);
         }
         else
         {
             _originStoryPending = true;
-            Debug.Log($"[OriginManager] Origin selected: {origin.displayName}. Story deferred until the day scenarios are completed.");
+            Debug.Log($"[OriginManager] Origin selected: {origin.displayName}. Story deferred until the Day 2 scenario is completed.");
         }
     }
 
@@ -143,7 +143,6 @@ public class OriginManager : MonoBehaviour
         }
 
         _originStoryPending = true;
-        SchedulePendingStoryCheck();
     }
 
     void StartOriginStory(PlayerOriginData origin)
@@ -155,41 +154,75 @@ public class OriginManager : MonoBehaviour
         Debug.Log($"[OriginManager] Origin story started: {origin.displayName}");
     }
 
-    void HandleScenarioComplete(ScenarioData scenario)
+    void HandleScenarioComplete(ScenarioData scenario) => _chapterPollTimer = 0f;
+
+    void Update()
     {
+        if (!OriginSelected || CurrentOrigin == null)
+            return;
+
+        _chapterPollTimer -= Time.unscaledDeltaTime;
+
+        if (_chapterPollTimer > 0f)
+            return;
+
+        _chapterPollTimer = ChapterPollInterval;
+
+        if (IsStoryBusy())
+            return;
+
         if (_originStoryPending)
-            SchedulePendingStoryCheck();
+        {
+            if (IsOriginStoryUnlocked())
+                StartOriginStory(CurrentOrigin);
+
+            return;
+        }
+
+        UnlockNextChapter(CurrentOrigin.originID);
     }
 
-    void SchedulePendingStoryCheck()
+    static void UnlockNextChapter(string originID)
     {
-        _pendingStoryCoroutine ??= StartCoroutine(StartPendingOriginStoryWhenReady());
+        var (chapter1Done, chapter2Done, _) = ChapterDoneFlags(originID);
+
+        if (chapter1Done == null || (SceneEvent.Instance != null && !SceneEvent.Instance.IsInTownSquare))
+            return;
+
+        if (!StoryFlags.Has(QuestFlags.OriginChapter2Ready))
+        {
+            if (StoryFlags.Has(chapter1Done) && CurrentDay() >= 3 && (SceneEvent.Instance == null || !SceneEvent.Instance.IsSleeping))
+                StoryFlags.Add(QuestFlags.OriginChapter2Ready);
+
+            return;
+        }
+
+        if (!StoryFlags.Has(QuestFlags.OriginChapter3Ready) && StoryFlags.Has(chapter2Done) && StoryFlags.Has(QuestFlags.Q09VossWarehouseFound))
+            StoryFlags.Add(QuestFlags.OriginChapter3Ready);
     }
 
-    IEnumerator StartPendingOriginStoryWhenReady()
+    static (string chapter1Done, string chapter2Done, string chapter3Done) ChapterDoneFlags(string originID) => originID switch
     {
-        yield return null;
+        OriginBoundArchivist => (QuestFlags.BoundArchivistQuest1Done, "archivist_quest2_done", "archivist_quest3_done"),
+        OriginForeignEcho => (QuestFlags.ForeignEchoQuest1Done, "echo_quest2_done", "echo_quest3_done"),
+        OriginSinnedGuardian => (QuestFlags.SinnedGuardianQuest1Done, "sinned_guardian_quest2_done", "sinned_guardian_quest3_done"),
+        _ => (null, null, null)
+    };
 
-        while ((ScenarioManager.Instance != null && ScenarioManager.Instance.IsScenarioActive()) || (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue()))
-            yield return null;
-
-        _pendingStoryCoroutine = null;
-
-        if (_originStoryPending && CurrentOrigin != null && AreDayScenariosCompleted())
-            StartOriginStory(CurrentOrigin);
-    }
-
-    static bool AreDayScenariosCompleted()
+    public bool ShouldHoldDayScenario(string scenarioID)
     {
-        if (ScenarioManager.Instance == null)
+        if (scenarioID != "ashenveil_day3" || !OriginSelected || CurrentOrigin == null)
             return false;
 
-        foreach (var id in DayScenarioIDs)
-            if (!ScenarioManager.Instance.IsScenarioCompleted(id))
-                return false;
-
-        return true;
+        var (chapter1Done, _, chapter3Done) = ChapterDoneFlags(CurrentOrigin.originID);
+        return chapter1Done != null && StoryFlags.Has(chapter1Done) && !StoryFlags.Has(chapter3Done);
     }
+
+    static int CurrentDay() => TimeUI.Instance != null ? TimeUI.Instance.GetCurrentDay() : 1;
+
+    static bool IsStoryBusy() => (ScenarioManager.Instance != null && ScenarioManager.Instance.IsScenarioActive()) || (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue()) || (CombatManager.Instance != null && CombatManager.Instance.inCombat);
+
+    static bool IsOriginStoryUnlocked() => ScenarioManager.Instance != null && ScenarioManager.Instance.IsScenarioCompleted(OriginStoryUnlockScenario);
 
     static bool HasOriginStoryStarted(PlayerOriginData origin)
     {

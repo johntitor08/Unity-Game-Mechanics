@@ -3,6 +3,8 @@ using UnityEngine;
 public class ForeignEchoQuestController : MonoBehaviour
 {
     private static bool IsForeignEcho => StoryFlags.Has(QuestFlags.ForeignEchoStart);
+    public static bool HasBothOptionals => StoryFlags.Has(QuestFlags.MireyaMetForeignEcho) && StoryFlags.Has(QuestFlags.ChicoMet);
+    public static bool ChamberFullyExplored => StoryFlags.Has(QuestFlags.ThreeCrystalsSeen) && StoryFlags.Has(QuestFlags.FourthSlotResonatesForeignEcho) && StoryFlags.Has(QuestFlags.OriginatingRecordBelow);
 
     public void OnOpeningSceneComplete()
     {
@@ -47,6 +49,7 @@ public class ForeignEchoQuestController : MonoBehaviour
             return;
 
         StoryFlags.Add(QuestFlags.MireyaMetForeignEcho);
+        StoryFlags.Add(QuestFlags.MireyaMet);
         StoryFlags.Add(QuestFlags.LurkerPatrolData);
         UpdateObjective(QuestIds.Q_FE01, "obj_speak_mireya");
         Debug.Log("[ForeignEchoQuest] Mireya met (optional).");
@@ -141,10 +144,6 @@ public class ForeignEchoQuestController : MonoBehaviour
 
         return Mathf.Clamp01(mult);
     }
-
-    public static bool HasBothOptionals => StoryFlags.Has(QuestFlags.MireyaMetForeignEcho) && StoryFlags.Has(QuestFlags.ChicoMet);
-
-    public static bool ChamberFullyExplored => StoryFlags.Has(QuestFlags.ThreeCrystalsSeen) && StoryFlags.Has(QuestFlags.FourthSlotResonatesForeignEcho) && StoryFlags.Has(QuestFlags.OriginatingRecordBelow);
 
     private static void TryAutoStartQuest(string questID)
     {
