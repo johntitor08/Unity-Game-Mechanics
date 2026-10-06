@@ -6,6 +6,9 @@ public class UIClickSound : MonoBehaviour
 {
     void Start()
     {
+        if (GetComponent<UIHoverRegion>() != null)
+            return;
+
         if (TryGetComponent<Button>(out var b))
             b.onClick.AddListener(() => {
                 if (GameAudioManager.Instance != null)
