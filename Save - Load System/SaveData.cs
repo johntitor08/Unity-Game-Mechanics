@@ -36,7 +36,13 @@ public class SaveData
     public List<string> selectedOptionalRewardItemIDs = new();
     public string activeScenarioID = "";
     public int activeScenarioStep = 0;
+    public string activeScenarioStepName;
+    public bool activeScenarioRetreated;
     public List<string> completedScenarios = new();
+    public List<string> affinityKeys = new();
+    public List<int> affinityValues = new();
+    public int combatWins;
+    public List<string> guideUnlocked = new();
     public string savedAt = "";
 }
 

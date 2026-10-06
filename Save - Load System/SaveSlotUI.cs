@@ -21,9 +21,6 @@ public class SaveSlotUI : MonoBehaviour
         slotIndex = index;
         parentUI = parent;
 
-        if (slotLabel != null)
-            slotLabel.text = $"{Loc.T("Slot", "Yuva")} {index + 1}";
-
         if (saveButton != null)
             saveButton.onClick.AddListener(OnSave);
 
@@ -40,11 +37,11 @@ public class SaveSlotUI : MonoBehaviour
     {
         bool hasSave = SaveSystem.HasSaveFile(slotIndex);
 
-        if (loadButton != null)
-            loadButton.interactable = hasSave;
+        if (slotLabel != null)
+            slotLabel.text = $"{Loc.T("Slot", "Yuva")} {slotIndex + 1}";
 
-        if (deleteButton != null)
-            deleteButton.interactable = hasSave;
+        SetButton(loadButton, hasSave);
+        SetButton(deleteButton, hasSave);
 
         if (metaText != null)
         {
@@ -62,22 +59,37 @@ public class SaveSlotUI : MonoBehaviour
 
     string BuildMeta(SaveData data)
     {
-        string phase = data.currentTimePhase.ToString();
-        string day = $"Day {data.currentDay}";
-        string time = string.IsNullOrEmpty(data.savedAt) ? "" : $" · {data.savedAt}";
+        string phase = TimeUI.GetPhaseName(data.currentTimePhase);
+        string day = $"{Loc.T("Day", "Gün")} {data.currentDay}";
+        string time = string.IsNullOrEmpty(data.savedAt) ? "" : $"\n{data.savedAt}";
         return $"{day} · {phase}{time}";
     }
 
     public void SetInteractable(bool interactable)
     {
-        if (saveButton != null)
-            saveButton.interactable = interactable;
+        SetButton(saveButton, interactable);
 
-        if (loadButton != null)
-            loadButton.interactable = interactable;
+        if (interactable)
+        {
+            Refresh();
+        }
+        else
+        {
+            SetButton(loadButton, false);
+            SetButton(deleteButton, false);
+        }
+    }
 
-        if (deleteButton != null)
-            deleteButton.interactable = interactable;
+    static void SetButton(Button button, bool interactable)
+    {
+        if (button == null)
+            return;
+
+        button.interactable = interactable;
+        var label = button.GetComponentInChildren<TMP_Text>(true);
+
+        if (label != null)
+            label.alpha = interactable ? 1f : 0.35f;
     }
 
     void OnSave()

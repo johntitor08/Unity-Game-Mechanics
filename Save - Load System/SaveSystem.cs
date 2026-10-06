@@ -168,13 +168,25 @@ public static class SaveSystem
             {
                 data.activeScenarioID = ScenarioManager.Instance.GetCurrentScenario().scenarioID;
                 data.activeScenarioStep = ScenarioManager.Instance.GetCurrentStepIndex();
+                var scen = ScenarioManager.Instance.GetCurrentScenario();
+                int idx = data.activeScenarioStep;
+                data.activeScenarioStepName = scen.steps != null && idx >= 0 && idx < scen.steps.Length && scen.steps[idx] != null ? scen.steps[idx].stepName : "";
+                data.activeScenarioRetreated = ScenarioManager.Instance.IsWaitingAfterRetreat;
             }
             else
             {
                 data.activeScenarioID = "";
                 data.activeScenarioStep = 0;
+                data.activeScenarioStepName = "";
+                data.activeScenarioRetreated = false;
             }
         }
+
+        if (AffinityManager.Instance != null)
+            AffinityManager.Instance.ExportTo(data.affinityKeys, data.affinityValues);
+
+        data.combatWins = Achievements.Wins;
+        GuideManager.ExportTo(data.guideUnlocked);
 
         if (QuestManager.Instance != null)
         {
@@ -251,6 +263,12 @@ public static class SaveSystem
 
         StoryFlags.Reset();
         StoryFlags.Load(data.storyFlags);
+
+        if (AffinityManager.Instance != null)
+            AffinityManager.Instance.ImportFrom(data.affinityKeys, data.affinityValues);
+
+        Achievements.Wins = data.combatWins;
+        GuideManager.ImportFrom(data.guideUnlocked);
 
         if (OriginManager.Instance != null && !string.IsNullOrEmpty(data.originID))
             OriginManager.Instance.LoadFromSaveID(data.originID);
@@ -393,7 +411,7 @@ public static class SaveSystem
         if (hasActiveScenario)
         {
             IsLoading = false;
-            ScenarioManager.Instance.StartCoroutine(ResumeScenarioAfterLoad(data.activeScenarioID, data.activeScenarioStep));
+            ScenarioManager.Instance.StartCoroutine(ResumeScenarioAfterLoad(data.activeScenarioID, ScenarioManager.Instance.ResolveStepIndex(data.activeScenarioID, data.activeScenarioStep, data.activeScenarioStepName), data.activeScenarioRetreated));
             return;
         }
 
@@ -424,11 +442,11 @@ public static class SaveSystem
             yield return SceneEvent.Instance.StartCoroutine(SceneEvent.Instance.StartDialogueAfterLoad(sceneDialogueIndex));
     }
 
-    static System.Collections.IEnumerator ResumeScenarioAfterLoad(string scenarioID, int stepIndex)
+    static System.Collections.IEnumerator ResumeScenarioAfterLoad(string scenarioID, int stepIndex, bool waitForSquare)
     {
         yield return null;
 
         if (ScenarioManager.Instance != null)
-            ScenarioManager.Instance.ResumeScenario(scenarioID, stepIndex);
+            ScenarioManager.Instance.ResumeScenario(scenarioID, stepIndex, waitForSquare);
     }
 }

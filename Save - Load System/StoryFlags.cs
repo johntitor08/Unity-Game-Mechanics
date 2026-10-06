@@ -13,6 +13,8 @@ public static class StoryFlags
 
     public static bool Has(string flag) => flags.Contains(flag);
 
+    public static void Remove(string flag) => flags.Remove(flag);
+
     public static void Load(IEnumerable<string> savedFlags)
     {
         flags.Clear();
