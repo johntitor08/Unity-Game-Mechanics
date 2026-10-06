@@ -66,7 +66,7 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         StartCoroutine(ScaleEffect(hoverScale, hoverDuration));
 
         if (iconImage != null)
-            iconImage.color = hoverTintColor;
+            iconImage.color = originalColor * hoverTintColor;
 
         PlaySound(hoverSound);
     }
@@ -150,6 +150,14 @@ public class ClickableIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     {
         if (clip != null && Camera.main != null)
             AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, 0.5f);
+    }
+
+    public void SetBaseColor(Color color)
+    {
+        originalColor = color;
+
+        if (iconImage != null)
+            iconImage.color = isHovering ? color * hoverTintColor : color;
     }
 
     public void ResetVisual()

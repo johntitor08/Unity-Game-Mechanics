@@ -7,7 +7,6 @@ public class CircleOutlineOnHit : MonoBehaviour
     public LineRenderer circleRenderer;
     public float radius = 0.3f;
     public int segments = 60;
-
     private Vector3 lastHitCenter = Vector3.positiveInfinity;
 
     void Awake()

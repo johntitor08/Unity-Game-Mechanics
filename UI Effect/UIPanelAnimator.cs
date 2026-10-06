@@ -7,7 +7,8 @@ public class UIPanelAnimator : MonoBehaviour
 {
     public float duration = 0.15f;
     public bool animateScale = true;
-    [Range(0.5f, 1f)] public float startScale = 0.95f;
+    [Range(0.5f, 1f)]
+    public float startScale = 0.95f;
     private CanvasGroup _cg;
     private RectTransform _rt;
     private Coroutine _routine;

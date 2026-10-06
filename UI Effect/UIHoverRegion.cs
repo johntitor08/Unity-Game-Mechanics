@@ -7,7 +7,7 @@ using UnityEngine.U2D;
 [RequireComponent(typeof(SpriteShapeController))]
 [RequireComponent(typeof(SpriteShapeRenderer))]
 [RequireComponent(typeof(PolygonCollider2D))]
-public class UIHoverRegion : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
+public class UIHoverRegion : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerClickHandler
 {
     public SpriteShapeRenderer hoverShape;
     public SpriteShapeController spriteShapeController;
@@ -18,6 +18,7 @@ public class UIHoverRegion : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     private Coroutine fadeRoutine;
     private Coroutine subscribeRoutine;
     private bool isDialogueSubscribed;
+    private bool pressedDuringDialogue;
     public event Action OnRegionClicked;
 
     private void Awake()
@@ -74,6 +75,9 @@ public class UIHoverRegion : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
         if (hoverCollider != null)
             hoverCollider.isTrigger = true;
+
+        if (TryGetComponent<UnityEngine.UI.Image>(out var square))
+            square.raycastTarget = false;
     }
 
     private void UpdateSpriteShapeCollider()
@@ -124,9 +128,14 @@ public class UIHoverRegion : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         StartFade(0f);
     }
 
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        pressedDuringDialogue = IsDialogueActive() || IsSceneDark();
+    }
+
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (IsDialogueActive())
+        if (IsDialogueActive() || IsSceneDark() || pressedDuringDialogue)
             return;
 
         if (fadeRoutine != null)
@@ -137,6 +146,10 @@ public class UIHoverRegion : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
         currentAlpha = 0f;
         SetAlpha(0f);
+
+        if (GameAudioManager.Instance != null && GetComponent<UIClickSound>() != null)
+            GameAudioManager.Instance.PlayUiClick();
+
         OnRegionClicked?.Invoke();
     }
 
@@ -145,10 +158,9 @@ public class UIHoverRegion : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         StartFade(0f);
     }
 
-    private bool IsDialogueActive()
-    {
-        return DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue();
-    }
+    private bool IsDialogueActive() => DialogueManager.WorldClicksBlocked;
+
+    private static bool IsSceneDark() => SceneEvent.Instance != null && SceneEvent.Instance.IsSceneDarkened;
 
     private void StartFade(float targetAlpha)
     {
@@ -162,11 +174,12 @@ public class UIHoverRegion : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     {
         while (true)
         {
-            float finalTarget = IsDialogueActive() ? 0f : targetAlpha;
+            bool dark = IsSceneDark();
+            float finalTarget = IsDialogueActive() || dark ? 0f : targetAlpha;
             currentAlpha = Mathf.MoveTowards(currentAlpha, finalTarget, Time.deltaTime * fadeSpeed);
             SetAlpha(currentAlpha);
 
-            if (Mathf.Approximately(currentAlpha, finalTarget))
+            if (Mathf.Approximately(currentAlpha, finalTarget) && !(dark && targetAlpha > 0f))
                 break;
 
             yield return null;

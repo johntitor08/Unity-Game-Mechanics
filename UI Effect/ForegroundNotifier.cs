@@ -6,9 +6,16 @@ using UnityEngine.UI;
 public class ForegroundNotifier : MonoBehaviour
 {
     public static ForegroundNotifier Instance;
-    static readonly Color Cream = new(0.937f, 0.886f, 0.761f);
-    Canvas _canvas;
-    RectTransform _toastRoot;
+    private static readonly Color MessageSurface = new(0.118f, 0.100f, 0.086f, 0.95f);
+    private static readonly Color ToastSurface = new(0.200f, 0.170f, 0.146f, 0.96f);
+    private const float MessageMaxTextWidth = 1400f;
+    private const float MessagePadX = 56f;
+    private const float MessagePadY = 28f;
+    private const float ToastMaxTextWidth = 400f;
+    private Canvas _canvas;
+    private RectTransform _toastRoot;
+    public TMP_FontAsset headerFont;
+    public TMP_FontAsset bodyFont;
 
     void Awake()
     {
@@ -45,24 +52,30 @@ public class ForegroundNotifier : MonoBehaviour
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = Vector2.zero;
-        rt.sizeDelta = new Vector2(1500f, 260f);
         var backdrop = go.AddComponent<Image>();
-        backdrop.color = new Color(0f, 0f, 0f, 0.6f);
+        backdrop.sprite = UISprites.Rounded(22);
+        backdrop.type = Image.Type.Sliced;
+        backdrop.color = MessageSurface;
         backdrop.raycastTarget = false;
         var textGo = new GameObject("Text", typeof(RectTransform));
         textGo.transform.SetParent(go.transform, false);
         var trt = (RectTransform)textGo.transform;
         trt.anchorMin = Vector2.zero;
         trt.anchorMax = Vector2.one;
-        trt.offsetMin = new Vector2(40f, 0f);
-        trt.offsetMax = new Vector2(-40f, 0f);
+        trt.offsetMin = new Vector2(MessagePadX, MessagePadY);
+        trt.offsetMax = new Vector2(-MessagePadX, -MessagePadY);
         var txt = textGo.AddComponent<TextMeshProUGUI>();
         txt.text = message;
-        txt.fontSize = 80;
-        txt.fontStyle = FontStyles.Bold;
+
+        if (headerFont != null)
+            txt.font = headerFont;
+
+        txt.fontSize = 64;
         txt.alignment = TextAlignmentOptions.Center;
-        txt.color = Cream;
+        txt.color = UIPalette.Gold;
         txt.raycastTarget = false;
+        Vector2 pref = txt.GetPreferredValues(message, MessageMaxTextWidth, 0f);
+        rt.sizeDelta = new Vector2(Mathf.Min(pref.x, MessageMaxTextWidth) + 2f * MessagePadX, pref.y + 2f * MessagePadY);
         go.transform.SetAsLastSibling();
         yield return new WaitForSeconds(seconds);
 
@@ -75,7 +88,7 @@ public class ForegroundNotifier : MonoBehaviour
         if (item == null)
             return;
 
-        Color c = item is EquipmentData eq ? eq.GetRarityColor() : Cream;
+        Color c = item is EquipmentData eq ? eq.GetRarityColor() : UIPalette.Cream;
         ShowToast($"+{quantity} {item.DisplayName}", item.icon, c);
     }
 
@@ -110,7 +123,7 @@ public class ForegroundNotifier : MonoBehaviour
         vlg.spacing = 10f;
         vlg.childControlWidth = true;
         vlg.childControlHeight = true;
-        vlg.childForceExpandWidth = true;
+        vlg.childForceExpandWidth = false;
         vlg.childForceExpandHeight = false;
         var fitter = go.AddComponent<ContentSizeFitter>();
         fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
@@ -123,11 +136,12 @@ public class ForegroundNotifier : MonoBehaviour
         var go = new GameObject("Toast", typeof(RectTransform));
         go.transform.SetParent(root, false);
         var bg = go.AddComponent<Image>();
-        bg.color = new Color(0.10f, 0.07f, 0.04f, 0.85f);
+        bg.sprite = UISprites.Rounded(12);
+        bg.type = Image.Type.Sliced;
+        bg.color = ToastSurface;
         bg.raycastTarget = false;
         var le = go.AddComponent<LayoutElement>();
         le.minHeight = 64f;
-        le.preferredHeight = 64f;
         var hlg = go.AddComponent<HorizontalLayoutGroup>();
         hlg.childAlignment = TextAnchor.MiddleLeft;
         hlg.padding = new RectOffset(12, 16, 8, 8);
@@ -155,13 +169,17 @@ public class ForegroundNotifier : MonoBehaviour
         txtGo.transform.SetParent(go.transform, false);
         var txt = txtGo.AddComponent<TextMeshProUGUI>();
         txt.text = message;
-        txt.fontSize = 30;
+
+        if (bodyFont != null)
+            txt.font = bodyFont;
+
+        txt.fontSize = 28;
         txt.alignment = TextAlignmentOptions.MidlineLeft;
-        txt.color = tint == Cream ? Cream : tint;
+        txt.color = tint;
         txt.raycastTarget = false;
         txt.overflowMode = TextOverflowModes.Overflow;
         var txtLe = txtGo.AddComponent<LayoutElement>();
-        txtLe.flexibleWidth = 1f;
+        txtLe.preferredWidth = Mathf.Min(txt.GetPreferredValues(message).x, ToastMaxTextWidth);
         float t = 0f;
         cg.alpha = 0f;
 

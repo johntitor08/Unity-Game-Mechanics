@@ -1,11 +1,29 @@
 using UnityEngine;
 using UnityEngine.UI;
-
 [DisallowMultipleComponent]
+
+[RequireComponent(typeof(CanvasGroup))]
 public class PanelDim : MonoBehaviour
 {
-    [Range(0f, 1f)] public float darkness = 0.7f;
+    [Range(0f, 1f)]
+    public float darkness = 0.7f;
     Image _dim;
+    CanvasGroup _group;
+
+    void LateUpdate()
+    {
+        if (_dim == null)
+            return;
+
+        if (_group == null)
+            _group = GetComponent<CanvasGroup>();
+
+        float a = _group != null ? _group.alpha : 1f;
+        var c = _dim.color;
+
+        if (!Mathf.Approximately(c.a, darkness * a))
+            _dim.color = new Color(c.r, c.g, c.b, darkness * a);
+    }
 
     void OnEnable()
     {
@@ -16,12 +34,10 @@ public class PanelDim : MonoBehaviour
 
         _dim.gameObject.SetActive(true);
 
-        // Keep the dim directly behind this panel, deterministically. Using
-        // SetSiblingIndex(panelIndex) was fragile: moving the dim shifts the panel's
-        // own index, which on a reopen could leave the dim ABOVE the panel — a
-        // full-screen raycast blocker covering the whole screen. Instead raise the
-        // dim to the top, then raise the panel above it so the dim always lands
-        // immediately behind the panel regardless of prior order.
+        if (_group == null)
+            _group = GetComponent<CanvasGroup>();
+
+        _dim.color = new Color(0f, 0f, 0f, darkness * (_group != null ? _group.alpha : 1f));
         _dim.transform.SetAsLastSibling();
         transform.SetAsLastSibling();
     }

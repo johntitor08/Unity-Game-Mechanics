@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 
 [DisallowMultipleComponent]
+[ExecuteAlways]
 public class UIThemeApplier : MonoBehaviour
 {
     public enum Role
@@ -14,7 +15,13 @@ public class UIThemeApplier : MonoBehaviour
         Muted,
         Accent,
         ButtonBackground,
-        ButtonText
+        ButtonText,
+        Surface,
+        SurfaceLift,
+        Slot,
+        Hairline,
+        Scrim,
+        DialogueSurface
     }
 
     public UITheme theme;
@@ -40,6 +47,35 @@ public class UIThemeApplier : MonoBehaviour
 
         if (TryGetComponent<TMP_Text>(out var tmp))
             tmp.color = c;
+
+        ApplySurfaceSprite();
+    }
+
+    void ApplySurfaceSprite()
+    {
+        if (!TryGetComponent<Image>(out var image) || image.type == Image.Type.Filled)
+            return;
+
+        switch (role)
+        {
+            case Role.Surface:
+            case Role.SurfaceLift:
+            case Role.DialogueSurface:
+                image.sprite = UISprites.Rounded(theme.radiusPanel);
+                image.type = Image.Type.Sliced;
+                break;
+
+            case Role.Slot:
+                image.sprite = UISprites.Rounded(theme.radiusSlot);
+                image.type = Image.Type.Sliced;
+                break;
+
+            case Role.Hairline:
+            case Role.Scrim:
+                image.sprite = UISprites.Solid();
+                image.type = Image.Type.Simple;
+                break;
+        }
     }
 
     Color Resolve(Role r)
@@ -54,6 +90,12 @@ public class UIThemeApplier : MonoBehaviour
             Role.Accent => theme.accent,
             Role.ButtonBackground => theme.buttonBackground,
             Role.ButtonText => theme.buttonText,
+            Role.Surface => theme.panelBackground,
+            Role.SurfaceLift => theme.panelLift,
+            Role.DialogueSurface => theme.dialogueSurface,
+            Role.Slot => theme.buttonBackground,
+            Role.Hairline => theme.hairline,
+            Role.Scrim => theme.shade,
             _ => Color.white,
         };
     }
