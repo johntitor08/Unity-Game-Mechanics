@@ -23,8 +23,7 @@ public class CombatTrigger : MonoBehaviour, IPointerClickHandler
 
     void Awake()
     {
-        if (!string.IsNullOrEmpty(catalogObjectiveID) &&
-            AshenveilQuestTriggerCatalog.TryGet(catalogObjectiveID, out var entry))
+        if (!string.IsNullOrEmpty(catalogObjectiveID) && AshenveilQuestTriggerCatalog.TryGet(catalogObjectiveID, out var entry))
         {
             questID = entry.questID;
             objectiveID = entry.objectiveID;

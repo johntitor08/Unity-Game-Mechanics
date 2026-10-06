@@ -22,25 +22,6 @@ public class EnemyLoot : MonoBehaviour
     [Header("Debug")]
     public bool showDropLog = true;
 
-    private static readonly Dictionary<Rarity, string> RarityColors = new()
-    {
-        {
-            Rarity.Common, "#CCCCCC"
-        },
-        {
-            Rarity.Rare, "#3399FF"
-        },
-        {
-            Rarity.Epic, "#CC33FF"
-        },
-        {
-            Rarity.Legendary, "#FF9933"
-        },
-        {
-            Rarity.Godly, "#CC2200"
-        }
-    };
-
     private void OnValidate()
     {
         if (possibleLoot != null && lootChances != null && possibleLoot.Length != lootChances.Length)
@@ -81,8 +62,7 @@ public class EnemyLoot : MonoBehaviour
                 continue;
 
             AddItemToInventory(equipment, 1);
-            string rarityColor = GetRarityColorHex(equipment.rarity);
-            LogDrop($"<color={rarityColor}>{equipment.DisplayName}</color> ({Loc.T("Equipment", "Ekipman")})");
+            LogDrop($"<color={UIPalette.Hex(equipment.GetRarityColor())}>{equipment.DisplayName}</color> ({Loc.T("Equipment", "Ekipman")})");
         }
     }
 
@@ -105,7 +85,7 @@ public class EnemyLoot : MonoBehaviour
             if (Random.value <= dropChance)
             {
                 AddItemToInventory(item, 1);
-                LogDrop($"<color=yellow>{item.DisplayName}</color>");
+                LogDrop($"<color={UIPalette.Hex(UIPalette.Gold)}>{item.DisplayName}</color>");
             }
         }
     }
@@ -131,7 +111,7 @@ public class EnemyLoot : MonoBehaviour
 
         int gold = Random.Range(minGold, maxGold + 1);
         ProfileManager.Instance.AddCurrency(gold);
-        LogDrop($"<color=#FFD700>{gold} Gold</color>");
+        LogDrop($"<color={UIPalette.Hex(UIPalette.Gold)}>{gold} {Loc.T("Gold", "Altın")}</color>");
     }
 
     private void AddItemToInventory(ItemData item, int quantity)
@@ -153,17 +133,12 @@ public class EnemyLoot : MonoBehaviour
 
         if (CombatUI.Instance != null)
         {
-            CombatUI.Instance.AddLogMessage($"Obtained: {message}");
+            CombatUI.Instance.AddLogMessage($"{Loc.T("Obtained", "Elde edildi")}: {message}");
         }
         else if (Debug.isDebugBuild)
         {
             Debug.Log($"[{gameObject.name}] Drop: {message}");
         }
-    }
-
-    private string GetRarityColorHex(Rarity rarity)
-    {
-        return RarityColors.TryGetValue(rarity, out string color) ? color : "#FFFFFF";
     }
 
     [ContextMenu("Preview Drop Chances")]

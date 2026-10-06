@@ -60,6 +60,9 @@ public class CombatActionButton : MonoBehaviour
             button.interactable = canUse && hasEnoughEnergy && !disabled;
 
         if (notEnoughEnergyIndicator != null)
-            notEnoughEnergyIndicator.SetActive(!hasEnoughEnergy && !disabled);
+            notEnoughEnergyIndicator.SetActive(false);
+
+        if (energyCostText != null)
+            energyCostText.color = !hasEnoughEnergy && !disabled ? UIPalette.Bad : UIPalette.Cream;
     }
 }

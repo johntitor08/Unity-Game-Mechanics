@@ -26,6 +26,7 @@ public class CombatUI : MonoBehaviour
     public TextMeshProUGUI enemyHealthText;
 
     [Header("Player Display")]
+    public TextMeshProUGUI playerNameText;
     public Slider playerHealthBar;
     public TextMeshProUGUI playerHealthText;
     public Slider playerEnergyBar;
@@ -109,6 +110,10 @@ public class CombatUI : MonoBehaviour
         if (combatPanel != null)
             combatPanel.SetActive(true);
 
+        if (playerNameText != null && ProfileManager.Instance != null && ProfileManager.Instance.profile != null
+            && !string.IsNullOrWhiteSpace(ProfileManager.Instance.profile.playerName))
+            playerNameText.text = ProfileManager.Instance.profile.playerName;
+
         logLines.Clear();
         UpdateUI();
         SetupActionButtons();
@@ -187,7 +192,7 @@ public class CombatUI : MonoBehaviour
         }
 
         if (enemyHealthText != null)
-            enemyHealthText.text = $"HP: {enemyStats.Get(StatType.Health)} / {enemyStats.Get(StatType.MaxHealth)}";
+            enemyHealthText.text = $"{Loc.T("HP", "Can")}: {enemyStats.Get(StatType.Health)} / {enemyStats.Get(StatType.MaxHealth)}";
     }
 
     void UpdatePlayerHealth()
@@ -205,7 +210,7 @@ public class CombatUI : MonoBehaviour
         }
 
         if (playerHealthText != null)
-            playerHealthText.text = $"HP: {current} / {max}";
+            playerHealthText.text = $"{Loc.T("HP", "Can")}: {current} / {max}";
     }
 
     void UpdatePlayerEnergy()
