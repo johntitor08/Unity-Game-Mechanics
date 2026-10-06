@@ -13,7 +13,8 @@ public class AudioManager : MonoBehaviour
     public AudioClip saveSound;
 
     [Header("Settings")]
-    [Range(0f, 1f)] public float masterVolume = 0.6f;
+    [Range(0f, 1f)]
+    public float masterVolume = 0.6f;
 
     void Awake()
     {
