@@ -83,6 +83,7 @@ public class ProfileUI : MonoBehaviour
     public Sprite legendaryBorder;
     public Sprite godlyBorder;
     public Sprite emptyBorder;
+    public Color emptySlotColor = new(0.160f, 0.138f, 0.120f, 1f);
 
     [Header("Settings")]
     public KeyCode toggleKey = KeyCode.P;
@@ -108,10 +109,15 @@ public class ProfileUI : MonoBehaviour
 
         if (Input.GetKeyDown(toggleKey) && profilePanel != null)
         {
-            profilePanel.SetActive(!profilePanel.activeSelf);
-
             if (profilePanel.activeSelf)
+            {
+                UIPanelAnimator.Hide(profilePanel);
+            }
+            else
+            {
+                UIPanelAnimator.Show(profilePanel);
                 RefreshAll();
+            }
         }
     }
 
@@ -148,11 +154,17 @@ public class ProfileUI : MonoBehaviour
             PlayerStats.OnReady += SubscribeToStats;
 
         WireStatButtons();
+        LanguageManager.OnLanguageChanged -= OnLanguageChanged;
+        LanguageManager.OnLanguageChanged += OnLanguageChanged;
         RefreshAll();
     }
 
+    void OnLanguageChanged(GameLanguage lang) => RefreshAll();
+
     void OnDisable()
     {
+        LanguageManager.OnLanguageChanged -= OnLanguageChanged;
+
         if (ProfileManager.Instance != null)
         {
             ProfileManager.Instance.OnProfileChanged -= RefreshProfile;
@@ -258,10 +270,13 @@ public class ProfileUI : MonoBehaviour
                 icon.enabled = filled;
             }
 
+            Color wellColor = filled ? Color.Lerp(emptySlotColor, data.GetRarityColor(), 0.45f) : emptySlotColor;
+
             if (btn.TryGetComponent<Image>(out var slotImg))
             {
-                slotImg.sprite = filled ? GetRarityBorder(data.rarity) : emptyBorder;
-                slotImg.color = Color.white;
+                slotImg.sprite = UISprites.Rounded(12);
+                slotImg.type = Image.Type.Sliced;
+                slotImg.color = wellColor;
             }
 
             var clickable = btn.GetComponent<ClickableIcon>();
@@ -270,11 +285,13 @@ public class ProfileUI : MonoBehaviour
             {
                 if (clickable == null)
                     clickable = btn.gameObject.AddComponent<ClickableIcon>();
+
+                clickable.SetBaseColor(wellColor);
             }
-            else
+            else if (clickable != null)
             {
-                if (clickable != null)
-                    Destroy(clickable);
+                clickable.SetBaseColor(wellColor);
+                Destroy(clickable);
             }
 
             btn.interactable = filled;
@@ -412,7 +429,7 @@ public class ProfileUI : MonoBehaviour
 
         btn.interactable = canIncrement;
 
-        if (btn.TryGetComponent<Image>(out var img))
+        if (incrementButtonDefault != null && btn.TryGetComponent<Image>(out var img))
             img.sprite = canIncrement && incrementButtonAvailable != null ? incrementButtonAvailable : incrementButtonDefault;
     }
 
@@ -478,7 +495,7 @@ public class ProfileUI : MonoBehaviour
 
         int pts = ProfileManager.Instance.profile?.statPoints ?? 0;
         statPointsText.text = $"{Loc.T("Stat Points", "Yetenek Puanı")}: {pts}";
-        statPointsText.color = pts > 0 ? Color.yellow : Color.white;
+        statPointsText.color = pts > 0 ? new Color(0.95f, 0.8f, 0.45f) : UIPalette.Cream;
     }
 
     void RefreshAllStats()
@@ -565,7 +582,7 @@ public class ProfileUI : MonoBehaviour
         }
 
         if (healthText != null)
-            healthText.text = $"{Loc.T("Health", "Sağlık")}: {cur} / {max}";
+            healthText.text = $"{StatType.Health.Display()}: {cur} / {max}";
 
         if (healthFillImage != null)
             healthFillImage.color = pct > 0.6f ? healthHighColor : pct > 0.3f ? healthMediumColor : healthLowColor;
