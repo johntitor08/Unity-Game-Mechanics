@@ -94,7 +94,7 @@ public class TimeUI : MonoBehaviour
             dayCounterText.text = Loc.T("Day", "Gün") + " " + currentDay;
     }
 
-    string GetPhaseName(TimePhase phase) => phase switch
+    public static string GetPhaseName(TimePhase phase) => phase switch
     {
         TimePhase.Morning => Loc.T("Morning", "Sabah"),
         TimePhase.Noon => Loc.T("Noon", "Öğle"),

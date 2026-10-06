@@ -137,9 +137,15 @@ public class TimePhaseManager : MonoBehaviour
         subscribedScenarios.OnStepComplete += OnScenarioStepComplete;
     }
 
+    static bool IsDayScenarioRunning()
+    {
+        ScenarioData current = ScenarioManager.Instance != null ? ScenarioManager.Instance.GetCurrentScenario() : null;
+        return current != null && !string.IsNullOrEmpty(current.scenarioID) && current.scenarioID.StartsWith("ashenveil_day");
+    }
+
     void OnScenarioStepStart(ScenarioStep step)
     {
-        if (!advanceOnScenarioSteps || step == null)
+        if (!advanceOnScenarioSteps || step == null || !IsDayScenarioRunning())
             return;
 
         TimePhase? named = PhaseFromStepName(step.stepName);
@@ -153,7 +159,7 @@ public class TimePhaseManager : MonoBehaviour
 
     void OnScenarioStepComplete(ScenarioStep step)
     {
-        if (!advanceOnScenarioSteps || currentPhase == TimePhase.Night)
+        if (!advanceOnScenarioSteps || currentPhase >= TimePhase.Evening || !IsDayScenarioRunning())
             return;
 
         storyStepCounter++;
@@ -251,10 +257,7 @@ public class TimePhaseManager : MonoBehaviour
 
     public bool CanChangePhaseManually()
     {
-        if (CombatManager.Instance != null && CombatManager.Instance.inCombat)
-            return false;
-
-        if (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue())
+        if ((CombatManager.Instance != null && CombatManager.Instance.inCombat) || (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue()))
             return false;
 
         return true;
@@ -280,10 +283,18 @@ public class TimePhaseManager : MonoBehaviour
         UpdatePhaseButtons();
     }
 
+    static bool IsDayStoryWaiting() => SceneEvent.Instance != null && SceneEvent.Instance.IsDayStoryWaiting;
+
     public void GoNextPhase()
     {
         if (!CanChangePhaseManually())
             return;
+
+        if (IsDayStoryWaiting())
+        {
+            SceneEvent.Instance.ShowForegroundMessage(Loc.T("Not yet. Today's story is still waiting for you.", "Henüz değil. Bugünün hikayesi seni bekliyor."), 3f);
+            return;
+        }
 
         NextPhase();
     }
