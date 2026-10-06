@@ -8,6 +8,8 @@ public class SettingsManager : MonoBehaviour
 {
     public static SettingsManager Instance;
     private Resolution[] resolutions;
+    static readonly int[] QualityLevels = { 1, 3, 5 };
+    const int MaxFrameRateWithoutVSync = 144;
     float _snapMaster, _snapMusic, _snapSfx, _snapDiff;
     int _snapQuality, _snapLang;
 
@@ -44,6 +46,8 @@ public class SettingsManager : MonoBehaviour
     public Button applyButton;
     public Button resetButton;
     public Button closeButton;
+    public Button mainMenuButton;
+    public Button quitButton;
 
     void Awake()
     {
@@ -58,6 +62,20 @@ public class SettingsManager : MonoBehaviour
         SetupDropdowns();
         LoadSettings();
         BindListeners();
+        LanguageManager.OnLanguageChanged += OnGameLanguageChanged;
+    }
+
+    void OnDestroy()
+    {
+        LanguageManager.OnLanguageChanged -= OnGameLanguageChanged;
+    }
+
+    void OnGameLanguageChanged(GameLanguage lang)
+    {
+        RefreshQualityOptions();
+
+        if (difficultySlider != null)
+            OnDifficultyChanged(difficultySlider.value);
     }
 
     public void OnOpenFromMenu()
@@ -90,33 +108,37 @@ public class SettingsManager : MonoBehaviour
             languageDropdown.RefreshShownValue();
         }
 
-        if (qualityDropdown != null)
-        {
-            qualityDropdown.ClearOptions();
-            qualityDropdown.AddOptions(new List<string>(QualitySettings.names));
-        }
+        RefreshQualityOptions();
 
         if (resolutionDropdown != null)
         {
-            resolutions = Screen.resolutions;
-            var options = new List<string>();
-            var seen = new HashSet<string>();
+            var seen = new HashSet<Vector2Int>();
             var filtered = new List<Resolution>();
-            int currentIndex = 0;
 
-            foreach (var r in resolutions)
+            foreach (var r in Screen.resolutions)
             {
-                string key = $"{r.width}x{r.height}";
+                var fit = AspectLock.Fit(r.width, r.height);
 
-                if (seen.Contains(key))
-                    continue;
+                if (seen.Add(fit))
+                    filtered.Add(new Resolution { width = fit.x, height = fit.y });
+            }
 
-                seen.Add(key);
-                filtered.Add(r);
+            filtered.Sort((a, b) => a.width != b.width ? a.width.CompareTo(b.width) : a.height.CompareTo(b.height));
+            var options = new List<string>();
+            int currentIndex = 0;
+            int bestDiff = int.MaxValue;
+
+            for (int i = 0; i < filtered.Count; i++)
+            {
+                var r = filtered[i];
                 options.Add($"{r.width} x {r.height}");
 
-                if (r.width == Screen.width && r.height == Screen.height)
-                    currentIndex = filtered.Count - 1;
+                int diff = Mathf.Abs(r.width - Screen.width) + Mathf.Abs(r.height - Screen.height);
+                if (diff < bestDiff)
+                {
+                    bestDiff = diff;
+                    currentIndex = i;
+                }
             }
 
             resolutions = filtered.ToArray();
@@ -191,6 +213,18 @@ public class SettingsManager : MonoBehaviour
             closeButton.onClick.RemoveAllListeners();
             closeButton.onClick.AddListener(ClosePanel);
         }
+
+        if (mainMenuButton != null)
+        {
+            mainMenuButton.onClick.RemoveAllListeners();
+            mainMenuButton.onClick.AddListener(() => { if (GameMenuManager.Instance != null) GameMenuManager.Instance.OnMainMenuClicked(); });
+        }
+
+        if (quitButton != null)
+        {
+            quitButton.onClick.RemoveAllListeners();
+            quitButton.onClick.AddListener(() => { if (GameMenuManager.Instance != null) GameMenuManager.Instance.OnQuitClicked(); });
+        }
     }
 
     void OnMasterVolumeChanged(float value)
@@ -226,9 +260,50 @@ public class SettingsManager : MonoBehaviour
             sfxVolumeText.text = Mathf.Round(value * 100) + "%";
     }
 
+    void RefreshQualityOptions()
+    {
+        if (qualityDropdown == null)
+            return;
+
+        int current = qualityDropdown.value;
+        qualityDropdown.ClearOptions();
+        qualityDropdown.AddOptions(new List<string>
+        {
+            Loc.T("Low", "Düşük"),
+            Loc.T("Medium", "Orta"),
+            Loc.T("High", "Yüksek")
+        });
+        qualityDropdown.SetValueWithoutNotify(Mathf.Clamp(current, 0, QualityLevels.Length - 1));
+        qualityDropdown.RefreshShownValue();
+    }
+
+    static int QualityOptionFor(int level)
+    {
+        int option = 0;
+
+        for (int i = 0; i < QualityLevels.Length; i++)
+            if (QualityLevels[i] <= level)
+                option = i;
+
+        return option;
+    }
+
+    void ApplyQualityOption(int option)
+    {
+        int level = QualityLevels[Mathf.Clamp(option, 0, QualityLevels.Length - 1)];
+        QualitySettings.SetQualityLevel(Mathf.Min(level, QualitySettings.names.Length - 1), true);
+        ApplyVSync(vsyncToggle != null ? vsyncToggle.isOn : QualitySettings.vSyncCount > 0);
+    }
+
+    static void ApplyVSync(bool on)
+    {
+        QualitySettings.vSyncCount = on ? 1 : 0;
+        Application.targetFrameRate = on ? -1 : MaxFrameRateWithoutVSync;
+    }
+
     void OnQualityChanged(int index)
     {
-        QualitySettings.SetQualityLevel(index);
+        ApplyQualityOption(index);
     }
 
     void OnLanguageChanged(int index)
@@ -243,10 +318,10 @@ public class SettingsManager : MonoBehaviour
 
         difficultyText.text = Mathf.RoundToInt(value) switch
         {
-            0 => "Easy",
-            1 => "Normal",
-            2 => "Hard",
-            _ => "Nightmare"
+            0 => Loc.T("Easy", "Kolay"),
+            1 => Loc.T("Normal", "Normal"),
+            2 => Loc.T("Hard", "Zor"),
+            _ => Loc.T("Nightmare", "Kâbus")
         };
     }
 
@@ -270,17 +345,21 @@ public class SettingsManager : MonoBehaviour
 
     void ApplySettings()
     {
+        bool fullscreen = fullscreenToggle != null ? fullscreenToggle.isOn : Screen.fullScreen;
+        var mode = fullscreen ? FullScreenMode.FullScreenWindow : FullScreenMode.Windowed;
+
         if (resolutionDropdown != null && resolutions != null && resolutions.Length > 0)
         {
             var r = resolutions[resolutionDropdown.value];
-            Screen.SetResolution(r.width, r.height, Screen.fullScreen);
+            Screen.SetResolution(r.width, r.height, mode);
+        }
+        else
+        {
+            Screen.fullScreenMode = mode;
         }
 
-        if (fullscreenToggle != null)
-            Screen.fullScreen = fullscreenToggle.isOn;
-
         if (vsyncToggle != null)
-            QualitySettings.vSyncCount = vsyncToggle.isOn ? 1 : 0;
+            ApplyVSync(vsyncToggle.isOn);
 
         SaveSettings();
         CaptureSnapshot();
@@ -292,7 +371,7 @@ public class SettingsManager : MonoBehaviour
         _snapMusic = musicVolumeSlider != null ? musicVolumeSlider.value : 0.8f;
         _snapSfx = sfxVolumeSlider != null ? sfxVolumeSlider.value : 1f;
         _snapDiff = difficultySlider != null ? difficultySlider.value : 1f;
-        _snapQuality = qualityDropdown != null ? qualityDropdown.value : QualitySettings.GetQualityLevel();
+        _snapQuality = qualityDropdown != null ? qualityDropdown.value : QualityOptionFor(QualitySettings.GetQualityLevel());
         _snapLang = languageDropdown != null ? languageDropdown.value : (int)LanguageManager.Current;
     }
 
@@ -312,8 +391,9 @@ public class SettingsManager : MonoBehaviour
 
         if (qualityDropdown != null)
         {
-            qualityDropdown.value = _snapQuality;
-            QualitySettings.SetQualityLevel(_snapQuality);
+            qualityDropdown.SetValueWithoutNotify(_snapQuality);
+            qualityDropdown.RefreshShownValue();
+            ApplyQualityOption(_snapQuality);
         }
 
         if (languageDropdown != null)
@@ -335,7 +415,7 @@ public class SettingsManager : MonoBehaviour
             sfxVolumeSlider.value = 1f;
 
         if (qualityDropdown != null)
-            qualityDropdown.value = QualitySettings.GetQualityLevel();
+            qualityDropdown.value = QualityLevels.Length - 1;
 
         if (fullscreenToggle != null)
             fullscreenToggle.isOn = true;
@@ -361,7 +441,7 @@ public class SettingsManager : MonoBehaviour
         PlayerPrefs.SetFloat("Music", musicVolumeSlider != null ? musicVolumeSlider.value : 0.8f);
         PlayerPrefs.SetFloat("SFX", sfxVolumeSlider != null ? sfxVolumeSlider.value : 1f);
         PlayerPrefs.SetInt("QualityLevel", QualitySettings.GetQualityLevel());
-        PlayerPrefs.SetInt("Fullscreen", Screen.fullScreen ? 1 : 0);
+        PlayerPrefs.SetInt("Fullscreen", fullscreenToggle != null ? (fullscreenToggle.isOn ? 1 : 0) : (Screen.fullScreen ? 1 : 0));
         PlayerPrefs.SetInt("VSync", QualitySettings.vSyncCount);
         PlayerPrefs.SetFloat("Difficulty", difficultySlider != null ? difficultySlider.value : 1f);
         PlayerPrefs.SetInt("Subtitles", subtitlesToggle != null && subtitlesToggle.isOn ? 1 : 0);
@@ -411,17 +491,25 @@ public class SettingsManager : MonoBehaviour
         if (difficultySlider != null)
             OnDifficultyChanged(difficulty);
 
+        if (vsyncToggle != null)
+            vsyncToggle.SetIsOnWithoutNotify(PlayerPrefs.GetInt("VSync", 1) > 0);
+
+        int savedLevel = PlayerPrefs.GetInt("QualityLevel", QualitySettings.GetQualityLevel());
+        int qualityOption = QualityOptionFor(savedLevel);
+
         if (qualityDropdown != null)
-            qualityDropdown.value = PlayerPrefs.GetInt("QualityLevel", QualitySettings.GetQualityLevel());
+        {
+            qualityDropdown.SetValueWithoutNotify(qualityOption);
+            qualityDropdown.RefreshShownValue();
+        }
+
+        ApplyQualityOption(qualityOption);
 
         if (languageDropdown != null)
             languageDropdown.value = (int)LanguageManager.Current;
 
         if (fullscreenToggle != null)
-            fullscreenToggle.isOn = PlayerPrefs.GetInt("Fullscreen", 1) == 1;
-
-        if (vsyncToggle != null)
-            vsyncToggle.isOn = PlayerPrefs.GetInt("VSync", 1) > 0;
+            fullscreenToggle.SetIsOnWithoutNotify(Screen.fullScreen);
 
         if (subtitlesToggle != null)
             subtitlesToggle.isOn = PlayerPrefs.GetInt("Subtitles", 1) == 1;

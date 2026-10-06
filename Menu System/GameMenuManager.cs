@@ -21,6 +21,7 @@ public class GameMenuManager : MonoBehaviour
     public Button resumeButton;
     public Button settingsButton;
     public Button mainMenuButton;
+    public Button quitButton;
 
     [Header("Loading Screen")]
     public GameObject loadingScreen;
@@ -98,6 +99,12 @@ public class GameMenuManager : MonoBehaviour
             mainMenuButton.onClick.RemoveAllListeners();
             mainMenuButton.onClick.AddListener(OnMainMenuClicked);
         }
+
+        if (quitButton != null)
+        {
+            quitButton.onClick.RemoveAllListeners();
+            quitButton.onClick.AddListener(OnQuitClicked);
+        }
     }
 
     public void PauseGame()
@@ -162,7 +169,7 @@ public class GameMenuManager : MonoBehaviour
 
         if (ConfirmationDialog.Instance != null)
         {
-            ConfirmationDialog.Instance.Show(Loc.T("Main Menu", "Ana Menü"), Loc.T("Unsaved progress will be lost.", "Kaydedilmemiş ilerleme kaybolacak."), ReturnToMainMenu, null, Loc.T("Yes", "Evet"), Loc.T("No", "Hayır"));
+            ConfirmationDialog.Instance.Show(Loc.T("Main Menu", "Ana Menü"), Loc.T("Your progress will be saved.", "İlerlemen kaydedilecek."), ReturnToMainMenu, null, Loc.T("Yes", "Evet"), Loc.T("No", "Hayır"));
         }
         else
         {
@@ -170,8 +177,35 @@ public class GameMenuManager : MonoBehaviour
         }
     }
 
+    public void OnQuitClicked()
+    {
+        PlayButtonSound();
+
+        if (ConfirmationDialog.Instance != null)
+            ConfirmationDialog.Instance.Show(Loc.T("Quit Game", "Oyundan Çık"), Loc.T("Your progress will be saved. Quit to the desktop?", "İlerlemen kaydedilecek. Masaüstüne çıkılsın mı?"), QuitToDesktop, null, Loc.T("Yes", "Evet"), Loc.T("No", "Hayır"));
+        else
+            QuitToDesktop();
+    }
+
+    void QuitToDesktop()
+    {
+        SaveSystem.SaveGame();
+        Time.timeScale = 1f;
+
+        #if UNITY_EDITOR
+
+        UnityEditor.EditorApplication.isPlaying = false;
+
+        #else
+
+        Application.Quit();
+
+        #endif
+    }
+
     void ReturnToMainMenu()
     {
+        SaveSystem.SaveGame();
         _isPaused = false;
         Time.timeScale = 1f;
         StartCoroutine(LoadSceneAsync(mainMenuSceneName));

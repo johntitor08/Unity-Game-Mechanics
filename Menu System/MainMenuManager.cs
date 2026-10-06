@@ -91,13 +91,7 @@ public class MainMenuManager : MonoBehaviour
         {
             if (ConfirmationDialog.Instance != null)
             {
-                ConfirmationDialog.Instance.Show(
-                    Loc.T("New Game", "Yeni Oyun"),
-                    Loc.T("This will overwrite your save. Continue?", "Bu, mevcut kaydının üzerine yazacak. Devam edilsin mi?"),
-                    StartNewGame,
-                    () => SetButtonPanel(true),
-                    Loc.T("Yes", "Evet"),
-                    Loc.T("No", "Hayır"));
+                ConfirmationDialog.Instance.Show(Loc.T("New Game", "Yeni Oyun"), Loc.T("This will overwrite your save. Continue?", "Bu, mevcut kaydının üzerine yazacak. Devam edilsin mi?"), StartNewGame, () => SetButtonPanel(true), Loc.T("Yes", "Evet"), Loc.T("No", "Hayır"));
             }
             else
             {
@@ -190,6 +184,9 @@ public class MainMenuManager : MonoBehaviour
             Debug.LogWarning("[MainMenuManager] InventoryManager.Instance is null — skipping reset.");
 
         StoryFlags.Reset();
+        AffinityManager.ResetAll();
+        GuideManager.ResetAll();
+        Achievements.Wins = 0;
     }
 
     IEnumerator LoadSceneAsync(string sceneName)
