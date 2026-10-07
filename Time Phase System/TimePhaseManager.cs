@@ -257,7 +257,7 @@ public class TimePhaseManager : MonoBehaviour
 
     public bool CanChangePhaseManually()
     {
-        if ((CombatManager.Instance != null && CombatManager.Instance.inCombat) || (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue()))
+        if ((CombatManager.Instance != null && CombatManager.Instance.inCombat) || (DialogueManager.Instance != null && DialogueManager.Instance.IsInDialogue()) || InNightOnlyRoom())
             return false;
 
         return true;
@@ -320,17 +320,19 @@ public class TimePhaseManager : MonoBehaviour
         };
     }
 
-    void UpdatePhaseButtons()
+    static bool InNightOnlyRoom() => SceneEvent.Instance != null && SceneEvent.Instance.IsInNightOnlyRoom;
+
+    public void UpdatePhaseButtons()
     {
         if (previousPhaseButton != null)
         {
-            bool canGoBack = currentPhase != TimePhase.Morning && CurrencyManager.Instance != null && CurrencyManager.Instance.Has(previousPhaseCostType, previousPhaseCost);
+            bool canGoBack = !InNightOnlyRoom() && currentPhase != TimePhase.Morning && CurrencyManager.Instance != null && CurrencyManager.Instance.Has(previousPhaseCostType, previousPhaseCost);
             previousPhaseButton.interactable = canGoBack;
         }
 
         if (nextPhaseButton != null)
         {
-            bool canGoNext = currentPhase != TimePhase.Night;
+            bool canGoNext = !InNightOnlyRoom() && currentPhase != TimePhase.Night;
             nextPhaseButton.interactable = canGoNext;
         }
     }
