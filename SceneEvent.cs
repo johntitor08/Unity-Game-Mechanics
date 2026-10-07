@@ -69,6 +69,8 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
     public bool IsSleeping => sleepingPanel != null && sleepingPanel.activeSelf;
     public bool IsShowingQuestLocation => !string.IsNullOrEmpty(_currentQuestLocation);
     public bool IsInTownSquare => _lastBgIndex == 0 && !IsShowingQuestLocation;
+
+    public bool IsInNightOnlyRoom => _lastBgIndex == 7 || _lastBgIndex == 42;
     public bool IsDayStoryWaiting => (dayScenarioPending && TimeUI.Instance != null && TimeUI.Instance.GetCurrentDay() >= 2 && HasUnplayedDayScenario()) || (ScenarioManager.Instance != null && ScenarioManager.Instance.IsWaitingAfterRetreat);
     public bool IsSceneDarkened => _transitionDepth > 0 || (_sceneFade != null && _sceneFade.gameObject.activeSelf && _sceneFade.color.a > 0.05f);
     private const float SceneDipOut = 0.35f;
@@ -128,7 +130,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
                 _ => morning
             };
 
-            return s != null ? s : morning;
+            return s != null ? s : morning != null ? morning : night;
         }
     }
 
@@ -811,6 +813,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             TryStartDayScenario();
 
         OnBackgroundChanged?.Invoke(index);
+        if (TimePhaseManager.Instance != null)
+            TimePhaseManager.Instance.UpdatePhaseButtons();
+
         ApplyHoverVisibility(index);
         ApplyItemVisibility(index);
         ApplyHouseIconVisibility(IsHouseBackground(index));
@@ -2628,6 +2633,12 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             ApplyItemVisibility(-1);
         }
 
+        Sprite shownBackdrop = ShownBackdrop();
+        Sprite shownForPhase = PhaseVariantOf(shownBackdrop);
+
+        if (shownBackdrop != null && shownForPhase != shownBackdrop)
+            SetBackdrop(shownForPhase);
+
         ClearDialogueBackground();
 
         if (_lastBgIndex == 11 && _sceneCharacterActive && charImage != null && DialogueManager.Instance != null && !DialogueManager.Instance.IsInDialogue())
@@ -2879,7 +2890,7 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             SceneProgress.Scene3 => TimePhase.Noon,
             SceneProgress.Scene4 => TimePhase.Noon,
             SceneProgress.Scene5 => TimePhase.Noon,
-            SceneProgress.Scene6 => TimePhase.Evening,
+            SceneProgress.Scene6 => TimePhase.Noon,
             SceneProgress.Scene7 => TimePhase.Evening,
             SceneProgress.Scene8 => TimePhase.Evening,
             SceneProgress.Scene9 => TimePhase.Night,
