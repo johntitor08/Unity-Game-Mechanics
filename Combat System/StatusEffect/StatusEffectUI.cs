@@ -8,6 +8,7 @@ public class StatusEffectUI : MonoBehaviour
 {
     [Header("References")]
     public StatusEffectManager effectManager;
+    public bool bindToPlayer;
     public Transform iconContainer;
     public StatusEffectIcon iconPrefab;
 
@@ -27,12 +28,16 @@ public class StatusEffectUI : MonoBehaviour
             effectManager.OnEffectApplied -= OnEffectApplied;
             effectManager.OnEffectRemoved -= OnEffectRemoved;
             effectManager.OnEffectHeal -= OnEffectHeal;
-            isSubscribed = false;
         }
+
+        isSubscribed = false;
     }
 
     void TrySubscribe()
     {
+        if (bindToPlayer && effectManager == null && PlayerStats.Instance != null)
+            effectManager = PlayerStats.Instance.GetComponent<StatusEffectManager>();
+
         if (effectManager != null && !isSubscribed)
         {
             effectManager.OnEffectApplied += OnEffectApplied;
@@ -55,7 +60,13 @@ public class StatusEffectUI : MonoBehaviour
     void Update()
     {
         if (effectManager == null)
-            return;
+        {
+            isSubscribed = false;
+            TrySubscribe();
+
+            if (effectManager == null)
+                return;
+        }
 
         for (int i = activeIcons.Count - 1; i >= 0; i--)
         {

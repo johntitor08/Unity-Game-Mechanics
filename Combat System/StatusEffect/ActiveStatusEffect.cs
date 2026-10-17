@@ -10,8 +10,6 @@ public class ActiveStatusEffect
     public int currentStacks;
     public GameObject particleInstance;
     public int remainingRounds;
-    public SerializableDictionary<int, int> appliedModifierAmounts = new();
-    public SerializableDictionary<int, int> baseStatSnapshots = new();
 
     public ActiveStatusEffect(StatusEffectData effectData)
     {

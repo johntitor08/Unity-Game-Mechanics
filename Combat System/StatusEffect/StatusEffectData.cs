@@ -44,7 +44,6 @@ public class StatusEffectData : ScriptableObject
 
     [Header("Special Effects")]
     public bool preventActions = false;
-    public bool preventMovement = false;
     public float damageMultiplier = 1f;
     public float damageReduction = 0f;
 
