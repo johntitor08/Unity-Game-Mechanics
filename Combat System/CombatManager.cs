@@ -17,7 +17,6 @@ public class CombatManager : MonoBehaviour
     public event Action OnCombatFled;
     private PlayerBuffManager PlayerBuffs => PlayerBuffManager.Instance;
     private PlayerStats PlayerStats => PlayerStats.Instance;
-    private EquipmentManager Equipment => EquipmentManager.Instance;
     private StatusEffectManager _playerEffects;
     private WaitForSeconds _waitTurn;
     private WaitForSeconds _waitEnemyAction;
@@ -730,12 +729,7 @@ public class CombatManager : MonoBehaviour
 
     private int CalculatePlayerTotalDefense()
     {
-        int defense = playerDefenseBonus + PlayerStats.Get(StatType.Defense);
-
-        if (Equipment != null)
-            defense += Equipment.GetTotalDefenseBonus();
-
-        return defense;
+        return playerDefenseBonus + PlayerStats.Get(StatType.Defense);
     }
 
     private int CalculateEnemyDamageToPlayer(int baseDamage, int defense)

@@ -73,9 +73,6 @@ public class CombatAction
         if (PlayerStats.Instance != null)
             bonus += Mathf.RoundToInt(PlayerStats.Instance.Get(StatType.Defense) * defenseStatScaling);
 
-        if (EquipmentManager.Instance != null)
-            bonus += Mathf.RoundToInt(EquipmentManager.Instance.GetTotalDefenseBonus() * defenseStatScaling);
-
         return bonus;
     }
 }
