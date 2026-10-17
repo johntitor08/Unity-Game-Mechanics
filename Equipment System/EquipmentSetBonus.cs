@@ -3,16 +3,18 @@ public class EquipmentSetBonus
 {
     public EquipmentSetData data;
 
-    public void Apply(int pieces, bool apply)
+    public int GetBonus(int pieces, StatType stat)
     {
-        if (PlayerStats.Instance == null || data == null)
-            return;
+        if (data == null || data.bonuses == null)
+            return 0;
 
-        int mult = apply ? 1 : -1;
+        int total = 0;
 
         foreach (var bonus in data.bonuses)
-            if (pieces >= bonus.requiredPieces)
-                PlayerStats.Instance.Modify(bonus.stat, bonus.value * mult, false);
+            if (pieces >= bonus.requiredPieces && bonus.stat == stat)
+                total += bonus.value;
+
+        return total;
     }
 
     public string GetDescription(int pieces)

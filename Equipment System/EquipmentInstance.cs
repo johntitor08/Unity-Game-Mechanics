@@ -14,13 +14,15 @@ public class EquipmentInstance
         upgradeLevel = upgrade;
     }
 
-    public int GetDamageBonus() => baseData.damageBonus + upgradeLevel;
+    public int GetDamageBonus() => Upgraded(baseData.damageBonus);
 
-    public int GetDefenseBonus() => baseData.defenseBonus + upgradeLevel;
+    public int GetDefenseBonus() => Upgraded(baseData.defenseBonus);
 
-    public int GetPrimaryBonus() => baseData.primaryStatBonus + upgradeLevel;
+    public int GetPrimaryBonus() => Upgraded(baseData.primaryStatBonus);
 
-    public int GetSecondaryBonus() => baseData.secondaryStatBonus + upgradeLevel;
+    public int GetSecondaryBonus() => Upgraded(baseData.secondaryStatBonus);
+
+    private int Upgraded(int baseBonus) => baseBonus > 0 ? baseBonus + upgradeLevel : 0;
 
     public bool CanUpgrade() => upgradeLevel < baseData.maxUpgradeLevel;
 

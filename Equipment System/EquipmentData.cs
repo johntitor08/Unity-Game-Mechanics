@@ -40,23 +40,4 @@ public class EquipmentData : ItemData
     }
 
     public override bool IsEquipment() => true;
-
-    public string GetStatsDescription()
-    {
-        string desc = "";
-
-        if (damageBonus > 0)
-            desc += $"Damage: +{damageBonus}\n";
-
-        if (defenseBonus > 0)
-            desc += $"Defense: +{defenseBonus}\n";
-
-        if (primaryStatBonus > 0)
-            desc += $"{primaryStat}: +{primaryStatBonus}\n";
-
-        if (secondaryStatBonus > 0)
-            desc += $"{secondaryStat}: +{secondaryStatBonus}\n";
-
-        return desc;
-    }
 }

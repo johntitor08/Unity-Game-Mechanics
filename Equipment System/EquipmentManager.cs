@@ -6,7 +6,6 @@ public class EquipmentManager : MonoBehaviour
 {
     public static EquipmentManager Instance;
     private readonly Dictionary<EquipmentSlot, EquipmentInstance> equippedItems = new();
-    private readonly Dictionary<int, int> activeSetPieces = new();
     public event Action OnEquipmentChanged;
     public event Action<EquipmentInstance> OnEquipmentEquipped;
     public event Action<EquipmentInstance> OnEquipmentUnequipped;
@@ -21,7 +20,6 @@ public class EquipmentManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            activeSetPieces.Clear();
         }
         else
             Destroy(gameObject);
@@ -51,16 +49,6 @@ public class EquipmentManager : MonoBehaviour
 
         foreach (var inst in equippedItems.Values)
             total += inst.GetDamageBonus();
-
-        return total;
-    }
-
-    public int GetTotalDefenseBonus()
-    {
-        int total = 0;
-
-        foreach (var inst in equippedItems.Values)
-            total += inst.GetDefenseBonus();
 
         return total;
     }
@@ -97,11 +85,11 @@ public class EquipmentManager : MonoBehaviour
         if (!CanEquip(instance))
             return false;
 
+        var before = SnapshotStats();
+
         if (equippedItems.TryGetValue(instance.baseData.slot, out var existing))
         {
-            RemoveStats(existing);
             equippedItems.Remove(instance.baseData.slot);
-            UpdateSetBonuses();
             OnEquipmentUnequipped?.Invoke(existing);
 
             if (InventoryManager.Instance != null)
@@ -112,10 +100,8 @@ public class EquipmentManager : MonoBehaviour
             InventoryManager.Instance.RemoveInstance(instance, 1);
 
         equippedItems[instance.baseData.slot] = instance;
-        ApplyStats(instance);
-        UpdateSetBonuses();
         OnEquipmentEquipped?.Invoke(instance);
-        OnEquipmentChanged?.Invoke();
+        AfterChange(before);
         SaveSystem.SaveGame();
         return true;
     }
@@ -127,11 +113,10 @@ public class EquipmentManager : MonoBehaviour
         if (!equippedItems.TryGetValue(slot, out var instance))
             return false;
 
-        RemoveStats(instance);
+        var before = SnapshotStats();
         equippedItems.Remove(slot);
-        UpdateSetBonuses();
         OnEquipmentUnequipped?.Invoke(instance);
-        OnEquipmentChanged?.Invoke();
+        AfterChange(before);
 
         if (returnToInventory && InventoryManager.Instance != null)
             InventoryManager.Instance.AddInstance(instance, 1);
@@ -142,56 +127,56 @@ public class EquipmentManager : MonoBehaviour
         return true;
     }
 
+    public void RestoreEquipped(IEnumerable<EquipmentInstance> items)
+    {
+        var before = SnapshotStats();
+        equippedItems.Clear();
+
+        foreach (var inst in items)
+            if (inst != null && inst.baseData != null)
+                equippedItems[inst.baseData.slot] = inst;
+
+        AfterChange(before);
+    }
+
     public bool UpgradeEquipped(EquipmentSlot slot)
     {
         if (!equippedItems.TryGetValue(slot, out var instance) || !instance.CanUpgrade())
             return false;
 
-        ApplyUpgradeDelta(instance);
+        var before = SnapshotStats();
         instance.upgradeLevel++;
-        OnEquipmentChanged?.Invoke();
+        AfterChange(before);
         SaveSystem.SaveGame();
         return true;
     }
 
-    void ApplyStats(EquipmentInstance inst) => ModifyStats(inst, 1);
-
-    void RemoveStats(EquipmentInstance inst) => ModifyStats(inst, -1);
-
-    void ModifyStats(EquipmentInstance inst, int mult)
+    public int GetStatBonus(StatType stat)
     {
-        if (PlayerStats.Instance == null)
-            return;
+        int total = 0;
 
-        if (inst.GetDamageBonus() != 0)
-            PlayerStats.Instance.Modify(StatType.Damage, inst.GetDamageBonus() * mult, false);
+        foreach (var inst in equippedItems.Values)
+            total += inst.GetStatTotal(stat);
 
-        if (inst.GetDefenseBonus() != 0)
-            PlayerStats.Instance.Modify(StatType.Defense, inst.GetDefenseBonus() * mult, false);
+        if (equipmentSets != null)
+            foreach (var set in equipmentSets)
+                if (set != null && set.data != null)
+                    total += set.GetBonus(GetEquippedSetPieces(set.data.setID), stat);
 
-        if (inst.GetPrimaryBonus() != 0)
-            PlayerStats.Instance.Modify(inst.baseData.primaryStat, inst.GetPrimaryBonus() * mult, false);
-
-        if (inst.GetSecondaryBonus() != 0)
-            PlayerStats.Instance.Modify(inst.baseData.secondaryStat, inst.GetSecondaryBonus() * mult, false);
+        return total;
     }
 
-    void ApplyUpgradeDelta(EquipmentInstance inst)
+    private static Dictionary<StatType, int> SnapshotStats() => PlayerStats.Instance != null ? PlayerStats.Instance.SnapshotStats() : null;
+
+    private void AfterChange(Dictionary<StatType, int> before)
     {
-        if (PlayerStats.Instance == null)
-            return;
+        if (PlayerStats.Instance != null)
+        {
+            PlayerStats.Instance.RefreshResourceCaps();
+            PlayerStats.Instance.NotifyStatChanges(before);
+        }
 
-        if (inst.baseData.damageBonus > 0)
-            PlayerStats.Instance.Modify(StatType.Damage, 1, false);
-
-        if (inst.baseData.defenseBonus > 0)
-            PlayerStats.Instance.Modify(StatType.Defense, 1, false);
-
-        if (inst.baseData.primaryStatBonus > 0)
-            PlayerStats.Instance.Modify(inst.baseData.primaryStat, 1, false);
-
-        if (inst.baseData.secondaryStatBonus > 0)
-            PlayerStats.Instance.Modify(inst.baseData.secondaryStat, 1, false);
+        OnEquipmentChanged?.Invoke();
     }
 
     public int GetEquippedSetPieces(int setID)
@@ -205,25 +190,6 @@ public class EquipmentManager : MonoBehaviour
         return count;
     }
 
-    void UpdateSetBonuses()
-    {
-        if (equipmentSets == null || PlayerStats.Instance == null)
-            return;
-
-        foreach (var set in equipmentSets)
-        {
-            int prev = activeSetPieces.TryGetValue(set.data.setID, out int p) ? p : 0;
-            int curr = GetEquippedSetPieces(set.data.setID);
-
-            if (prev == curr)
-                continue;
-
-            set.Apply(prev, false);
-            set.Apply(curr, true);
-            activeSetPieces[set.data.setID] = curr;
-        }
-    }
-
     public List<string> GetActiveSetBonusDescriptions()
     {
         var list = new List<string>();
@@ -233,6 +199,9 @@ public class EquipmentManager : MonoBehaviour
 
         foreach (var set in equipmentSets)
         {
+            if (set == null || set.data == null)
+                continue;
+
             int pieces = GetEquippedSetPieces(set.data.setID);
 
             if (pieces == 0)
