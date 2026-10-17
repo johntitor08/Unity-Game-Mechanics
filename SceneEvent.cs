@@ -2541,6 +2541,9 @@ public class SceneEvent : MonoBehaviour, IDialoguePanelAnimator
             else if (entry.visibleOnBackgrounds != null && entry.visibleOnBackgrounds.Length > 0)
                 SetActive(entry.item, string.IsNullOrEmpty(_currentQuestLocation) && System.Array.IndexOf(entry.visibleOnBackgrounds, bgIndex) >= 0);
 
+            if (entry.item.activeSelf && entry.item.TryGetComponent<WorldItem>(out var worldItem) && worldItem.IsCollected)
+                SetActive(entry.item, false);
+
             if (entry.name == "HistoryBook" && entry.item.activeSelf && _itemDefaultY != null && i < _itemDefaultY.Length && entry.item.TryGetComponent<RectTransform>(out var rt))
             {
                 Vector2 p = rt.anchoredPosition;
