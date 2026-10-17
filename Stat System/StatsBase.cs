@@ -63,6 +63,33 @@ public abstract class StatsBase : MonoBehaviour, IStatOwner
         return ApplyEffectModifiers(type, baseValue);
     }
 
+    public Dictionary<StatType, int> SnapshotStats()
+    {
+        var snapshot = new Dictionary<StatType, int>();
+
+        foreach (var type in statDict.Keys)
+            snapshot[type] = Get(type);
+
+        return snapshot;
+    }
+
+    public void NotifyStatChanges(Dictionary<StatType, int> before)
+    {
+        if (before == null)
+            return;
+
+        foreach (var kv in before)
+        {
+            if (kv.Key == StatType.Health || kv.Key == StatType.Energy)
+                continue;
+
+            int now = Get(kv.Key);
+
+            if (now != kv.Value)
+                OnStatChanged?.Invoke(kv.Key, kv.Value, now);
+        }
+    }
+
     public virtual void Set(StatType type, int value, bool save = true)
     {
         if (!statDict.TryGetValue(type, out var stat))

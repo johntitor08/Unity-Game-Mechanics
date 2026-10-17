@@ -91,30 +91,10 @@ public class PlayerStats : StatsBase
         base.Modify(type, amount, save);
 
         if (type == StatType.MaxHealth)
-        {
-            int newMax = Get(StatType.MaxHealth);
-
-            if (statDict.TryGetValue(StatType.Health, out var healthStat))
-            {
-                healthStat.maxValue = newMax;
-                healthStat.currentValue = Mathf.Clamp(healthStat.currentValue, healthStat.minValue, newMax);
-            }
-
-            OnHealthChanged?.Invoke();
-        }
+            SyncResourceCap(StatType.Health, StatType.MaxHealth);
 
         if (type == StatType.MaxEnergy)
-        {
-            int newMax = Get(StatType.MaxEnergy);
-
-            if (statDict.TryGetValue(StatType.Energy, out var energyStat))
-            {
-                energyStat.maxValue = newMax;
-                energyStat.currentValue = Mathf.Clamp(energyStat.currentValue, energyStat.minValue, newMax);
-            }
-
-            OnEnergyChanged?.Invoke();
-        }
+            SyncResourceCap(StatType.Energy, StatType.MaxEnergy);
 
         if (type == StatType.Health)
             OnHealthChanged?.Invoke();
@@ -127,33 +107,62 @@ public class PlayerStats : StatsBase
         base.Set(type, value, save);
 
         if (type == StatType.MaxHealth)
-        {
-            int newMax = Get(StatType.MaxHealth);
-
-            if (statDict.TryGetValue(StatType.Health, out var healthStat))
-            {
-                healthStat.maxValue = newMax;
-                healthStat.currentValue = Mathf.Clamp(healthStat.currentValue, healthStat.minValue, newMax);
-            }
-
-            OnHealthChanged?.Invoke();
-        }
+            SyncResourceCap(StatType.Health, StatType.MaxHealth);
         else if (type == StatType.MaxEnergy)
-        {
-            int newMax = Get(StatType.MaxEnergy);
-
-            if (statDict.TryGetValue(StatType.Energy, out var energyStat))
-            {
-                energyStat.maxValue = newMax;
-                energyStat.currentValue = Mathf.Clamp(energyStat.currentValue, energyStat.minValue, newMax);
-            }
-
-            OnEnergyChanged?.Invoke();
-        }
+            SyncResourceCap(StatType.Energy, StatType.MaxEnergy);
         else if (type == StatType.Health)
             OnHealthChanged?.Invoke();
         else if (type == StatType.Energy)
             OnEnergyChanged?.Invoke();
+    }
+
+    public void RefreshResourceCaps()
+    {
+        SyncResourceCap(StatType.Health, StatType.MaxHealth);
+        SyncResourceCap(StatType.Energy, StatType.MaxEnergy);
+    }
+
+    private void SyncResourceCap(StatType resource, StatType cap)
+    {
+        if (statDict.TryGetValue(resource, out var stat))
+        {
+            stat.maxValue = Get(cap);
+            stat.currentValue = Mathf.Clamp(stat.currentValue, stat.minValue, stat.maxValue);
+        }
+
+        if (resource == StatType.Health)
+            OnHealthChanged?.Invoke();
+        else
+            OnEnergyChanged?.Invoke();
+    }
+
+    protected override int ApplyEffectModifiers(StatType type, int baseValue)
+    {
+        int value = base.ApplyEffectModifiers(type, baseValue);
+
+        if (type == StatType.Health || type == StatType.Energy || EquipmentManager.Instance == null)
+            return value;
+
+        return value + EquipmentManager.Instance.GetStatBonus(type);
+    }
+
+    public void RemoveBakedEquipmentBonuses()
+    {
+        if (EquipmentManager.Instance == null)
+            return;
+
+        foreach (var stat in stats)
+        {
+            if (stat.type == StatType.Health || stat.type == StatType.Energy)
+                continue;
+
+            int bonus = EquipmentManager.Instance.GetStatBonus(stat.type);
+
+            if (bonus != 0)
+                Set(stat.type, stat.currentValue - bonus, false);
+        }
+
+        RefreshResourceCaps();
     }
 
     public void Attack(EnemyStats target)
