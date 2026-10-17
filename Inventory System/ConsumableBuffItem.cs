@@ -21,7 +21,7 @@ public class ConsumableBuffItem : ItemData
             damageMultiplier = damageMultiplier,
             damageReduction = damageReduction,
             fightsRemaining = Mathf.Max(1, fights),
-            displayName = itemName,
+            displayName = DisplayName,
             icon = icon
         });
 

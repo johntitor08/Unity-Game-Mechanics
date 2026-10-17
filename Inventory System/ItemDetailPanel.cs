@@ -185,10 +185,11 @@ public class ItemDetailPanel : MonoBehaviour
             actionButton.interactable = false;
 
         ItemData item = currentItem;
-        item.onUse?.Invoke();
 
         if (item.IsEquipment())
         {
+            item.onUse?.Invoke();
+
             if (item is EquipmentData eq)
                 EquipEquipment(eq);
             else
@@ -197,6 +198,18 @@ public class ItemDetailPanel : MonoBehaviour
             RefreshQuantity();
             return;
         }
+
+        if (item.consumeOnUse && (InventoryManager.Instance == null || !InventoryManager.Instance.RemoveItem(item, 1)))
+        {
+            isProcessingUse = false;
+
+            if (actionButton != null)
+                actionButton.interactable = true;
+
+            return;
+        }
+
+        item.onUse?.Invoke();
 
         if (item is StatModifierItem statMod)
             statMod.Use();
@@ -207,24 +220,10 @@ public class ItemDetailPanel : MonoBehaviour
         if (!string.IsNullOrEmpty(item.questObjectiveOnUse) && QuestManager.Instance != null)
             QuestManager.Instance.NotifyObjectInteracted(item.questObjectiveOnUse, 1);
 
-        if (item.consumeOnUse)
-        {
-            bool removed = InventoryManager.Instance.RemoveItem(item, 1);
-
-            if (!removed)
-            {
-                isProcessingUse = false;
-
-                if (actionButton != null)
-                    actionButton.interactable = true;
-
-                return;
-            }
-        }
-
         if (InventoryManager.Instance != null)
             InventoryManager.Instance.NotifyItemUsed(item);
 
+        SaveSystem.SaveGame();
         RefreshQuantity();
     }
 

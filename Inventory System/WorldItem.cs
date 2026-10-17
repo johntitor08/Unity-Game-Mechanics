@@ -11,6 +11,18 @@ public class WorldItem : MonoBehaviour, IPointerClickHandler
     private string questObjectiveTag;
     private bool _collected;
 
+    private string CollectedFlag => "world_item_collected:" + name;
+
+    private bool Persistent => data != null && (data.itemType == ItemType.Quest || data.readable);
+
+    public bool IsCollected => Persistent && StoryFlags.Has(CollectedFlag);
+
+    void OnEnable()
+    {
+        if (IsCollected)
+            Destroy(gameObject);
+    }
+
     void Awake()
     {
         if (!string.IsNullOrEmpty(catalogObjectiveID) && AshenveilQuestTriggerCatalog.TryGet(catalogObjectiveID, out var entry))
@@ -43,12 +55,16 @@ public class WorldItem : MonoBehaviour, IPointerClickHandler
         _collected = true;
         InventoryManager.Instance.AddItem(data, quantity);
 
+        if (Persistent)
+            StoryFlags.Add(CollectedFlag);
+
         if (!string.IsNullOrEmpty(questObjectiveTag) && QuestManager.Instance != null)
             QuestManager.Instance.NotifyObjectInteracted(questObjectiveTag, quantity);
 
         if (ForegroundNotifier.Instance != null)
             ForegroundNotifier.Instance.ShowLoot(data, quantity);
 
+        SaveSystem.SaveGame();
         Destroy(gameObject);
     }
 }
