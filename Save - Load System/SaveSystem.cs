@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -6,6 +7,7 @@ public static class SaveSystem
 {
     public static SaveData CachedData;
     public static bool IsLoading { get; private set; }
+    private const int StatsVersion = 1;
     public static bool SavingEnabled = false;
     private static int activeSlot = 0;
     private static string SavePath => GetSavePath(activeSlot);
@@ -90,6 +92,7 @@ public static class SaveSystem
         }
 
         data.currentScene = SceneManager.GetActiveScene().name;
+        data.statsVersion = StatsVersion;
         data.storyFlags.AddRange(StoryFlags.GetAll());
 
         if (OriginManager.Instance != null)
@@ -333,23 +336,16 @@ public static class SaveSystem
 
         if (EquipmentManager.Instance != null)
         {
-            foreach (EquipmentSlot slot in System.Enum.GetValues(typeof(EquipmentSlot)))
-                EquipmentManager.Instance.Unequip(slot, returnToInventory: false, save: false);
+            var restored = new List<EquipmentInstance>();
 
             if (ItemDatabase.Instance == null)
-            {
                 Debug.LogWarning("[SaveSystem] ItemDatabase.Instance null, equipment yüklenemedi.");
-            }
             else
-            {
                 foreach (var saved in data.equippedItems)
-                {
-                    var eq = ItemDatabase.Instance.GetByID(saved.itemID) as EquipmentData;
+                    if (ItemDatabase.Instance.GetByID(saved.itemID) is EquipmentData eq)
+                        restored.Add(new EquipmentInstance(eq, saved.upgradeLevel));
 
-                    if (eq != null)
-                        EquipmentManager.Instance.Equip(new EquipmentInstance(eq, saved.upgradeLevel));
-                }
-            }
+            EquipmentManager.Instance.RestoreEquipped(restored);
         }
 
         if (CurrencyManager.Instance != null)
@@ -400,8 +396,13 @@ public static class SaveSystem
         }
 
         if (PlayerStats.Instance != null)
+        {
             for (int i = 0; i < data.statTypes.Count; i++)
                 PlayerStats.Instance.Set(data.statTypes[i], data.statValues[i], true);
+
+            if (data.statsVersion < StatsVersion)
+                PlayerStats.Instance.RemoveBakedEquipmentBonuses();
+        }
 
         if (ProfileUI.Instance != null)
             ProfileUI.Instance.RefreshAll();

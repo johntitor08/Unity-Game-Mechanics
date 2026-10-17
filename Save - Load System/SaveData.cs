@@ -26,6 +26,7 @@ public class SaveData
     public List<int> shopStockAmounts = new();
     public List<StatType> statTypes = new();
     public List<int> statValues = new();
+    public int statsVersion;
     public List<string> activeQuestIDs = new();
     public List<QuestRuntimeState> activeQuests = new();
     public List<string> completedQuests = new();
