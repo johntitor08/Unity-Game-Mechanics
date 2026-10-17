@@ -127,7 +127,7 @@ public abstract class StatsBase : MonoBehaviour, IStatOwner
     {
         int value = baseValue;
 
-        if (statusEffectManager == null)
+        if (statusEffectManager == null || type == StatType.Health || type == StatType.Energy)
             return value;
 
         foreach (var effect in statusEffectManager.activeEffects)
