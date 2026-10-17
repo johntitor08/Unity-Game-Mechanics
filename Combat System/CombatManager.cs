@@ -79,21 +79,6 @@ public class CombatManager : MonoBehaviour
     [Range(0f, 1f)]
     public float poisonApplyChance = 0.3f;
 
-    [Header("Buff UI")]
-    public Transform buffUIParent;
-    public GameObject buffUIPrefab;
-    private readonly List<CombatBuff> activeCombatBuffs = new();
-
-    [Serializable]
-    public class CombatBuff
-    {
-        public string name;
-        public Sprite icon;
-        public float duration;
-        [HideInInspector] public float endTime;
-        [HideInInspector] public BuffUI ui;
-    }
-
     void Awake()
     {
         InitializeSingleton();
@@ -103,14 +88,6 @@ public class CombatManager : MonoBehaviour
     {
         InitializeActions();
         SubscribeToPlayerEvents();
-    }
-
-    void Update()
-    {
-        if (!inCombat)
-            return;
-
-        UpdateBuffTimers();
     }
 
     void OnDestroy()
@@ -157,12 +134,21 @@ public class CombatManager : MonoBehaviour
     {
         if (enemyStats != null && enemyStats.TryGetComponent<StatusEffectManager>(out var fx))
             fx.OnEffectTick += OnEnemyEffectTick;
+
+        if (PlayerEffects != null)
+        {
+            PlayerEffects.OnEffectTick -= OnPlayerEffectTick;
+            PlayerEffects.OnEffectTick += OnPlayerEffectTick;
+        }
     }
 
     private void UnsubscribeFromEnemyEvents()
     {
         if (enemyStats != null && enemyStats.TryGetComponent<StatusEffectManager>(out var fx))
             fx.OnEffectTick -= OnEnemyEffectTick;
+
+        if (PlayerEffects != null)
+            PlayerEffects.OnEffectTick -= OnPlayerEffectTick;
     }
 
     private void InitializeEnemyStats()
@@ -277,7 +263,7 @@ public class CombatManager : MonoBehaviour
         {
             isPlayerTurn = false;
             waitingForInput = false;
-            Log("You are frozen and cannot act!");
+            Log(Loc.T("You cannot act this turn!", "Bu tur hareket edemiyorsun!"));
             OnCombatStateChanged?.Invoke();
             StartCoroutine(DelayedCall(turnDelay, StartEnemyTurn));
             return;
@@ -564,15 +550,19 @@ public class CombatManager : MonoBehaviour
 
         if (enemyStats.TryGetComponent<StatusEffectManager>(out var effects))
         {
+            bool canAct = effects.CanAct();
             effects.OnEnemyTurnStart();
 
-            if (IsEnemyDefeated() && !combatResolved)
+            if (combatResolved)
+                return;
+
+            if (IsEnemyDefeated())
             {
-                StartCoroutine(HandleVictoryAfterDelay(turnDelay));
+                ResolveCombat(true);
                 return;
             }
 
-            if (!effects.CanAct())
+            if (!canAct)
             {
                 Log(Loc.T($"{currentEnemy.DisplayName} is stunned and cannot act!", $"{currentEnemy.DisplayName} sersemledi ve hareket edemiyor!"));
                 DecayDefenseBonuses();
@@ -629,6 +619,12 @@ public class CombatManager : MonoBehaviour
 
         if (IsEnemyDefeated())
             ResolveCombat(true);
+    }
+
+    private void OnPlayerEffectTick(StatusEffectData data, int damage)
+    {
+        if (inCombat)
+            Log(Loc.T($"You take {damage} {data.DisplayName} damage.", $"{damage} {data.DisplayName} hasarı alıyorsun."));
     }
 
     private void ExecuteAIPattern(float enemyHp, float playerHp)
@@ -851,7 +847,6 @@ public class CombatManager : MonoBehaviour
         inCombat = false;
         combatResolved = false;
         UnsubscribeFromEnemyEvents();
-        ClearAllBuffs();
 
         if (PlayerBuffs != null)
             PlayerBuffs.NotifyCombatEnded();
@@ -921,17 +916,6 @@ public class CombatManager : MonoBehaviour
             PlayerEffects.RemoveAllEffects();
     }
 
-    private void ClearAllBuffs()
-    {
-        foreach (var buff in activeCombatBuffs)
-        {
-            if (buff.ui != null)
-                Destroy(buff.ui.gameObject);
-        }
-
-        activeCombatBuffs.Clear();
-    }
-
     private void ResetCombatVariables()
     {
         currentEnemy = null;
@@ -946,64 +930,6 @@ public class CombatManager : MonoBehaviour
         int maxEnergy = PlayerStats.Get(StatType.MaxEnergy);
         int currentEnergy = PlayerStats.Get(StatType.Energy);
         PlayerStats.Modify(StatType.Energy, maxEnergy - currentEnergy);
-    }
-
-    public void AddCombatBuff(string name, Sprite icon, float duration)
-    {
-        if (!CanAddBuff())
-            return;
-
-        CombatBuff buff = CreateBuff(name, icon, duration);
-        BuffUI buffUI = CreateBuffUI(buff);
-        buff.ui = buffUI;
-        activeCombatBuffs.Add(buff);
-    }
-
-    private bool CanAddBuff()
-    {
-        return buffUIPrefab != null && buffUIParent != null;
-    }
-
-    private CombatBuff CreateBuff(string name, Sprite icon, float duration)
-    {
-        return new CombatBuff
-        {
-            name = name,
-            icon = icon,
-            duration = duration,
-            endTime = Time.time + duration
-        };
-    }
-
-    private BuffUI CreateBuffUI(CombatBuff buff)
-    {
-        GameObject uiObj = Instantiate(buffUIPrefab, buffUIParent);
-        BuffUI buffUI = uiObj.GetComponent<BuffUI>();
-        buffUI.Setup(buff.icon, buff.name, buff.duration);
-        return buffUI;
-    }
-
-    private void UpdateBuffTimers()
-    {
-        for (int i = activeCombatBuffs.Count - 1; i >= 0; i--)
-        {
-            CombatBuff buff = activeCombatBuffs[i];
-            float timeLeft = buff.endTime - Time.time;
-
-            if (buff.ui != null)
-                buff.ui.UpdateTimer(timeLeft);
-
-            if (timeLeft <= 0f)
-                RemoveBuff(i);
-        }
-    }
-
-    private void RemoveBuff(int index)
-    {
-        if (activeCombatBuffs[index].ui != null)
-            Destroy(activeCombatBuffs[index].ui.gameObject);
-
-        activeCombatBuffs.RemoveAt(index);
     }
 
     public List<CombatAction> GetAvailableActions()
