@@ -94,7 +94,7 @@ public class ShopManager : MonoBehaviour
 
     public bool CanSell(ItemData item, int quantity)
     {
-        return item != null && InventoryManager.Instance.GetQuantity(item) >= quantity;
+        return item != null && item.itemType != ItemType.Quest && InventoryManager.Instance.GetQuantity(item) >= quantity;
     }
 
     public bool SellItem(ItemData item, int quantity, float sellRatio)

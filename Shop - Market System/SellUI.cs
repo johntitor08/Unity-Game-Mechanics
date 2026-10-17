@@ -100,6 +100,9 @@ public class SellUI : MonoBehaviour
 
         foreach (var (item, qty) in InventoryManager.Instance.GetNonEquipmentItems())
         {
+            if (item.itemType == ItemType.Quest)
+                continue;
+
             EnsureSlot(index);
             slots[index].Setup(item, qty, sellPriceRatio);
             slots[index].gameObject.SetActive(true);
